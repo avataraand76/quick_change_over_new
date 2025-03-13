@@ -1,0 +1,66 @@
+INSERT INTO tb_process (name_process, deadline) VALUES
+('NGHIÊN CỨU MẪU GỐC','5'), -- id 1
+('HỌP CÔNG TÁC CHUẨN BỊ SẢN XUẤT MÃ HÀNG MỚI','5'), -- id 2
+('LÀM RẬP SẢN XUẤT MAY MẪU ĐỐI, MẪU MOCKUP ','5'), -- id 3
+('LẬP QUY TRÌNH CÔNG NGHỆ, THIẾT KẾ SƠ ĐỒ CHUYỀN, CÂN BẰNG YAMAZUMI','3'), -- id 4
+('CHUẨN BỊ MÁY MÓC THIẾT BỊ, CỮ GÁ LẮP',''), -- id 5
+('HỌP CHUYỂN ĐỔI MÃ HÀNG MỚI','3'), -- id 6
+('CUNG CẤP BTP, PL','3'), -- id 7
+('ĐÀO TẠO BCV MỚI CHO CÔNG NHÂN','1'); -- id 8
+
+INSERT INTO tb_work_steps (id_process, name_work_steps, order_of_appearance) VALUES
+('1','Nghiên cứu đặc điểm cấu trúc ra cách may, chất liệu NPL, đánh giá rủi ro','1'),
+('1','Nghiên cứu và xác định công cụ cải tiến, chuẩn bị MMTB đặc biệt.','2'),
+('1','Làm mockup gửi khách hàng (nếu có).','3'),
+('1','Xác định mã hàng , công đoạn khó đề nghị cấp vải trước may thử nghiệm','4'),
+
+('2','Triển khai đánh giá rủi ro, thống nhất phương án may.','1'),
+('2','Triển khai MMTB, cữ cói cần sử dụng','2'),
+('2','Triển khai qui trình ép, đóng nút, mắt cáo, cắt laser, pad print, ...','3'),
+('2','Thống nhất hướng dòng chảy quy trình để thiết lập SĐC','4'),
+('2','Ban hành Tài liệu kỹ thuật, bảng màu, rập giấy….','5'),
+
+('3','May hoàn chỉnh mẫu đối, gắn thẻ bài phân biệt chuyển QA đánh giá','1'),
+('3','Lưu ý những yếu tổ ảnh hưởng đến năng suất, chất lượng trong sản xuất đại trà.','2'),
+('3','Phản hồi điều chỉnh rập, phương pháp may với Phòng KT','3'),
+('3','Xác nhận thống nhất hoặc góp ý điều chỉnh dòng chảy SĐC với NV SĐC.','4'),
+('3','Chuẩn bị rập sản xuất đại trà, đầy đủ, thiết kế các loại rập cải tiến','5'),
+('3','Làm mockup những công đoạn then chốt','6'),
+
+('4','Thiết kế SĐC, cân bằng chuyền qua biểu đồ Yamazumi đạt >=85%','1'),
+('4','Xác định số lượng máy móc thiết bị cần chuẩn bị và chỉnh sửa.','2'),
+
+('5','Đối với MMTB đã có trên chuyền: sắp xếp chỉnh máy khi kết thúc mã hàng cũ','1'),
+('5','Chuẩn bị máy dự phòng sẵn sàng trước khi chuyển đổi mã hàng mới','2'),
+
+('6','Họp phân công nhóm chuyển đổi & kiểm tra các bước chuẩn bị','1'),
+('6','Triển khai phân công BCV cho công nhân','2'),
+('6','Triển khai yêu cầu chất lượng theo TLKT','3'),
+('6','Lưu ý các công đoạn then chốt, đặc biệt về chất lượng.','4'),
+('6','Nhắc nhở công nhân thực hiện ISQ và tiêu chuẩn hàng tồn trên SWS.','5'),
+
+('7','Cung cấp đủ số lượng theo size, màu','1'),
+('7','Cung cấp đủ chi tiết phụ liệu','2'),
+('7','BTP, phụ liệu đạt yêu cầu kĩ thuật','3'),
+('7','Cung cấp kịp thời cho công tác chuẩn bị đào tạo công đoạn mới.','4'),
+
+('8','Thay thế CN dự phòng vào các vị trí rút ra đào tạo.','1'),
+('8','Điều chỉnh, bố trí lại lao động khi BCV không phù hợp.','2'),
+('8','Đào tạo các BCV mới cho công nhân và theo dõi cho đến khi đạt chất lượng.','3');
+
+INSERT INTO tb_permission (name_permission) VALUES
+('ADMIN'),
+('CHỈNH SỬA');
+
+INSERT INTO tb_role (name_role) VALUES
+('SƠ ĐỒ CHUYỀN'),
+('CƠ ĐIỆN XƯỞNG'),
+('KỸ THUẬT'),
+('XƯỞNG');
+
+INSERT INTO tb_workshop (name_workshop) VALUES
+('XƯỞNG 1'),
+('XƯỞNG 2'),
+('XƯỞNG 3'),
+('XƯỞNG 4'),
+('PHÒNG KỸ THUẬT');

@@ -7,41 +7,13 @@ const cors = require("cors");
 const multer = require("multer");
 const { google } = require("googleapis");
 const { Readable } = require("stream");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
 require("dotenv").config();
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
-
-// Google Drive setup
-const oauth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI
-);
-
-oauth2Client.setCredentials({
-  refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
-});
-
-const drive = google.drive({ version: "v3", auth: oauth2Client });
-
-// Multer setup for file uploads
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 100 * 1024 * 1024, // Increase to 100MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    // Convert Buffer to string with UTF-8 encoding
-    file.originalname = Buffer.from(file.originalname, "latin1").toString(
-      "utf8"
-    );
-    cb(null, true);
-  },
-}).array("files", 10); // Handle up to 10 files with field name "files"
+app.use(express.json());
 
 // MSSQL Configuration
 const mssqlConfig = {
@@ -145,6 +117,50 @@ sql
   .catch((err) => {
     console.error("Error connecting to MSSQL:", err);
   });
+
+app.post("/login", (req, res) => {
+  const { username, password } = req.body;
+  dataHiTimesheetConnection.query(
+    "SELECT * FROM sync_nhan_vien WHERE ma_nv = ?",
+    [username],
+    (err, results) => {
+      if (err) {
+        return res
+          .status(500)
+          .json({ success: false, message: "Database error" });
+      }
+      if (results.length === 0) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Invalid credentials" });
+      }
+      const user = results[0];
+      bcrypt.compare(password, user.mat_khau, (err, isMatch) => {
+        if (err) {
+          return res
+            .status(500)
+            .json({ success: false, message: "Error comparing passwords" });
+        }
+        if (!isMatch) {
+          return res
+            .status(401)
+            .json({ success: false, message: "Invalid credentials" });
+        }
+        const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
+          expiresIn: "1h",
+        });
+        res.json({
+          success: true,
+          token,
+          user: {
+            ma_nv: user.ma_nv,
+            ten_nv: user.ten_nv,
+          },
+        });
+      });
+    }
+  );
+});
 
 const PORT = process.env.MYSQL_PORT;
 app.listen(PORT, () => {

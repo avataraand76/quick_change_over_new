@@ -1,0 +1,296 @@
+CREATE TABLE tb_plan
+(
+  	id_plan BIGINT NOT NULL AUTO_INCREMENT,
+  
+	SQL_oid_line TEXT, -- trỏ tới [HiPro].[dbo].[pro_chuyen].oid_mapping
+  	line TEXT, -- [HiPro].[dbo].[pro_chuyen].stt
+  	SQL_oid_ma_hang TEXT, -- trỏ tới [HiPro].[dbo].[DM_SanPham].oid
+  	style TEXT, -- [HiPro].[dbo].[DM_SanPham].MaSanPham
+	
+	plan_date DATETIME,
+	actual_date DATETIME,
+	A3_documentation TEXT,
+    percent_rate INT,
+
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	updated_by BIGINT,
+
+	PRIMARY KEY (id_plan)
+);
+
+CREATE TABLE tb_co
+(
+	id_co BIGINT NOT NULL AUTO_INCREMENT,
+	id_plan BIGINT,
+	
+	CO_begin_date DATETIME, -- ngày bắt đầu CO
+	CO_end_date DATETIME, -- ngày kết thúc CO
+	first_garment_of_new_style DATETIME, -- thời gian hoàn thành chuyển đổi
+	
+	carry_over INT CHECK (carry_over IN (0,1)), -- lặp lại
+	buyer TEXT, -- khách hàng
+	production_style TEXT, -- loại
+	
+	SAM INT,
+	staff TEXT,
+	
+	quota DECIMAL(15,2), -- định mức
+	eff_1 DECIMAL(15,2), -- eff ngày 1
+	
+	target_of_COPT DECIMAL(15,2), -- Mục Tiêu COPT
+	COPT DECIMAL(15,2), -- Thời Gian Chuyển Đổi Trong
+	target_of_COT DECIMAL(15,2), -- Mục Tiêu COT
+	COT DECIMAL(15,2), -- Thời Gian Chuyển Đổi
+	
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	updated_by BIGINT,
+	
+    PRIMARY KEY (id_co),
+    UNIQUE (id_plan, id_co)
+);
+
+CREATE TABLE tb_process
+(
+  	id_process BIGINT NOT NULL AUTO_INCREMENT,
+  	name_process TEXT,
+  	deadline INT,
+  	PRIMARY KEY (id_process)
+);
+
+CREATE TABLE tb_work_steps
+(
+  	id_work_steps BIGINT NOT NULL AUTO_INCREMENT,
+  	id_process BIGINT,
+  	name_work_steps TEXT,
+  	order_of_appearance INT,
+  	PRIMARY KEY (id_work_steps)
+);
+
+CREATE TABLE tb_process_1
+(
+	id_process_1 BIGINT NOT NULL AUTO_INCREMENT,
+	id_process BIGINT,
+	id_plan BIGINT,
+
+	documentation TEXT,
+	A3_documentation TEXT,
+	percent_rate INT,
+	
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	updated_by BIGINT,
+
+    PRIMARY KEY (id_process_1),
+    UNIQUE (id_process_1, id_process, id_plan)	
+);
+
+CREATE TABLE tb_process_2
+(
+	id_process_2 BIGINT NOT NULL AUTO_INCREMENT,
+	id_process BIGINT,
+	id_plan BIGINT,
+
+	documentation TEXT,
+	A3_documentation TEXT,
+	percent_rate INT,
+	
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	updated_by BIGINT,
+
+    PRIMARY KEY (id_process_2),
+    UNIQUE (id_process_2, id_process, id_plan)
+	
+);
+
+CREATE TABLE tb_process_3
+(
+	id_process_3 BIGINT NOT NULL AUTO_INCREMENT,
+	id_process BIGINT,
+	id_plan BIGINT,
+
+	documentation TEXT,
+	A3_documentation TEXT,
+	percent_rate INT,
+	
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	updated_by BIGINT,
+
+    PRIMARY KEY (id_process_3),
+    UNIQUE (id_process_3, id_process, id_plan)	
+);
+
+CREATE TABLE tb_process_4
+(
+	id_process_4 BIGINT NOT NULL AUTO_INCREMENT,
+	id_process BIGINT,
+	id_plan BIGINT,
+    
+	documentation TEXT,
+	A3_documentation TEXT,
+	percent_rate INT,
+	
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	updated_by BIGINT,
+
+    PRIMARY KEY (id_process_4),
+    UNIQUE (id_process_4, id_process, id_plan)
+);
+
+CREATE TABLE tb_process_5_preparing_machine
+(
+	id_process_5_preparing_machine BIGINT NOT NULL AUTO_INCREMENT,
+    id_process BIGINT,
+    id_plan BIGINT,
+	
+    adjust_date DATE,
+	SQL_oid_thiet_bi TEXT, -- [HiPro].[dbo].[ChiTietPhieuYeuCauThietBiCongCuSanXuat].ThietBi
+	name_machine TEXT, -- [HiPro].[dbo].[DM_ChungLoaiThietBi].TenChungLoai
+	quantity INT, -- [HiPro].[dbo].[ChiTietPhieuYeuCauThietBiCongCuSanXuat].SoLuongTrenSDC
+	
+	prepared INT,
+	pass INT,
+	fail INT,
+	pass_rate DECIMAL(15,2),
+	not_prepared INT,
+	prepare_rate DECIMAL(15,2),
+	
+	-- reason TEXT,
+	-- mechanical_name TEXT,
+	-- technician_name TEXT,
+	-- note TEXT,
+	
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	updated_by BIGINT,
+
+	PRIMARY KEY (id_process_5_preparing_machine),
+    UNIQUE (id_process_5_preparing_machine, id_process, id_plan, SQL_oid_thiet_bi(255))    
+);
+
+CREATE TABLE tb_process_5_preventive_machine
+(
+	id_process_5_preventive_machine BIGINT NOT NULL AUTO_INCREMENT,
+	id_process BIGINT,
+    id_plan BIGINT,
+	
+    adjust_date DATE,
+	name_machine TEXT,
+	quantity INT,
+	
+	prepared INT,
+	pass INT,
+	fail INT,
+	pass_rate DECIMAL(15,2),
+	not_prepared INT,
+	prepare_rate DECIMAL(15,2),
+	
+	-- reason TEXT,
+	-- mechanical_name TEXT,
+	-- technician_name TEXT,
+	-- note TEXT,
+	
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	updated_by BIGINT,
+
+	PRIMARY KEY (id_process_5_preventive_machine),
+    UNIQUE (id_process_5_preventive_machine, id_process, id_plan)    
+);
+
+CREATE TABLE tb_process_6
+(
+	id_process_6 BIGINT NOT NULL AUTO_INCREMENT,
+	id_process BIGINT,
+	id_plan BIGINT,
+
+	documentation TEXT,
+	A3_documentation TEXT,
+	percent_rate INT,
+	
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	updated_by BIGINT,
+
+    PRIMARY KEY (id_process_6),
+    UNIQUE (id_process_6, id_process, id_plan)	
+);
+
+CREATE TABLE tb_process_7
+(
+	id_process_7 BIGINT NOT NULL AUTO_INCREMENT,
+	id_process BIGINT,
+	id_plan BIGINT,
+
+	documentation TEXT,
+	A3_documentation TEXT,
+	percent_rate INT,
+	
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	updated_by BIGINT,
+
+    PRIMARY KEY (id_process_7),
+    UNIQUE (id_process_7, id_process, id_plan)	
+);
+
+CREATE TABLE tb_process_8
+(
+	id_process_8 BIGINT NOT NULL AUTO_INCREMENT,
+	id_process BIGINT,
+	id_plan BIGINT,
+
+	documentation TEXT,
+	A3_documentation TEXT,
+	percent_rate INT,
+	
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	updated_by BIGINT,
+
+    PRIMARY KEY (id_process_8),
+    UNIQUE (id_process_8, id_process, id_plan)	
+);
+
+CREATE TABLE tb_permission
+(
+	id_permission BIGINT NOT NULL AUTO_INCREMENT,
+	name_permission TEXT,
+	PRIMARY KEY (id_permission)
+);
+
+CREATE TABLE tb_role
+(
+    id_role BIGINT NOT NULL AUTO_INCREMENT,
+    name_role TEXT,
+    PRIMARY KEY (id_role)
+);
+
+CREATE TABLE tb_workshop
+(
+    id_workshop BIGINT NOT NULL AUTO_INCREMENT,
+    name_workshop TEXT,
+    PRIMARY KEY (id_workshop)
+);
+
+CREATE TABLE tb_workshop_role_permission
+(
+	id_sync_nhan_vien BIGINT, -- hi time sheet
+	id_permission BIGINT,
+    id_role BIGINT,
+    id_workshop BIGINT,
+	
+    PRIMARY KEY (id_sync_nhan_vien),
+    UNIQUE (id_sync_nhan_vien, id_permission, id_role, id_workshop)
+);
+
+CREATE TABLE tb_work_steps_role
+(
+	id_work_steps BIGINT,
+	id_role BIGINT,
+	UNIQUE (id_work_steps, id_role)
+);
