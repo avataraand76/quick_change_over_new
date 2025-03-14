@@ -14,7 +14,7 @@ CREATE TABLE tb_plan
 
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-	updated_by BIGINT,
+	updated_by TEXT,
 
 	PRIMARY KEY (id_plan)
 );
@@ -45,7 +45,7 @@ CREATE TABLE tb_co
 	
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-	updated_by BIGINT,
+	updated_by TEXT,
 	
     PRIMARY KEY (id_co),
     UNIQUE (id_plan, id_co)
@@ -80,7 +80,7 @@ CREATE TABLE tb_process_1
 	
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-	updated_by BIGINT,
+	updated_by TEXT,
 
     PRIMARY KEY (id_process_1),
     UNIQUE (id_process_1, id_process, id_plan)	
@@ -98,7 +98,7 @@ CREATE TABLE tb_process_2
 	
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-	updated_by BIGINT,
+	updated_by TEXT,
 
     PRIMARY KEY (id_process_2),
     UNIQUE (id_process_2, id_process, id_plan)
@@ -117,7 +117,7 @@ CREATE TABLE tb_process_3
 	
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-	updated_by BIGINT,
+	updated_by TEXT,
 
     PRIMARY KEY (id_process_3),
     UNIQUE (id_process_3, id_process, id_plan)	
@@ -135,7 +135,7 @@ CREATE TABLE tb_process_4
 	
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-	updated_by BIGINT,
+	updated_by TEXT,
 
     PRIMARY KEY (id_process_4),
     UNIQUE (id_process_4, id_process, id_plan)
@@ -166,7 +166,7 @@ CREATE TABLE tb_process_5_preparing_machine
 	
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-	updated_by BIGINT,
+	updated_by TEXT,
 
 	PRIMARY KEY (id_process_5_preparing_machine),
     UNIQUE (id_process_5_preparing_machine, id_process, id_plan, SQL_oid_thiet_bi(255))    
@@ -196,7 +196,7 @@ CREATE TABLE tb_process_5_preventive_machine
 	
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-	updated_by BIGINT,
+	updated_by TEXT,
 
 	PRIMARY KEY (id_process_5_preventive_machine),
     UNIQUE (id_process_5_preventive_machine, id_process, id_plan)    
@@ -214,7 +214,7 @@ CREATE TABLE tb_process_6
 	
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-	updated_by BIGINT,
+	updated_by TEXT,
 
     PRIMARY KEY (id_process_6),
     UNIQUE (id_process_6, id_process, id_plan)	
@@ -232,7 +232,7 @@ CREATE TABLE tb_process_7
 	
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-	updated_by BIGINT,
+	updated_by TEXT,
 
     PRIMARY KEY (id_process_7),
     UNIQUE (id_process_7, id_process, id_plan)	
@@ -250,7 +250,7 @@ CREATE TABLE tb_process_8
 	
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-	updated_by BIGINT,
+	updated_by TEXT,
 
     PRIMARY KEY (id_process_8),
     UNIQUE (id_process_8, id_process, id_plan)	

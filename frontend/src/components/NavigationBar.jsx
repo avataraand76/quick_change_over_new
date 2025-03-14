@@ -108,7 +108,7 @@ const Navbar = () => {
               }
             }}
           >
-            Home
+            Trang chủ
           </Button>
           <Button
             color="inherit"
@@ -122,7 +122,7 @@ const Navbar = () => {
               }
             }}
           >
-            Create Phase
+            Tạo kế hoạch
           </Button>
           <Button
             color="inherit"
@@ -136,7 +136,7 @@ const Navbar = () => {
               }
             }}
           >
-            Calendar
+            Kế hoạch
           </Button>
           <Button
             color="inherit"
@@ -150,7 +150,7 @@ const Navbar = () => {
               }
             }}
           >
-            Report
+            Báo cáo
           </Button>
           {token ? (
             <Button
@@ -164,7 +164,7 @@ const Navbar = () => {
                 }
               }}
             >
-              Logout
+              Đăng xuất
             </Button>
           ) : (
             <Button
@@ -179,7 +179,7 @@ const Navbar = () => {
                 }
               }}
             >
-              Login
+              Đăng nhập
             </Button>
           )}
         </Box>
@@ -215,19 +215,19 @@ const Navbar = () => {
             )}
             <MenuItem component={Link} to="/" onClick={handleClose}>
               <i className="fas fa-home" style={{ marginRight: 8 }} />
-              Home
+              Trang chủ
             </MenuItem>
             <MenuItem component={Link} to="/create-phase" onClick={handleClose}>
               <i className="fas fa-plus" style={{ marginRight: 8 }} />
-              Create Phase
+              Tạo kế hoạch
             </MenuItem>
             <MenuItem component={Link} to="/calendar" onClick={handleClose}>
               <i className="fas fa-calendar" style={{ marginRight: 8 }} />
-              Calendar
+              Kế hoạch
             </MenuItem>
             <MenuItem component={Link} to="/report" onClick={handleClose}>
               <i className="fas fa-chart-bar" style={{ marginRight: 8 }} />
-              Report
+              Báo cáo
             </MenuItem>
             {token ? (
               <MenuItem
@@ -237,12 +237,12 @@ const Navbar = () => {
                 }}
               >
                 <i className="fas fa-sign-out-alt" style={{ marginRight: 8 }} />
-                Logout
+                Đăng xuất
               </MenuItem>
             ) : (
               <MenuItem component={Link} to="/login" onClick={handleClose}>
                 <LoginIcon sx={{ mr: 1 }} />
-                Login
+                Đăng nhập
               </MenuItem>
             )}
           </Menu>

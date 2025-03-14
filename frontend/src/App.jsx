@@ -13,6 +13,7 @@ import LoginPage from "./pages/LoginPage";
 import CalendarViewPage from "./pages/CalendarViewPage";
 import ReportPage from "./pages/ReportPage";
 import NavBar from "./components/NavigationBar";
+import DetailedPhasePage from "./pages/DetailedPhasePage";
 
 const PrivateRoute = ({ element }) => {
   const token = localStorage.getItem("token");
@@ -35,6 +36,10 @@ function App() {
           element={<PrivateRoute element={<CalendarViewPage />} />}
         />
         <Route path="/report" element={<ReportPage />} />
+        <Route
+          path="/detailed-phase/:id"
+          element={<PrivateRoute element={<DetailedPhasePage />} />}
+        />
       </Routes>
     </Router>
   );
