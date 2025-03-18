@@ -24,9 +24,9 @@ CREATE TABLE tb_co
 	id_co BIGINT NOT NULL AUTO_INCREMENT,
 	id_plan BIGINT,
 	
-	CO_begin_date DATETIME, -- ngày bắt đầu CO
-	CO_end_date DATETIME, -- ngày kết thúc CO
-	first_garment_of_new_style DATETIME, -- thời gian hoàn thành chuyển đổi
+	CO_begin_date DATETIME, -- thời gian bắt đầu CO / bắt đầu chuyển đổi
+	CO_end_date DATETIME, -- thời gian kết thúc CO / hoàn thành chuyển đổi
+	last_garment_of_old_style DATETIME, -- thời gian kết thúc mã hàng cũ
 	
 	carry_over INT CHECK (carry_over IN (0,1)), -- lặp lại
 	buyer TEXT, -- khách hàng
@@ -35,13 +35,13 @@ CREATE TABLE tb_co
 	SAM INT,
 	staff TEXT,
 	
-	quota DECIMAL(15,2), -- định mức
-	eff_1 DECIMAL(15,2), -- eff ngày 1
+	quota INT, -- định mức
+	eff_1 INT, -- eff ngày 1
 	
-	target_of_COPT DECIMAL(15,2), -- Mục Tiêu COPT
-	COPT DECIMAL(15,2), -- Thời Gian Chuyển Đổi Trong
-	target_of_COT DECIMAL(15,2), -- Mục Tiêu COT
-	COT DECIMAL(15,2), -- Thời Gian Chuyển Đổi
+	target_of_COPT INT, -- Mục Tiêu COPT
+	COPT INT, -- Thời Gian Chuyển Đổi Trong
+	target_of_COT INT, -- Mục Tiêu COT
+	COT INT, -- Thời Gian Chuyển Đổi
 	
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

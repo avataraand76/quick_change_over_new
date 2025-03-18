@@ -134,6 +134,25 @@ const formatDate = (dateString) => {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
+// Helper function to sanitize date inputs
+const sanitizeDate = (dateString) => {
+  if (!dateString) return null;
+
+  try {
+    // Parse the date string to ensure it's valid
+    const date = new Date(dateString);
+
+    // Check if date is valid
+    if (isNaN(date.getTime())) return null;
+
+    // Return in MySQL format
+    return formatDate(date);
+  } catch (error) {
+    console.error("Error sanitizing date:", error, "for input:", dateString);
+    return null;
+  }
+};
+
 // Thêm middleware xác thực JWT
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
@@ -288,8 +307,8 @@ app.post("/api/create-plan", authenticateToken, (req, res) => {
 
           // Insert into tb_co with the new id_plan
           connection.query(
-            "INSERT INTO tb_co (id_plan, updated_by) VALUES (?, ?)",
-            [id_plan, updated_by],
+            "INSERT INTO tb_co (id_plan, updated_by, CO_begin_date) VALUES (?, ?, ?)",
+            [id_plan, updated_by, actual_date],
             (err) => {
               if (err) {
                 return connection.rollback(() => {
@@ -553,46 +572,64 @@ app.put("/api/plans/:id", authenticateToken, (req, res) => {
                 });
               }
 
-              // Create log entry
-              const history_log = `${updated_by} vừa CẬP NHẬT thời gian dự kiến: [${formatDate(
-                plan_date
-              )}], thời gian thực tế: [${formatDate(
-                actual_date
-              )}] của chuyền: [${line}], mã hàng: [${style}]`;
-
+              // Update CO_begin_date in tb_co to match actual_date
               connection.query(
-                "INSERT INTO tb_log (history_log) VALUES (?)",
-                [history_log],
+                "UPDATE tb_co SET CO_begin_date = ?, updated_by = ? WHERE id_plan = ?",
+                [actual_date, updated_by, id],
                 (err) => {
                   if (err) {
                     return connection.rollback(() => {
                       connection.release();
-                      console.error("Error creating log entry:", err);
+                      console.error("Error updating CO_begin_date:", err);
                       res
                         .status(500)
                         .json({ success: false, message: "Database error" });
                     });
                   }
 
-                  // Commit the transaction if all operations succeed
-                  connection.commit((err) => {
-                    if (err) {
-                      return connection.rollback(() => {
+                  // Create log entry
+                  const history_log = `${updated_by} vừa CẬP NHẬT thời gian dự kiến: [${formatDate(
+                    plan_date
+                  )}], thời gian thực tế: [${formatDate(
+                    actual_date
+                  )}] của chuyền: [${line}], mã hàng: [${style}]`;
+
+                  connection.query(
+                    "INSERT INTO tb_log (history_log) VALUES (?)",
+                    [history_log],
+                    (err) => {
+                      if (err) {
+                        return connection.rollback(() => {
+                          connection.release();
+                          console.error("Error creating log entry:", err);
+                          res.status(500).json({
+                            success: false,
+                            message: "Database error",
+                          });
+                        });
+                      }
+
+                      // Commit the transaction if all operations succeed
+                      connection.commit((err) => {
+                        if (err) {
+                          return connection.rollback(() => {
+                            connection.release();
+                            console.error("Error committing transaction:", err);
+                            res.status(500).json({
+                              success: false,
+                              message: "Transaction commit error",
+                            });
+                          });
+                        }
+
                         connection.release();
-                        console.error("Error committing transaction:", err);
-                        res.status(500).json({
-                          success: false,
-                          message: "Transaction commit error",
+                        res.json({
+                          success: true,
+                          message: "Plan updated successfully",
                         });
                       });
                     }
-
-                    connection.release();
-                    res.json({
-                      success: true,
-                      message: "Plan updated successfully",
-                    });
-                  });
+                  );
                 }
               );
             }
@@ -619,7 +656,220 @@ app.get("/api/processes", authenticateToken, (req, res) => {
   );
 });
 
-// API lấy tỉ lệ hoàn thành của các quy trình cho một kế hoạch cụ thể
+// API lấy dữ liệu CO theo id_plan trong MAIN mysql
+app.get("/api/co/:id_plan", authenticateToken, (req, res) => {
+  const { id_plan } = req.params;
+
+  mysqlConnection.query(
+    "SELECT * FROM tb_co WHERE id_plan = ?",
+    [id_plan],
+    (err, results) => {
+      if (err) {
+        console.error("Error fetching CO data:", err);
+        return res
+          .status(500)
+          .json({ success: false, message: "Database error" });
+      }
+
+      if (results.length === 0) {
+        return res
+          .status(404)
+          .json({ success: false, message: "CO data not found" });
+      }
+
+      res.json(results[0]);
+    }
+  );
+});
+
+// API cập nhật dữ liệu CO trong MAIN mysql
+app.put("/api/co/:id_plan", authenticateToken, (req, res) => {
+  const { id_plan } = req.params;
+  const {
+    CO_begin_date,
+    CO_end_date,
+    last_garment_of_old_style,
+    carry_over,
+    buyer,
+    production_style,
+    SAM,
+    staff,
+    quota,
+    eff_1,
+    target_of_COPT,
+    COPT,
+    target_of_COT,
+    COT,
+  } = req.body;
+
+  // Sanitize date inputs
+  const sanitizedCO_begin_date = sanitizeDate(CO_begin_date);
+  const sanitizedCO_end_date = sanitizeDate(CO_end_date);
+  const sanitizedLast_garment = sanitizeDate(last_garment_of_old_style);
+
+  // Chuyển đổi các giá trị rỗng thành 0 cho các trường số
+  const numericFields = {
+    SAM: SAM || 0,
+    quota: quota || 0,
+    eff_1: eff_1 || 0,
+    target_of_COPT: target_of_COPT || 0,
+    COPT: COPT || 0,
+    target_of_COT: target_of_COT || 0,
+    COT: COT || 0,
+  };
+
+  // Get user info from token
+  const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
+
+  mysqlConnection.getConnection((err, connection) => {
+    if (err) {
+      console.error("Error getting connection for transaction:", err);
+      return res
+        .status(500)
+        .json({ success: false, message: "Database connection error" });
+    }
+
+    connection.beginTransaction((err) => {
+      if (err) {
+        connection.release();
+        console.error("Error starting transaction:", err);
+        return res
+          .status(500)
+          .json({ success: false, message: "Transaction error" });
+      }
+
+      // Get plan information for the log
+      connection.query(
+        "SELECT line, style FROM tb_plan WHERE id_plan = ?",
+        [id_plan],
+        (err, planResults) => {
+          if (err) {
+            return connection.rollback(() => {
+              connection.release();
+              console.error("Error fetching plan data for log:", err);
+              res.status(500).json({
+                success: false,
+                message: "Database error",
+              });
+            });
+          }
+
+          const line = planResults.length > 0 ? planResults[0].line : "N/A";
+          const style = planResults.length > 0 ? planResults[0].style : "N/A";
+
+          // Update CO data
+          connection.query(
+            `UPDATE tb_co SET 
+              CO_begin_date = ?, 
+              CO_end_date = ?, 
+              last_garment_of_old_style = ?,
+              carry_over = ?,
+              buyer = ?,
+              production_style = ?,
+              SAM = ?,
+              staff = ?,
+              quota = ?,
+              eff_1 = ?,
+              target_of_COPT = ?,
+              COPT = ?,
+              target_of_COT = ?,
+              COT = ?,
+              updated_by = ?
+            WHERE id_plan = ?`,
+            [
+              sanitizedCO_begin_date,
+              sanitizedCO_end_date,
+              sanitizedLast_garment,
+              carry_over,
+              buyer,
+              production_style,
+              numericFields.SAM,
+              staff,
+              numericFields.quota,
+              numericFields.eff_1,
+              numericFields.target_of_COPT,
+              numericFields.COPT,
+              numericFields.target_of_COT,
+              numericFields.COT,
+              updated_by,
+              id_plan,
+            ],
+            (err, updateResults) => {
+              if (err) {
+                return connection.rollback(() => {
+                  connection.release();
+                  console.error("Error updating CO data:", err);
+                  res
+                    .status(500)
+                    .json({ success: false, message: "Database error" });
+                });
+              }
+
+              // Update the actual_date in tb_plan to match CO_begin_date
+              connection.query(
+                "UPDATE tb_plan SET actual_date = ?, updated_by = ? WHERE id_plan = ?",
+                [sanitizedCO_begin_date, updated_by, id_plan],
+                (err) => {
+                  if (err) {
+                    return connection.rollback(() => {
+                      connection.release();
+                      console.error("Error updating plan actual_date:", err);
+                      res
+                        .status(500)
+                        .json({ success: false, message: "Database error" });
+                    });
+                  }
+
+                  // Create log entry with line and style information
+                  const history_log = `${updated_by} vừa CẬP NHẬT thông tin CO của kế hoạch chuyền: [${line}], mã hàng: [${style}]`;
+
+                  connection.query(
+                    "INSERT INTO tb_log (history_log) VALUES (?)",
+                    [history_log],
+                    (err) => {
+                      if (err) {
+                        return connection.rollback(() => {
+                          connection.release();
+                          console.error("Error creating log entry:", err);
+                          res.status(500).json({
+                            success: false,
+                            message: "Database error",
+                          });
+                        });
+                      }
+
+                      // Commit the transaction if all operations succeed
+                      connection.commit((err) => {
+                        if (err) {
+                          return connection.rollback(() => {
+                            connection.release();
+                            console.error("Error committing transaction:", err);
+                            res.status(500).json({
+                              success: false,
+                              message: "Transaction commit error",
+                            });
+                          });
+                        }
+
+                        connection.release();
+                        res.json({
+                          success: true,
+                          message: "CO data updated successfully",
+                        });
+                      });
+                    }
+                  );
+                }
+              );
+            }
+          );
+        }
+      );
+    });
+  });
+});
+
+// API lấy tỉ lệ hoàn thành của các quy trình cho một kế hoạch cụ thể trong MAIN mysql
 app.get("/api/process-rates/:id_plan", authenticateToken, (req, res) => {
   const { id_plan } = req.params;
 
@@ -715,7 +965,7 @@ app.get("/api/process-rates/:id_plan", authenticateToken, (req, res) => {
   });
 });
 
-// API lấy các bước công việc của một quy trình
+// API lấy các bước công việc của một quy trình trong Main mysql
 app.get("/api/work-steps/:id_process", authenticateToken, (req, res) => {
   const { id_process } = req.params;
 

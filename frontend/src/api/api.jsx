@@ -92,6 +92,28 @@ let API = {
     const response = await httpConnect.get(`/api/work-steps/${id_process}`);
     return response.data;
   },
+
+  // Get CO data by id_plan
+  getCoDataByPlanId: async (id_plan) => {
+    try {
+      const response = await httpConnect.get(`/api/co/${id_plan}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching CO data:", error);
+      throw error;
+    }
+  },
+
+  // Update CO data
+  updateCoData: async (id_plan, coData) => {
+    try {
+      const response = await httpConnect.put(`/api/co/${id_plan}`, coData);
+      return response.data;
+    } catch (error) {
+      console.error("Error updating CO data:", error);
+      throw error;
+    }
+  },
 };
 
 export default API;
