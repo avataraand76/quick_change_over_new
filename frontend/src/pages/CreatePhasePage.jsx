@@ -20,11 +20,23 @@ import {
   Menu,
   Checkbox,
   ListItemText,
+  Box,
+  Card,
+  CardContent,
+  LinearProgress,
+  InputAdornment,
+  Chip,
 } from "@mui/material";
 import API from "../api/api";
-import { Visibility as VisibilityIcon } from "@mui/icons-material";
+import {
+  Visibility as VisibilityIcon,
+  FilterList as FilterListIcon,
+  Add as AddIcon,
+  Search as SearchIcon,
+  Clear as ClearIcon,
+  ArrowBack as ArrowBackIcon,
+} from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
-import FilterListIcon from "@mui/icons-material/FilterList";
 
 const CreatePhasePage = () => {
   const getCurrentDateTime = () => {
@@ -45,22 +57,11 @@ const CreatePhasePage = () => {
   const [planDate, setPlanDate] = useState(getCurrentDateTime());
   const [actualDate, setActualDate] = useState(getCurrentDateTime());
   const [plans, setPlans] = useState([]);
-  const [filterLine, setFilterLine] = useState("");
-  const [filterStyle, setFilterStyle] = useState("");
-  const [filterPlanDate, setFilterPlanDate] = useState("");
-  const [filterActualDate, setFilterActualDate] = useState("");
-  const [filterUpdatedBy, setFilterUpdatedBy] = useState("");
-  const [uniqueLines, setUniqueLines] = useState([]);
-  const [uniqueStyles, setUniqueStyles] = useState([]);
-  const [uniqueUsers, setUniqueUsers] = useState([]);
-  const [uniquePlanDates, setUniquePlanDates] = useState([]);
-  const [uniqueActualDates, setUniqueActualDates] = useState([]);
-
-  const [lineAnchorEl, setLineAnchorEl] = useState(null);
-  const [styleAnchorEl, setStyleAnchorEl] = useState(null);
-  const [dateAnchorEl, setDateAnchorEl] = useState(null);
-  const [userAnchorEl, setUserAnchorEl] = useState(null);
-  const [actualDateAnchorEl, setActualDateAnchorEl] = useState(null);
+  const [lineFilter, setLineFilter] = useState([]);
+  const [styleFilter, setStyleFilter] = useState([]);
+  const [planDateFilter, setPlanDateFilter] = useState([]);
+  const [actualDateFilter, setActualDateFilter] = useState([]);
+  const [userFilter, setUserFilter] = useState([]);
 
   const navigate = useNavigate();
 
@@ -122,42 +123,6 @@ const CreatePhasePage = () => {
     fetchPlans();
   }, []);
 
-  useEffect(() => {
-    if (plans.length > 0) {
-      // Lấy unique values cho chuyền
-      const lines = [...new Set(plans.map((plan) => plan.line))].sort(
-        (a, b) => a - b
-      );
-      setUniqueLines(lines);
-
-      // Lấy unique values cho mã hàng
-      const styles = [...new Set(plans.map((plan) => plan.style))].sort();
-      setUniqueStyles(styles);
-
-      // Lấy unique values cho người tạo
-      const users = [...new Set(plans.map((plan) => plan.updated_by))].sort();
-      setUniqueUsers(users);
-
-      // Lấy unique values cho ngày dự kiến (chỉ lấy ngày)
-      const planDates = [
-        ...new Set(plans.map((plan) => formatDateForFilter(plan.plan_date))),
-      ].sort();
-      setUniquePlanDates(planDates);
-
-      // Lấy unique values cho ngày thực tế (chỉ lấy ngày)
-      const actualDates = [
-        ...new Set(
-          plans.map((plan) =>
-            plan.actual_date ? formatDateForFilter(plan.actual_date) : ""
-          )
-        ),
-      ]
-        .filter((date) => date !== "")
-        .sort();
-      setUniqueActualDates(actualDates);
-    }
-  }, [plans]);
-
   const handleCreatePlan = async () => {
     // Validate required fields
     if (!selectedLine || !selectedStyle || !planDate) {
@@ -207,13 +172,15 @@ const CreatePhasePage = () => {
       const year = date.getFullYear();
 
       // Get hours and minutes (with padding)
-      let hours = String(date.getHours()).padStart(2, "0");
+      let hours = date.getHours();
       const minutes = String(date.getMinutes()).padStart(2, "0");
 
       // Determine AM/PM
-      const period = date.getHours() >= 12 ? "PM" : "AM";
+      const period = hours >= 12 ? "PM" : "AM";
+      hours = hours % 12 || 12; // Convert to 12-hour format, making 0 => 12
+      hours = String(hours).padStart(2, "0");
 
-      // Format the final string: dd/MM/yyyy HH:mm tt
+      // Format the final string: dd/MM/yyyy hh:mm AM/PM
       return `${day}/${month}/${year} ${hours}:${minutes} ${period}`;
     } catch (error) {
       console.error("Error formatting date:", error);
@@ -237,366 +204,666 @@ const CreatePhasePage = () => {
     }
   };
 
-  // Sửa lại hàm filter
+  // Modify the filteredPlans function to use the new filter inputs with multi-select
   const filteredPlans = plans.filter((plan) => {
     return (
-      (!filterLine || plan.line.toString() === filterLine.toString()) &&
-      (!filterStyle || plan.style === filterStyle) &&
-      (!filterPlanDate ||
-        formatDateForFilter(plan.plan_date) === filterPlanDate) &&
-      (!filterActualDate ||
+      (lineFilter.length === 0 || lineFilter.includes(plan.line.toString())) &&
+      (styleFilter.length === 0 || styleFilter.includes(plan.style)) &&
+      (planDateFilter.length === 0 ||
+        planDateFilter.some((filter) =>
+          formatDateTime(plan.plan_date).includes(filter)
+        )) &&
+      (actualDateFilter.length === 0 ||
         (plan.actual_date &&
-          formatDateForFilter(plan.actual_date) === filterActualDate)) &&
-      (!filterUpdatedBy || plan.updated_by === filterUpdatedBy)
+          actualDateFilter.some((filter) =>
+            formatDateTime(plan.actual_date).includes(filter)
+          ))) &&
+      (userFilter.length === 0 || userFilter.includes(plan.updated_by))
     );
   });
 
-  const handleFilterClick = (event, setter) => {
-    setter(event.currentTarget);
+  // Get filtered unique values for dropdown options based on current filtered results
+  const getFilteredOptions = () => {
+    // First, create a filtered set of plans based on the currently applied filters
+    const preFilteredPlans = plans.filter((plan) => {
+      return (
+        // Apply all filters except the one we're getting options for
+        (userFilter.length === 0 || userFilter.includes(plan.updated_by)) &&
+        (styleFilter.length === 0 || styleFilter.includes(plan.style)) &&
+        (planDateFilter.length === 0 ||
+          planDateFilter.some((filter) =>
+            formatDateTime(plan.plan_date).includes(filter)
+          )) &&
+        (actualDateFilter.length === 0 ||
+          (plan.actual_date &&
+            actualDateFilter.some((filter) =>
+              formatDateTime(plan.actual_date).includes(filter)
+            )))
+      );
+    });
+
+    // Get unique values from pre-filtered plans for line options
+    const filteredLineOptions = [
+      ...new Set(preFilteredPlans.map((plan) => plan.line.toString())),
+    ].sort((a, b) => a - b);
+
+    // Apply all filters except style filter for style options
+    const plansForStyleOptions = plans.filter((plan) => {
+      return (
+        (lineFilter.length === 0 ||
+          lineFilter.includes(plan.line.toString())) &&
+        (userFilter.length === 0 || userFilter.includes(plan.updated_by)) &&
+        (planDateFilter.length === 0 ||
+          planDateFilter.some((filter) =>
+            formatDateTime(plan.plan_date).includes(filter)
+          )) &&
+        (actualDateFilter.length === 0 ||
+          (plan.actual_date &&
+            actualDateFilter.some((filter) =>
+              formatDateTime(plan.actual_date).includes(filter)
+            )))
+      );
+    });
+    const filteredStyleOptions = [
+      ...new Set(plansForStyleOptions.map((plan) => plan.style)),
+    ].sort();
+
+    // Apply all filters except user filter for user options
+    const plansForUserOptions = plans.filter((plan) => {
+      return (
+        (lineFilter.length === 0 ||
+          lineFilter.includes(plan.line.toString())) &&
+        (styleFilter.length === 0 || styleFilter.includes(plan.style)) &&
+        (planDateFilter.length === 0 ||
+          planDateFilter.some((filter) =>
+            formatDateTime(plan.plan_date).includes(filter)
+          )) &&
+        (actualDateFilter.length === 0 ||
+          (plan.actual_date &&
+            actualDateFilter.some((filter) =>
+              formatDateTime(plan.actual_date).includes(filter)
+            )))
+      );
+    });
+    const filteredUserOptions = [
+      ...new Set(plansForUserOptions.map((plan) => plan.updated_by)),
+    ].sort();
+
+    // Apply all filters except plan date filter for plan date options
+    const plansForPlanDateOptions = plans.filter((plan) => {
+      return (
+        (lineFilter.length === 0 ||
+          lineFilter.includes(plan.line.toString())) &&
+        (styleFilter.length === 0 || styleFilter.includes(plan.style)) &&
+        (userFilter.length === 0 || userFilter.includes(plan.updated_by)) &&
+        (actualDateFilter.length === 0 ||
+          (plan.actual_date &&
+            actualDateFilter.some((filter) =>
+              formatDateTime(plan.actual_date).includes(filter)
+            )))
+      );
+    });
+    const filteredPlanDateOptions = [
+      ...new Set(
+        plansForPlanDateOptions.map((plan) =>
+          formatDateForFilter(plan.plan_date)
+        )
+      ),
+    ].sort();
+
+    // Apply all filters except actual date filter for actual date options
+    const plansForActualDateOptions = plans.filter((plan) => {
+      return (
+        (lineFilter.length === 0 ||
+          lineFilter.includes(plan.line.toString())) &&
+        (styleFilter.length === 0 || styleFilter.includes(plan.style)) &&
+        (userFilter.length === 0 || userFilter.includes(plan.updated_by)) &&
+        (planDateFilter.length === 0 ||
+          planDateFilter.some((filter) =>
+            formatDateTime(plan.plan_date).includes(filter)
+          ))
+      );
+    });
+    const filteredActualDateOptions = [
+      ...new Set(
+        plansForActualDateOptions
+          .map((plan) =>
+            plan.actual_date ? formatDateForFilter(plan.actual_date) : ""
+          )
+          .filter((date) => date !== "")
+      ),
+    ].sort();
+
+    return {
+      lines: filteredLineOptions,
+      styles: filteredStyleOptions,
+      users: filteredUserOptions,
+      planDates: filteredPlanDateOptions,
+      actualDates: filteredActualDateOptions,
+    };
   };
 
-  const handleClose = (setter) => {
-    setter(null);
-  };
+  const filteredOptions = getFilteredOptions();
 
   return (
-    <Container component="main">
-      <Paper elevation={3} sx={{ padding: 4, marginTop: 4, borderRadius: 5 }}>
-        <Typography
-          component="h1"
-          variant="h5"
-          sx={{ marginBottom: 3, fontWeight: "bold", color: "#1976d2" }}
-        >
-          TẠO KẾ HOẠCH CHUYỂN ĐỔI
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Autocomplete
-              value={
-                lines.find((line) => line["OID cua Line"] === selectedLine) ||
-                null
-              }
-              onChange={(event, newValue) => {
-                setSelectedLine(newValue ? newValue["OID cua Line"] : "");
-              }}
-              options={lines}
-              getOptionLabel={(option) => `Chuyền ${option["stt cua line"]}`}
-              renderInput={(params) => (
-                <TextField {...params} label="Chọn Chuyền" required fullWidth />
-              )}
-              isOptionEqualToValue={(option, value) =>
-                option["OID cua Line"] === value["OID cua Line"]
-              }
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Autocomplete
-              value={
-                filteredStyles.find(
-                  (style) => style["OID cua ma hang"] === selectedStyle
-                ) || null
-              }
-              onChange={(event, newValue) => {
-                setSelectedStyle(newValue ? newValue["OID cua ma hang"] : "");
-              }}
-              options={filteredStyles}
-              getOptionLabel={(option) => option["ma hang"]}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Chọn Mã Hàng"
-                  required
-                  fullWidth
-                  disabled={!selectedLine}
-                />
-              )}
-              disabled={!selectedLine}
-              isOptionEqualToValue={(option, value) =>
-                option["OID cua ma hang"] === value["OID cua ma hang"]
-              }
-              noOptionsText={
-                !selectedLine
-                  ? "Vui lòng chọn chuyền trước"
-                  : "Không có mã hàng cho chuyền này"
-              }
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              label="Chọn Thời Gian CĐ Dự Kiến"
-              type="datetime-local"
-              value={planDate}
-              onChange={(e) => setPlanDate(e.target.value)}
-              fullWidth
-              required
-              InputLabelProps={{
-                shrink: true,
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              label="Chọn Thời Gian CĐ Thực Tế"
-              type="datetime-local"
-              value={actualDate}
-              onChange={(e) => setActualDate(e.target.value)}
-              fullWidth
-              required
-              InputLabelProps={{
-                shrink: true,
-              }}
-            />
-          </Grid>
-        </Grid>
+    <Container component="main" maxWidth="xl">
+      <Box sx={{ display: "flex", alignItems: "center", mt: 2 }}>
         <Button
-          variant="contained"
+          variant="outlined"
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate("/")}
           sx={{
-            marginTop: 3,
-            backgroundColor: "#1976d2",
-            "&:hover": { backgroundColor: "#115293" },
+            mb: 2,
+            borderRadius: 2,
+            textTransform: "none",
+            fontWeight: "medium",
           }}
-          onClick={handleCreatePlan}
         >
-          Tạo Kế Hoạch
+          Quay lại trang chủ
         </Button>
-      </Paper>
-      <Paper elevation={3} sx={{ padding: 4, marginTop: 4, borderRadius: 5 }}>
-        <Typography
-          component="h1"
-          variant="h5"
-          sx={{ marginBottom: 3, fontWeight: "bold", color: "#1976d2" }}
+      </Box>
+
+      <Card
+        elevation={4}
+        sx={{
+          marginTop: 2,
+          borderRadius: 2,
+          overflow: "visible",
+        }}
+      >
+        <Box
+          sx={{
+            bgcolor: "#1976d2",
+            padding: 2,
+            color: "white",
+            borderTopLeftRadius: 8,
+            borderTopRightRadius: 8,
+          }}
         >
-          DANH SÁCH CÁC KẾ HOẠCH ĐÃ TẠO
-        </Typography>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell
-                sx={{
-                  backgroundColor: filterLine ? "#e3f2fd" : "inherit",
-                  "& .MuiIconButton-root": {
-                    color: filterLine ? "#1976d2" : "inherit",
-                  },
-                }}
-              >
-                Chuyền
-                <IconButton
-                  size="small"
-                  onClick={(e) => handleFilterClick(e, setLineAnchorEl)}
-                >
-                  <FilterListIcon fontSize="small" />
-                </IconButton>
-                <Menu
-                  anchorEl={lineAnchorEl}
-                  open={Boolean(lineAnchorEl)}
-                  onClose={() => handleClose(setLineAnchorEl)}
-                >
-                  <MenuItem value="">
-                    <Checkbox
-                      checked={!filterLine}
-                      onChange={() => setFilterLine("")}
-                    />
-                    <ListItemText primary="Tất cả" />
-                  </MenuItem>
-                  {uniqueLines.map((line) => (
-                    <MenuItem key={line} value={line}>
-                      <Checkbox
-                        checked={filterLine === line.toString()}
-                        onChange={() => setFilterLine(line.toString())}
+          <Typography variant="h5" fontWeight="bold">
+            TẠO KẾ HOẠCH CHUYỂN ĐỔI
+          </Typography>
+        </Box>
+
+        <CardContent sx={{ padding: 3 }}>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined" sx={{ height: "100%" }}>
+                <CardContent>
+                  <Typography variant="h6" color="primary" gutterBottom>
+                    Thông Tin Cơ Bản
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <Autocomplete
+                        value={
+                          lines.find(
+                            (line) => line["OID cua Line"] === selectedLine
+                          ) || null
+                        }
+                        onChange={(event, newValue) => {
+                          setSelectedLine(
+                            newValue ? newValue["OID cua Line"] : ""
+                          );
+                        }}
+                        options={lines}
+                        getOptionLabel={(option) =>
+                          `Chuyền ${option["stt cua line"]}`
+                        }
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Chọn Chuyền"
+                            required
+                            fullWidth
+                          />
+                        )}
+                        isOptionEqualToValue={(option, value) =>
+                          option["OID cua Line"] === value["OID cua Line"]
+                        }
                       />
-                      <ListItemText primary={`Chuyền ${line}`} />
-                    </MenuItem>
-                  ))}
-                </Menu>
-              </TableCell>
-              <TableCell
-                sx={{
-                  backgroundColor: filterStyle ? "#e3f2fd" : "inherit",
-                  "& .MuiIconButton-root": {
-                    color: filterStyle ? "#1976d2" : "inherit",
-                  },
-                }}
-              >
-                Mã Hàng
-                <IconButton
-                  size="small"
-                  onClick={(e) => handleFilterClick(e, setStyleAnchorEl)}
-                >
-                  <FilterListIcon fontSize="small" />
-                </IconButton>
-                <Menu
-                  anchorEl={styleAnchorEl}
-                  open={Boolean(styleAnchorEl)}
-                  onClose={() => handleClose(setStyleAnchorEl)}
-                >
-                  <MenuItem value="">
-                    <Checkbox
-                      checked={!filterStyle}
-                      onChange={() => setFilterStyle("")}
-                    />
-                    <ListItemText primary="Tất cả" />
-                  </MenuItem>
-                  {uniqueStyles.map((style) => (
-                    <MenuItem key={style} value={style}>
-                      <Checkbox
-                        checked={filterStyle === style}
-                        onChange={() => setFilterStyle(style)}
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Autocomplete
+                        value={
+                          filteredStyles.find(
+                            (style) =>
+                              style["OID cua ma hang"] === selectedStyle
+                          ) || null
+                        }
+                        onChange={(event, newValue) => {
+                          setSelectedStyle(
+                            newValue ? newValue["OID cua ma hang"] : ""
+                          );
+                        }}
+                        options={filteredStyles}
+                        getOptionLabel={(option) => option["ma hang"]}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Chọn Mã Hàng"
+                            required
+                            fullWidth
+                            disabled={!selectedLine}
+                          />
+                        )}
+                        disabled={!selectedLine}
+                        isOptionEqualToValue={(option, value) =>
+                          option["OID cua ma hang"] === value["OID cua ma hang"]
+                        }
+                        noOptionsText={
+                          !selectedLine
+                            ? "Vui lòng chọn chuyền trước"
+                            : "Không có mã hàng cho chuyền này"
+                        }
                       />
-                      <ListItemText primary={style} />
-                    </MenuItem>
-                  ))}
-                </Menu>
-              </TableCell>
-              <TableCell
-                sx={{
-                  backgroundColor: filterPlanDate ? "#e3f2fd" : "inherit",
-                  "& .MuiIconButton-root": {
-                    color: filterPlanDate ? "#1976d2" : "inherit",
-                  },
-                }}
-              >
-                Thời Gian CĐ Dự Kiến
-                <IconButton
-                  size="small"
-                  onClick={(e) => handleFilterClick(e, setDateAnchorEl)}
-                >
-                  <FilterListIcon fontSize="small" />
-                </IconButton>
-                <Menu
-                  anchorEl={dateAnchorEl}
-                  open={Boolean(dateAnchorEl)}
-                  onClose={() => handleClose(setDateAnchorEl)}
-                >
-                  <MenuItem value="">
-                    <Checkbox
-                      checked={!filterPlanDate}
-                      onChange={() => setFilterPlanDate("")}
-                    />
-                    <ListItemText primary="Tất cả" />
-                  </MenuItem>
-                  {uniquePlanDates.map((date) => (
-                    <MenuItem key={date} value={date}>
-                      <Checkbox
-                        checked={filterPlanDate === date}
-                        onChange={() => setFilterPlanDate(date)}
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined" sx={{ height: "100%" }}>
+                <CardContent>
+                  <Typography variant="h6" color="primary" gutterBottom>
+                    Thời Gian
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <TextField
+                        label="Chọn Thời Gian CĐ Dự Kiến"
+                        type="datetime-local"
+                        value={planDate}
+                        onChange={(e) => setPlanDate(e.target.value)}
+                        fullWidth
+                        required
+                        InputLabelProps={{
+                          shrink: true,
+                        }}
                       />
-                      <ListItemText primary={date} />
-                    </MenuItem>
-                  ))}
-                </Menu>
-              </TableCell>
-              <TableCell
-                sx={{
-                  backgroundColor: filterActualDate ? "#e3f2fd" : "inherit",
-                  "& .MuiIconButton-root": {
-                    color: filterActualDate ? "#1976d2" : "inherit",
-                  },
-                }}
-              >
-                Thời Gian CĐ Thực Tế
-                <IconButton
-                  size="small"
-                  onClick={(e) => handleFilterClick(e, setActualDateAnchorEl)}
-                >
-                  <FilterListIcon fontSize="small" />
-                </IconButton>
-                <Menu
-                  anchorEl={actualDateAnchorEl}
-                  open={Boolean(actualDateAnchorEl)}
-                  onClose={() => handleClose(setActualDateAnchorEl)}
-                >
-                  <MenuItem value="">
-                    <Checkbox
-                      checked={!filterActualDate}
-                      onChange={() => setFilterActualDate("")}
-                    />
-                    <ListItemText primary="Tất cả" />
-                  </MenuItem>
-                  {uniqueActualDates.map((date) => (
-                    <MenuItem key={date} value={date}>
-                      <Checkbox
-                        checked={filterActualDate === date}
-                        onChange={() => setFilterActualDate(date)}
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        label="Chọn Thời Gian CĐ Thực Tế"
+                        type="datetime-local"
+                        value={actualDate}
+                        onChange={(e) => setActualDate(e.target.value)}
+                        fullWidth
+                        required
+                        InputLabelProps={{
+                          shrink: true,
+                        }}
                       />
-                      <ListItemText primary={date} />
-                    </MenuItem>
-                  ))}
-                </Menu>
-              </TableCell>
-              <TableCell
-                sx={{
-                  backgroundColor: filterUpdatedBy ? "#e3f2fd" : "inherit",
-                  "& .MuiIconButton-root": {
-                    color: filterUpdatedBy ? "#1976d2" : "inherit",
-                  },
-                }}
-              >
-                Người Tạo
-                <IconButton
-                  size="small"
-                  onClick={(e) => handleFilterClick(e, setUserAnchorEl)}
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+
+          <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleCreatePlan}
+              size="large"
+              startIcon={<AddIcon />}
+              sx={{
+                minWidth: 150,
+                borderRadius: 2,
+                boxShadow: 2,
+                "&:hover": {
+                  boxShadow: 4,
+                },
+              }}
+            >
+              Tạo Kế Hoạch
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
+
+      <Card
+        elevation={4}
+        sx={{
+          mt: 4,
+          mb: 4,
+          borderRadius: 2,
+          overflow: "visible",
+        }}
+      >
+        <Box
+          sx={{
+            bgcolor: "#1976d2",
+            padding: 2,
+            color: "white",
+            borderTopLeftRadius: 8,
+            borderTopRightRadius: 8,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <Typography variant="h5" fontWeight="bold">
+            DANH SÁCH CÁC KẾ HOẠCH ĐÃ TẠO
+          </Typography>
+        </Box>
+        <Box sx={{ overflow: "auto", padding: 2 }}>
+          <Table sx={{ minWidth: 1200 }}>
+            <TableHead>
+              <TableRow sx={{ backgroundColor: "#1976d2" }}>
+                <TableCell
+                  sx={{ color: "white", fontWeight: "bold", width: "15%" }}
                 >
-                  <FilterListIcon fontSize="small" />
-                </IconButton>
-                <Menu
-                  anchorEl={userAnchorEl}
-                  open={Boolean(userAnchorEl)}
-                  onClose={() => handleClose(setUserAnchorEl)}
+                  Chuyền
+                </TableCell>
+                <TableCell
+                  sx={{ color: "white", fontWeight: "bold", width: "20%" }}
                 >
-                  <MenuItem value="">
-                    <Checkbox
-                      checked={!filterUpdatedBy}
-                      onChange={() => setFilterUpdatedBy("")}
-                    />
-                    <ListItemText primary="Tất cả" />
-                  </MenuItem>
-                  {uniqueUsers.map((user) => (
-                    <MenuItem key={user} value={user}>
-                      <Checkbox
-                        checked={filterUpdatedBy === user}
-                        onChange={() => setFilterUpdatedBy(user)}
+                  Mã Hàng
+                </TableCell>
+                <TableCell
+                  sx={{ color: "white", fontWeight: "bold", width: "20%" }}
+                >
+                  Thời Gian CĐ Dự Kiến
+                </TableCell>
+                <TableCell
+                  sx={{ color: "white", fontWeight: "bold", width: "20%" }}
+                >
+                  Thời Gian CĐ Thực Tế
+                </TableCell>
+                <TableCell
+                  sx={{ color: "white", fontWeight: "bold", width: "20%" }}
+                >
+                  Người Tạo
+                </TableCell>
+                <TableCell
+                  sx={{ color: "white", fontWeight: "bold", width: "5%" }}
+                >
+                  {/* Thao Tác */}
+                </TableCell>
+              </TableRow>
+              <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+                <TableCell
+                  sx={{
+                    backgroundColor:
+                      lineFilter.length > 0 ? "#ffee8c" : "#f5f5f5",
+                    padding: "8px",
+                  }}
+                >
+                  <Autocomplete
+                    multiple
+                    size="small"
+                    options={filteredOptions.lines}
+                    value={lineFilter}
+                    onChange={(event, newValue) => setLineFilter(newValue)}
+                    renderTags={(value, getTagProps) =>
+                      value.map((option, index) => {
+                        const tagProps = getTagProps({ index });
+                        const { key, ...chipProps } = tagProps;
+                        return (
+                          <Chip
+                            key={key}
+                            label={`Chuyền ${option}`}
+                            {...chipProps}
+                            size="small"
+                          />
+                        );
+                      })
+                    }
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder="Lọc chuyền..."
+                        InputProps={{
+                          ...params.InputProps,
+                          startAdornment: (
+                            <>
+                              <InputAdornment position="start">
+                                <SearchIcon fontSize="small" />
+                              </InputAdornment>
+                              {params.InputProps.startAdornment}
+                            </>
+                          ),
+                        }}
                       />
-                      <ListItemText primary={user} />
-                    </MenuItem>
-                  ))}
-                </Menu>
-              </TableCell>
-              <TableCell>Thao Tác</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredPlans.length > 0 ? (
-              filteredPlans.map((plan, index) => (
-                <TableRow key={plan.id_plan || `plan-${index}`}>
-                  <TableCell>Chuyền {plan.line || ""}</TableCell>
-                  <TableCell>{plan.style || ""}</TableCell>
-                  <TableCell>{formatDateTime(plan.plan_date)}</TableCell>
-                  <TableCell>{formatDateTime(plan.actual_date)}</TableCell>
-                  <TableCell>{plan.updated_by || ""}</TableCell>
-                  <TableCell>
-                    <Tooltip title="Xem chi tiết">
-                      <IconButton
+                    )}
+                  />
+                </TableCell>
+                <TableCell
+                  sx={{
+                    backgroundColor:
+                      styleFilter.length > 0 ? "#ffee8c" : "#f5f5f5",
+                    padding: "8px",
+                  }}
+                >
+                  <Autocomplete
+                    multiple
+                    size="small"
+                    options={filteredOptions.styles}
+                    value={styleFilter}
+                    onChange={(event, newValue) => setStyleFilter(newValue)}
+                    renderTags={(value, getTagProps) =>
+                      value.map((option, index) => {
+                        const tagProps = getTagProps({ index });
+                        const { key, ...chipProps } = tagProps;
+                        return (
+                          <Chip
+                            key={key}
+                            label={option}
+                            {...chipProps}
+                            size="small"
+                          />
+                        );
+                      })
+                    }
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder="Lọc mã hàng..."
+                        InputProps={{
+                          ...params.InputProps,
+                          startAdornment: (
+                            <>
+                              <InputAdornment position="start">
+                                <SearchIcon fontSize="small" />
+                              </InputAdornment>
+                              {params.InputProps.startAdornment}
+                            </>
+                          ),
+                        }}
+                      />
+                    )}
+                  />
+                </TableCell>
+                <TableCell
+                  sx={{
+                    backgroundColor:
+                      planDateFilter.length > 0 ? "#ffee8c" : "#f5f5f5",
+                    padding: "8px",
+                  }}
+                >
+                  <Autocomplete
+                    multiple
+                    size="small"
+                    options={filteredOptions.planDates}
+                    value={planDateFilter}
+                    onChange={(event, newValue) => setPlanDateFilter(newValue)}
+                    renderTags={(value, getTagProps) =>
+                      value.map((option, index) => {
+                        const tagProps = getTagProps({ index });
+                        const { key, ...chipProps } = tagProps;
+                        return (
+                          <Chip
+                            key={key}
+                            label={option}
+                            {...chipProps}
+                            size="small"
+                          />
+                        );
+                      })
+                    }
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder="Lọc thời gian..."
+                        InputProps={{
+                          ...params.InputProps,
+                          startAdornment: (
+                            <>
+                              <InputAdornment position="start">
+                                <SearchIcon fontSize="small" />
+                              </InputAdornment>
+                              {params.InputProps.startAdornment}
+                            </>
+                          ),
+                        }}
+                      />
+                    )}
+                  />
+                </TableCell>
+                <TableCell
+                  sx={{
+                    backgroundColor:
+                      actualDateFilter.length > 0 ? "#ffee8c" : "#f5f5f5",
+                    padding: "8px",
+                  }}
+                >
+                  <Autocomplete
+                    multiple
+                    size="small"
+                    options={filteredOptions.actualDates}
+                    value={actualDateFilter}
+                    onChange={(event, newValue) =>
+                      setActualDateFilter(newValue)
+                    }
+                    renderTags={(value, getTagProps) =>
+                      value.map((option, index) => {
+                        const tagProps = getTagProps({ index });
+                        const { key, ...chipProps } = tagProps;
+                        return (
+                          <Chip
+                            key={key}
+                            label={option}
+                            {...chipProps}
+                            size="small"
+                          />
+                        );
+                      })
+                    }
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder="Lọc thời gian..."
+                        InputProps={{
+                          ...params.InputProps,
+                          startAdornment: (
+                            <>
+                              <InputAdornment position="start">
+                                <SearchIcon fontSize="small" />
+                              </InputAdornment>
+                              {params.InputProps.startAdornment}
+                            </>
+                          ),
+                        }}
+                      />
+                    )}
+                  />
+                </TableCell>
+                <TableCell
+                  sx={{
+                    backgroundColor:
+                      userFilter.length > 0 ? "#ffee8c" : "#f5f5f5",
+                    padding: "8px",
+                  }}
+                >
+                  <Autocomplete
+                    multiple
+                    size="small"
+                    options={filteredOptions.users}
+                    value={userFilter}
+                    onChange={(event, newValue) => setUserFilter(newValue)}
+                    renderTags={(value, getTagProps) =>
+                      value.map((option, index) => {
+                        const tagProps = getTagProps({ index });
+                        const { key, ...chipProps } = tagProps;
+                        return (
+                          <Chip
+                            key={key}
+                            label={option}
+                            {...chipProps}
+                            size="small"
+                          />
+                        );
+                      })
+                    }
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder="Lọc người tạo..."
+                        InputProps={{
+                          ...params.InputProps,
+                          startAdornment: (
+                            <>
+                              <InputAdornment position="start">
+                                <SearchIcon fontSize="small" />
+                              </InputAdornment>
+                              {params.InputProps.startAdornment}
+                            </>
+                          ),
+                        }}
+                      />
+                    )}
+                  />
+                </TableCell>
+                <TableCell sx={{ backgroundColor: "#f5f5f5" }}></TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredPlans.length > 0 ? (
+                filteredPlans.map((plan, index) => (
+                  <TableRow
+                    key={plan.id_plan || `plan-${index}`}
+                    sx={{
+                      "&:nth-of-type(odd)": { backgroundColor: "#fafafa" },
+                    }}
+                  >
+                    <TableCell>Chuyền {plan.line || ""}</TableCell>
+                    <TableCell>{plan.style || ""}</TableCell>
+                    <TableCell>{formatDateTime(plan.plan_date)}</TableCell>
+                    <TableCell>{formatDateTime(plan.actual_date)}</TableCell>
+                    <TableCell>{plan.updated_by || ""}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        color="primary"
                         onClick={() =>
                           navigate(`/detailed-phase/${plan.id_plan}`)
                         }
-                        color="primary"
+                        sx={{
+                          fontSize: "0.75rem",
+                          whiteSpace: "nowrap",
+                          textTransform: "none",
+                        }}
                       >
-                        <VisibilityIcon />
-                      </IconButton>
-                    </Tooltip>
+                        Xem chi tiết
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} align="center">
+                    Không có dữ liệu
                   </TableCell>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={6} align="center">
-                  Không có dữ liệu
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Paper>
+              )}
+            </TableBody>
+          </Table>
+        </Box>
+      </Card>
     </Container>
   );
 };

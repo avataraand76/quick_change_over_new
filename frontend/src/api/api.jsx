@@ -82,6 +82,16 @@ let API = {
     const response = await httpConnect.put(`/api/plans/${id}`, updatedPlan);
     return response.data;
   },
+
+  getProcessRates: async (id_plan) => {
+    const response = await httpConnect.get(`/api/process-rates/${id_plan}`);
+    return response.data;
+  },
+
+  getWorkSteps: async (id_process) => {
+    const response = await httpConnect.get(`/api/work-steps/${id_process}`);
+    return response.data;
+  },
 };
 
 export default API;

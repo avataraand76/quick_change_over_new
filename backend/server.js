@@ -118,6 +118,22 @@ sql
     console.error("Error connecting to MSSQL:", err);
   });
 
+// Helper function to format dates for logging
+const formatDate = (dateString) => {
+  if (!dateString) return "N/A";
+  const date = new Date(dateString);
+
+  // Format: YYYY-MM-DD HH:MM:SS
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
 // Thêm middleware xác thực JWT
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
@@ -145,6 +161,7 @@ const authenticateToken = (req, res, next) => {
 app.post("/login", (req, res) => {
   const { username, password } = req.body;
   dataHiTimesheetConnection.query(
+    // "SELECT id, ma_nv, mat_khau, ten_nv FROM sync_nhan_vien WHERE ma_nv = ?",
     "SELECT * FROM sync_nhan_vien WHERE ma_nv = ?",
     [username],
     (err, results) => {
@@ -226,27 +243,208 @@ app.post("/api/create-plan", authenticateToken, (req, res) => {
   // Lấy ma_nv từ token đã được decode trong middleware
   const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
 
-  mysqlConnection.query(
-    "INSERT INTO tb_plan (SQL_oid_line, line, SQL_oid_ma_hang, style, plan_date, actual_date, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    [
-      SQL_oid_line,
-      line,
-      SQL_oid_ma_hang,
-      style,
-      plan_date,
-      actual_date,
-      updated_by,
-    ],
-    (err, results) => {
+  // Use a transaction to ensure all inserts succeed or fail together
+  mysqlConnection.getConnection((err, connection) => {
+    if (err) {
+      console.error("Error getting connection for transaction:", err);
+      return res
+        .status(500)
+        .json({ success: false, message: "Database connection error" });
+    }
+
+    connection.beginTransaction((err) => {
       if (err) {
-        console.error("Error creating plan:", err);
+        connection.release();
+        console.error("Error starting transaction:", err);
         return res
           .status(500)
-          .json({ success: false, message: "Database error" });
+          .json({ success: false, message: "Transaction error" });
       }
-      res.json({ success: true, message: "Plan created successfully" });
-    }
-  );
+
+      // Insert into tb_plan first to get the id_plan
+      connection.query(
+        "INSERT INTO tb_plan (SQL_oid_line, line, SQL_oid_ma_hang, style, plan_date, actual_date, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [
+          SQL_oid_line,
+          line,
+          SQL_oid_ma_hang,
+          style,
+          plan_date,
+          actual_date,
+          updated_by,
+        ],
+        (err, planResults) => {
+          if (err) {
+            return connection.rollback(() => {
+              connection.release();
+              console.error("Error creating plan:", err);
+              res
+                .status(500)
+                .json({ success: false, message: "Database error" });
+            });
+          }
+
+          const id_plan = planResults.insertId;
+
+          // Insert into tb_co with the new id_plan
+          connection.query(
+            "INSERT INTO tb_co (id_plan, updated_by) VALUES (?, ?)",
+            [id_plan, updated_by],
+            (err) => {
+              if (err) {
+                return connection.rollback(() => {
+                  connection.release();
+                  console.error("Error creating CO record:", err);
+                  res
+                    .status(500)
+                    .json({ success: false, message: "Database error" });
+                });
+              }
+
+              // Get all process IDs
+              connection.query(
+                "SELECT id_process FROM tb_process ORDER BY id_process ASC",
+                (err, processResults) => {
+                  if (err) {
+                    return connection.rollback(() => {
+                      connection.release();
+                      console.error("Error fetching processes:", err);
+                      res
+                        .status(500)
+                        .json({ success: false, message: "Database error" });
+                    });
+                  }
+
+                  // Create an array to store all insert queries
+                  const insertQueries = [];
+
+                  // For each process, insert into the corresponding process table
+                  processResults.forEach((process) => {
+                    const id_process = process.id_process;
+
+                    // Process 1-4 and 6-8 have the same structure
+                    if ([1, 2, 3, 4, 6, 7, 8].includes(id_process)) {
+                      insertQueries.push(
+                        new Promise((resolve, reject) => {
+                          connection.query(
+                            `INSERT INTO tb_process_${id_process} (id_process, id_plan, updated_by) VALUES (?, ?, ?)`,
+                            [id_process, id_plan, updated_by],
+                            (err) => {
+                              if (err) {
+                                reject(err);
+                              } else {
+                                resolve();
+                              }
+                            }
+                          );
+                        })
+                      );
+                    }
+                    // Process 5 has two special tables
+                    else if (id_process === 5) {
+                      // Insert into tb_process_5_preparing_machine
+                      insertQueries.push(
+                        new Promise((resolve, reject) => {
+                          connection.query(
+                            "INSERT INTO tb_process_5_preparing_machine (id_process, id_plan, updated_by) VALUES (?, ?, ?)",
+                            [id_process, id_plan, updated_by],
+                            (err) => {
+                              if (err) {
+                                reject(err);
+                              } else {
+                                resolve();
+                              }
+                            }
+                          );
+                        })
+                      );
+
+                      // Insert into tb_process_5_preventive_machine
+                      insertQueries.push(
+                        new Promise((resolve, reject) => {
+                          connection.query(
+                            "INSERT INTO tb_process_5_preventive_machine (id_process, id_plan, updated_by) VALUES (?, ?, ?)",
+                            [id_process, id_plan, updated_by],
+                            (err) => {
+                              if (err) {
+                                reject(err);
+                              } else {
+                                resolve();
+                              }
+                            }
+                          );
+                        })
+                      );
+                    }
+                  });
+
+                  // Execute all insert queries
+                  Promise.all(insertQueries)
+                    .then(() => {
+                      // Create log entry for plan creation
+                      const history_log = `${updated_by} vừa TẠO KẾ HOẠCH chuyền: [${line}], mã hàng: [${style}], thời gian dự kiến: [${formatDate(
+                        plan_date
+                      )}], thời gian thực tế: [${formatDate(actual_date)}]`;
+
+                      connection.query(
+                        "INSERT INTO tb_log (history_log) VALUES (?)",
+                        [history_log],
+                        (err) => {
+                          if (err) {
+                            return connection.rollback(() => {
+                              connection.release();
+                              console.error("Error creating log entry:", err);
+                              res.status(500).json({
+                                success: false,
+                                message: "Database error",
+                              });
+                            });
+                          }
+
+                          // Commit the transaction if all inserts succeed
+                          connection.commit((err) => {
+                            if (err) {
+                              return connection.rollback(() => {
+                                connection.release();
+                                console.error(
+                                  "Error committing transaction:",
+                                  err
+                                );
+                                res.status(500).json({
+                                  success: false,
+                                  message: "Transaction commit error",
+                                });
+                              });
+                            }
+
+                            connection.release();
+                            res.json({
+                              success: true,
+                              message:
+                                "Plan created successfully with all related process records",
+                              id_plan: id_plan,
+                            });
+                          });
+                        }
+                      );
+                    })
+                    .catch((err) => {
+                      return connection.rollback(() => {
+                        connection.release();
+                        console.error("Error inserting process records:", err);
+                        res
+                          .status(500)
+                          .json({ success: false, message: "Database error" });
+                      });
+                    });
+                }
+              );
+            }
+          );
+        }
+      );
+    });
+  });
 });
 
 // API lấy danh sách kế hoạch trong MAIN mysql
@@ -293,39 +491,116 @@ app.put("/api/plans/:id", authenticateToken, (req, res) => {
   const { id } = req.params;
   const { plan_date, actual_date } = req.body;
 
-  mysqlConnection.query(
-    "UPDATE tb_plan SET plan_date = ?, actual_date = ? WHERE id_plan = ?",
-    [plan_date, actual_date, id],
-    (err, results) => {
+  // Get user info from token
+  const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
+
+  // Use a transaction to ensure both updates succeed or fail together
+  mysqlConnection.getConnection((err, connection) => {
+    if (err) {
+      console.error("Error getting connection for transaction:", err);
+      return res
+        .status(500)
+        .json({ success: false, message: "Database connection error" });
+    }
+
+    connection.beginTransaction((err) => {
       if (err) {
-        console.error("Error updating plan:", err);
+        connection.release();
+        console.error("Error starting transaction:", err);
         return res
           .status(500)
-          .json({ success: false, message: "Database error" });
+          .json({ success: false, message: "Transaction error" });
       }
-      res.json({ success: true, message: "Plan updated successfully" });
-    }
-  );
-});
 
-// API cập nhật thời gian theo id trong MAIN mysql
-app.put("/api/plans/:id", authenticateToken, (req, res) => {
-  const { id } = req.params;
-  const { plan_date, actual_date } = req.body;
+      // First, get the current plan data to include in the log
+      connection.query(
+        "SELECT line, style FROM tb_plan WHERE id_plan = ?",
+        [id],
+        (err, planResults) => {
+          if (err) {
+            return connection.rollback(() => {
+              connection.release();
+              console.error("Error fetching plan data:", err);
+              res
+                .status(500)
+                .json({ success: false, message: "Database error" });
+            });
+          }
 
-  mysqlConnection.query(
-    "UPDATE tb_plan SET plan_date = ?, actual_date = ? WHERE id_plan = ?",
-    [plan_date, actual_date, id],
-    (err, results) => {
-      if (err) {
-        console.error("Error updating plan:", err);
-        return res
-          .status(500)
-          .json({ success: false, message: "Database error" });
-      }
-      res.json({ success: true, message: "Plan updated successfully" });
-    }
-  );
+          if (planResults.length === 0) {
+            return connection.rollback(() => {
+              connection.release();
+              res
+                .status(404)
+                .json({ success: false, message: "Plan not found" });
+            });
+          }
+
+          const { line, style } = planResults[0];
+
+          // Update the plan with new dates and updated_by
+          connection.query(
+            "UPDATE tb_plan SET plan_date = ?, actual_date = ?, updated_by = ? WHERE id_plan = ?",
+            [plan_date, actual_date, updated_by, id],
+            (err, updateResults) => {
+              if (err) {
+                return connection.rollback(() => {
+                  connection.release();
+                  console.error("Error updating plan:", err);
+                  res
+                    .status(500)
+                    .json({ success: false, message: "Database error" });
+                });
+              }
+
+              // Create log entry
+              const history_log = `${updated_by} vừa CẬP NHẬT thời gian dự kiến: [${formatDate(
+                plan_date
+              )}], thời gian thực tế: [${formatDate(
+                actual_date
+              )}] của chuyền: [${line}], mã hàng: [${style}]`;
+
+              connection.query(
+                "INSERT INTO tb_log (history_log) VALUES (?)",
+                [history_log],
+                (err) => {
+                  if (err) {
+                    return connection.rollback(() => {
+                      connection.release();
+                      console.error("Error creating log entry:", err);
+                      res
+                        .status(500)
+                        .json({ success: false, message: "Database error" });
+                    });
+                  }
+
+                  // Commit the transaction if all operations succeed
+                  connection.commit((err) => {
+                    if (err) {
+                      return connection.rollback(() => {
+                        connection.release();
+                        console.error("Error committing transaction:", err);
+                        res.status(500).json({
+                          success: false,
+                          message: "Transaction commit error",
+                        });
+                      });
+                    }
+
+                    connection.release();
+                    res.json({
+                      success: true,
+                      message: "Plan updated successfully",
+                    });
+                  });
+                }
+              );
+            }
+          );
+        }
+      );
+    });
+  });
 });
 
 // API lấy danh sách quy trình trong MAIN mysql
@@ -335,6 +610,121 @@ app.get("/api/processes", authenticateToken, (req, res) => {
     (err, results) => {
       if (err) {
         console.error("Error fetching processes:", err);
+        return res
+          .status(500)
+          .json({ success: false, message: "Database error" });
+      }
+      res.json(results);
+    }
+  );
+});
+
+// API lấy tỉ lệ hoàn thành của các quy trình cho một kế hoạch cụ thể
+app.get("/api/process-rates/:id_plan", authenticateToken, (req, res) => {
+  const { id_plan } = req.params;
+
+  mysqlConnection.getConnection((err, connection) => {
+    if (err) {
+      console.error("Error getting connection:", err);
+      return res
+        .status(500)
+        .json({ success: false, message: "Database connection error" });
+    }
+
+    // Create an array to store all query promises
+    const queryPromises = [];
+
+    // For processes 1-4 and 6-8, get percent_rate directly
+    [1, 2, 3, 4, 6, 7, 8].forEach((processId) => {
+      queryPromises.push(
+        new Promise((resolve, reject) => {
+          connection.query(
+            `SELECT id_process, percent_rate FROM tb_process_${processId} WHERE id_plan = ?`,
+            [id_plan],
+            (err, results) => {
+              if (err) {
+                reject(err);
+              } else {
+                // If no results, return 0 as the percent_rate
+                const rate =
+                  results.length > 0 ? results[0].percent_rate || 0 : 0;
+                resolve({ id_process: processId, percent_rate: rate });
+              }
+            }
+          );
+        })
+      );
+    });
+
+    // For process 5, calculate average of prepare_rate from both tables
+    queryPromises.push(
+      new Promise((resolve, reject) => {
+        connection.query(
+          `SELECT AVG(prepare_rate) as avg_rate FROM tb_process_5_preparing_machine WHERE id_plan = ?`,
+          [id_plan],
+          (err, preparingResults) => {
+            if (err) {
+              reject(err);
+            } else {
+              connection.query(
+                `SELECT AVG(prepare_rate) as avg_rate FROM tb_process_5_preventive_machine WHERE id_plan = ?`,
+                [id_plan],
+                (err, preventiveResults) => {
+                  if (err) {
+                    reject(err);
+                  } else {
+                    // Get the average rates, default to 0 if null
+                    const preparingRate =
+                      preparingResults.length > 0
+                        ? preparingResults[0].avg_rate || 0
+                        : 0;
+                    const preventiveRate =
+                      preventiveResults.length > 0
+                        ? preventiveResults[0].avg_rate || 0
+                        : 0;
+
+                    // Calculate the average of both rates
+                    const avgRate =
+                      (parseFloat(preparingRate) + parseFloat(preventiveRate)) /
+                      2;
+
+                    resolve({
+                      id_process: 5,
+                      percent_rate: Math.round(avgRate),
+                    });
+                  }
+                }
+              );
+            }
+          }
+        );
+      })
+    );
+
+    // Execute all queries and return the results
+    Promise.all(queryPromises)
+      .then((results) => {
+        connection.release();
+        res.json(results);
+      })
+      .catch((err) => {
+        connection.release();
+        console.error("Error fetching process rates:", err);
+        res.status(500).json({ success: false, message: "Database error" });
+      });
+  });
+});
+
+// API lấy các bước công việc của một quy trình
+app.get("/api/work-steps/:id_process", authenticateToken, (req, res) => {
+  const { id_process } = req.params;
+
+  mysqlConnection.query(
+    "SELECT * FROM tb_work_steps WHERE id_process = ? ORDER BY order_of_appearance ASC",
+    [id_process],
+    (err, results) => {
+      if (err) {
+        console.error("Error fetching work steps:", err);
         return res
           .status(500)
           .json({ success: false, message: "Database error" });

@@ -294,3 +294,14 @@ CREATE TABLE tb_work_steps_role
 	id_role BIGINT,
 	UNIQUE (id_work_steps, id_role)
 );
+
+CREATE TABLE tb_log
+(
+	id_log BIGINT NOT NULL AUTO_INCREMENT,
+	history_log TEXT,
+
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	
+	PRIMARY KEY (id_log)	
+);
