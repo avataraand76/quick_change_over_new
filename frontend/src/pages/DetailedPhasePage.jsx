@@ -238,7 +238,7 @@ const DetailedPhasePage = () => {
           }}
         >
           <Typography variant="h5" fontWeight="bold">
-            CHI TIẾT KẾ HOẠCH CHUYỂN ĐỔI
+            THÔNG TIN CHI TIẾT KẾ HOẠCH CHUYỂN ĐỔI
           </Typography>
         </Box>
 
@@ -516,6 +516,7 @@ const DetailedPhasePage = () => {
                             <Typography
                               variant="body2"
                               fontWeight="bold"
+                              color={getProgressColor(rate)}
                             >{`${rate}%`}</Typography>
                           </Box>
                         </Box>

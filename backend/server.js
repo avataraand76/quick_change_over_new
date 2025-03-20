@@ -9,6 +9,7 @@ const { google } = require("googleapis");
 const { Readable } = require("stream");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+const bodyParser = require("body-parser");
 require("dotenv").config();
 
 const app = express();
@@ -241,11 +242,11 @@ app.get("/api/lines-styles", authenticateToken, async (req, res) => {
       LEFT JOIN [HiPro].[dbo].[NV_SoDoChuyen] sdc ON c.oid_mapping = sdc.Chuyen
       LEFT JOIN [HiPro].[dbo].[NV_QuiTrinhCongNghe] qtcn ON sdc.QuiTrinh = qtcn.Oid
       LEFT JOIN [HiPro].[dbo].[DM_SanPham] sp ON qtcn.SanPham = sp.Oid
-      WHERE c.stt IS NOT NULL  -- Chỉ lấy các chuyền có số thứ tự
-        AND sp.MaSanPham IS NOT NULL  -- Chỉ lấy các mã hàng có giá trị
+      WHERE c.stt IS NOT NULL
+        AND sp.MaSanPham IS NOT NULL
       ORDER BY 
-        c.stt ASC,            -- Sắp xếp chuyền theo thứ tự tăng dần
-        sp.MaSanPham ASC      -- Sắp xếp mã hàng theo alphabet
+        c.stt ASC,
+        sp.MaSanPham ASC
     `);
     res.json(result.recordset);
   } catch (err) {
@@ -983,6 +984,1007 @@ app.get("/api/work-steps/:id_process", authenticateToken, (req, res) => {
     }
   );
 });
+
+// API lấy dữ liệu downtime cho một kế hoạch trong ISSUE LOGGER mysql
+app.get(
+  "/api/plans/:id_plan/downtime-issues",
+  authenticateToken,
+  (req, res) => {
+    try {
+      const { id_plan } = req.params;
+
+      // First get the CO data and plan data to get the line and style
+      mysqlConnection.query(
+        "SELECT p.line, p.style, c.CO_begin_date, c.CO_end_date FROM tb_plan p JOIN tb_co c ON p.id_plan = c.id_plan WHERE p.id_plan = ?",
+        [id_plan],
+        (err, results) => {
+          if (err) {
+            console.error("Error fetching plan and CO data:", err);
+            return res
+              .status(500)
+              .json({ success: false, message: "Database error" });
+          }
+
+          if (results.length === 0) {
+            return res.json([]);
+          }
+
+          const planData = results[0];
+
+          // Check if any of the required date fields are missing
+          if (!planData.CO_begin_date || !planData.CO_end_date) {
+            // Return empty array if either date is missing
+            return res.json([]);
+          }
+
+          const lineNumber = planData.line;
+          const productCode = planData.style;
+
+          // Special handling for line 2001, normal handling for others
+          let lineNumberCondition;
+          let lineParams = [];
+          if (lineNumber === "2001") {
+            const formattedLineBase = "20.01";
+            lineNumberCondition =
+              "(line_number = ? OR line_number = ? OR line_number = ?)";
+            lineParams.push(
+              `Tổ ${formattedLineBase}`,
+              `Tổ ${formattedLineBase}A`,
+              `Tổ ${formattedLineBase}B`
+            );
+          } else {
+            lineNumberCondition = "line_number = ?";
+            lineParams.push(`Tổ ${lineNumber}`);
+          }
+
+          // Create a condition to match each character in the product code
+          const productCodeChars = productCode.split("");
+          const productCodeConditions = productCodeChars
+            .map(() => "new_product_code LIKE ?")
+            .join(" OR ");
+
+          // Create parameters for product code conditions
+          const productCodeParams = productCodeChars.map((char) => `%${char}%`);
+
+          // Build the query with time range condition
+          let timeRangeCondition = "AND submission_time >= ? AND end_time <= ?";
+          let params = [
+            ...lineParams,
+            ...productCodeParams,
+            planData.CO_begin_date,
+            planData.CO_end_date,
+          ];
+
+          // Query the issue logger database
+          const query = `
+          SELECT 
+            i.id_logged_issue,
+            i.submission_time,
+            i.line_number,
+            i.station_number,
+            i.id_category,
+            c.name_category,
+            i.machinery_type,
+            i.machinery_code,
+            i.issue_description,
+            i.solution_description,
+            i.problem_solver,
+            i.responsible_person,
+            i.end_time,
+            i.downtime_minutes,
+            i.old_product_code,
+            i.new_product_code,
+            i.workshop,
+            i.factory,
+            i.status_logged_issue
+          FROM tb_logged_issue i
+          LEFT JOIN tb_category c ON i.id_category = c.id_category
+          WHERE ${lineNumberCondition}
+            AND (${productCodeConditions})
+            ${timeRangeCondition}
+          ORDER BY i.submission_time ASC`;
+
+          issueLoggerConnection.query(query, params, (err, results) => {
+            if (err) {
+              console.error("Error fetching downtime issues:", err);
+              return res
+                .status(500)
+                .json({ success: false, message: "Database error" });
+            }
+
+            res.json(results);
+          });
+        }
+      );
+    } catch (error) {
+      console.error("Error in downtime issues endpoint:", error);
+      res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+);
+
+// Setup Google Drive API
+let drive;
+
+// Initialize Google Drive API client
+const initDriveClient = async () => {
+  try {
+    // Sử dụng OAuth2 thay vì Service Account
+    const oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URI
+    );
+
+    // Đặt credentials với refresh token từ .env
+    oauth2Client.setCredentials({
+      access_token: process.env.GOOGLE_ACCESS_TOKEN,
+      refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+    });
+
+    drive = google.drive({ version: "v3", auth: oauth2Client });
+    console.log("Google Drive API client initialized successfully with OAuth2");
+  } catch (error) {
+    console.error("Error initializing Google Drive API client:", error);
+  }
+};
+
+// Call the init function when server starts
+initDriveClient();
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Convert Buffer to string with UTF-8 encoding
+    file.originalname = Buffer.from(file.originalname, "latin1").toString(
+      "utf8"
+    );
+    cb(null, true);
+  },
+});
+
+// Upload documentation file to Google Drive and update tb_process_1
+app.post(
+  "/api/process1/upload-documentation",
+  authenticateToken,
+  upload.array("files", 10),
+  async (req, res) => {
+    try {
+      const files = req.files;
+      const id_plan = req.body.id_plan;
+
+      if (!files || files.length === 0) {
+        return res
+          .status(400)
+          .json({ success: false, message: "No files uploaded" });
+      }
+
+      if (!id_plan) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Plan ID is required" });
+      }
+
+      const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
+
+      const planQuery =
+        "SELECT p.line, p.style, proc.documentation FROM tb_plan p JOIN tb_process_1 proc ON p.id_plan = proc.id_plan WHERE p.id_plan = ?";
+
+      mysqlConnection.query(planQuery, [id_plan], async (err, planResults) => {
+        if (err) {
+          console.error("Error fetching plan details:", err);
+          return res
+            .status(500)
+            .json({ success: false, message: "Database error" });
+        }
+
+        if (planResults.length === 0) {
+          return res
+            .status(404)
+            .json({ success: false, message: "Plan not found" });
+        }
+
+        const { line, style, documentation } = planResults[0];
+
+        try {
+          const newDocUrls = [];
+
+          const uploadPromises = files.map(async (file) => {
+            const fileStream = new Readable();
+            fileStream.push(file.buffer);
+            fileStream.push(null);
+
+            const fileName = file.originalname; // Keep original filename
+
+            const driveResponse = await drive.files.create({
+              requestBody: {
+                name: fileName,
+                mimeType: file.mimetype,
+                parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
+              },
+              media: {
+                mimeType: file.mimetype,
+                body: fileStream,
+              },
+            });
+
+            const fileId = driveResponse.data.id;
+
+            await drive.permissions.create({
+              fileId: fileId,
+              requestBody: {
+                role: "reader",
+                type: "anyone",
+              },
+            });
+
+            const getFileResponse = await drive.files.get({
+              fileId: fileId,
+              fields: "webViewLink, webContentLink", // Add webContentLink for direct viewing
+            });
+
+            return {
+              url: getFileResponse.data.webViewLink,
+              directUrl: getFileResponse.data.webContentLink,
+              filename: fileName,
+            };
+          });
+
+          const uploadResults = await Promise.all(uploadPromises);
+          newDocUrls.push(...uploadResults);
+
+          let updatedDocumentation;
+          if (documentation && documentation.trim() !== "") {
+            updatedDocumentation = `${documentation}; ${newDocUrls
+              .map(
+                (result) =>
+                  `${result.url}|${result.directUrl}|${result.filename}`
+              )
+              .join("; ")}`;
+          } else {
+            updatedDocumentation = newDocUrls
+              .map(
+                (result) =>
+                  `${result.url}|${result.directUrl}|${result.filename}`
+              )
+              .join("; ");
+          }
+
+          mysqlConnection.getConnection((connErr, connection) => {
+            if (connErr) {
+              console.error("Error getting connection:", connErr);
+              return res
+                .status(500)
+                .json({ success: false, message: "Database connection error" });
+            }
+
+            connection.beginTransaction((transErr) => {
+              if (transErr) {
+                connection.release();
+                console.error("Error starting transaction:", transErr);
+                return res
+                  .status(500)
+                  .json({ success: false, message: "Transaction error" });
+              }
+
+              connection.query(
+                "UPDATE tb_process_1 SET documentation = ?, percent_rate = 100, updated_by = ? WHERE id_plan = ?",
+                [updatedDocumentation, updated_by, id_plan],
+                (updateErr) => {
+                  if (updateErr) {
+                    return connection.rollback(() => {
+                      connection.release();
+                      console.error("Error updating documentation:", updateErr);
+                      res.status(500).json({
+                        success: false,
+                        message: "Database update error",
+                      });
+                    });
+                  }
+
+                  const fileNames = files
+                    .map((file) => file.originalname)
+                    .join(", ");
+                  const history_log = `${updated_by} đã tải lên ${files.length} tài liệu minh chứng [${fileNames}] cho quy trình 1 (Nghiên cứu mẫu gốc) của chuyền [${line}], mã hàng [${style}] và đã hoàn thành 100% quy trình`;
+
+                  connection.query(
+                    "INSERT INTO tb_log (history_log) VALUES (?)",
+                    [history_log],
+                    (logErr) => {
+                      if (logErr) {
+                        return connection.rollback(() => {
+                          connection.release();
+                          console.error("Error creating log entry:", logErr);
+                          res.status(500).json({
+                            success: false,
+                            message: "Database log error",
+                          });
+                        });
+                      }
+
+                      connection.commit((commitErr) => {
+                        if (commitErr) {
+                          return connection.rollback(() => {
+                            connection.release();
+                            console.error(
+                              "Error committing transaction:",
+                              commitErr
+                            );
+                            res.status(500).json({
+                              success: false,
+                              message: "Transaction commit error",
+                            });
+                          });
+                        }
+
+                        connection.release();
+                        res.json({
+                          success: true,
+                          message: `${files.length} files uploaded successfully`,
+                          updatedDocumentation,
+                        });
+                      });
+                    }
+                  );
+                }
+              );
+            });
+          });
+        } catch (uploadError) {
+          console.error("Error uploading to Google Drive:", uploadError);
+          res.status(500).json({
+            success: false,
+            message: "Error uploading to Google Drive",
+          });
+        }
+      });
+    } catch (error) {
+      console.error("Server error during file upload:", error);
+      res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+);
+
+// Delete documentation file entry
+app.delete(
+  "/api/process1/delete-documentation/:id_plan",
+  authenticateToken,
+  async (req, res) => {
+    const { id_plan } = req.params;
+    const { index } = req.query;
+
+    // Get user info from token for logging and tracking
+    const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
+
+    if (!index && index !== "0") {
+      return res.status(400).json({ message: "Index parameter is required" });
+    }
+
+    const indexNum = parseInt(index, 10);
+    if (isNaN(indexNum)) {
+      return res.status(400).json({ message: "Index must be a number" });
+    }
+
+    // Get the current documentation
+    mysqlConnection.query(
+      "SELECT documentation FROM tb_process_1 WHERE id_plan = ?",
+      [id_plan],
+      async (err, results) => {
+        if (err) {
+          console.error("Error fetching documentation:", err);
+          return res
+            .status(500)
+            .json({ success: false, message: "Database error" });
+        }
+
+        if (results.length === 0) {
+          return res
+            .status(404)
+            .json({ success: false, message: "Process not found" });
+        }
+
+        const { documentation } = results[0];
+
+        if (!documentation) {
+          return res.status(404).json({ message: "No documentation found" });
+        }
+
+        // Split the documentation string and remove the specified entry
+        const documentationEntries = documentation.split("; ");
+
+        if (indexNum < 0 || indexNum >= documentationEntries.length) {
+          return res.status(400).json({ message: "Index out of bounds" });
+        }
+
+        // Get the file to delete
+        const fileToDelete = documentationEntries[indexNum];
+        const fileId = fileToDelete.match(/[-\w]{25,}/)?.[0]; // Extract Google Drive file ID
+
+        // Start a transaction
+        mysqlConnection.getConnection((connErr, connection) => {
+          if (connErr) {
+            console.error("Error getting connection:", connErr);
+            return res
+              .status(500)
+              .json({ success: false, message: "Database connection error" });
+          }
+
+          connection.beginTransaction(async (transErr) => {
+            if (transErr) {
+              connection.release();
+              console.error("Error starting transaction:", transErr);
+              return res
+                .status(500)
+                .json({ success: false, message: "Transaction error" });
+            }
+
+            try {
+              // Delete file from Google Drive if fileId exists
+              if (fileId) {
+                await drive.files.delete({ fileId });
+              }
+
+              // Remove the entry from the array
+              documentationEntries.splice(indexNum, 1);
+
+              // Rebuild the documentation string
+              const newDocumentation =
+                documentationEntries.length > 0
+                  ? documentationEntries.join("; ")
+                  : null;
+
+              // Update the documentation field and conditionally set percent_rate
+              const percentRate = newDocumentation ? 100 : 0;
+
+              connection.query(
+                "UPDATE tb_process_1 SET documentation = ?, percent_rate = ?, updated_by = ? WHERE id_plan = ?",
+                [newDocumentation, percentRate, updated_by, id_plan],
+                (updateErr) => {
+                  if (updateErr) {
+                    return connection.rollback(() => {
+                      connection.release();
+                      console.error("Error updating documentation:", updateErr);
+                      res.status(500).json({
+                        success: false,
+                        message: "Database update error",
+                      });
+                    });
+                  }
+
+                  // Log the action using format consistent with other logs
+                  const history_log = `${updated_by} đã xóa tài liệu minh chứng từ quy trình 1 (Nghiên cứu mẫu gốc)`;
+
+                  connection.query(
+                    "INSERT INTO tb_log (history_log) VALUES (?)",
+                    [history_log],
+                    (logErr) => {
+                      if (logErr) {
+                        return connection.rollback(() => {
+                          connection.release();
+                          console.error("Error creating log entry:", logErr);
+                          res.status(500).json({
+                            success: false,
+                            message: "Database log error",
+                          });
+                        });
+                      }
+
+                      // Commit transaction
+                      connection.commit((commitErr) => {
+                        if (commitErr) {
+                          return connection.rollback(() => {
+                            connection.release();
+                            console.error(
+                              "Error committing transaction:",
+                              commitErr
+                            );
+                            res.status(500).json({
+                              success: false,
+                              message: "Commit error",
+                            });
+                          });
+                        }
+
+                        connection.release();
+                        res.json({
+                          success: true,
+                          message: "Documentation file deleted successfully",
+                          documentation: newDocumentation,
+                        });
+                      });
+                    }
+                  );
+                }
+              );
+            } catch (error) {
+              return connection.rollback(() => {
+                connection.release();
+                console.error("Error deleting file from Google Drive:", error);
+                res.status(500).json({
+                  success: false,
+                  message: "Error deleting file from Google Drive",
+                });
+              });
+            }
+          });
+        });
+      }
+    );
+  }
+);
+
+// Get documentation files for Process 1
+app.get(
+  "/api/process1/documentation/:id_plan",
+  authenticateToken,
+  (req, res) => {
+    const { id_plan } = req.params;
+
+    mysqlConnection.query(
+      "SELECT documentation FROM tb_process_1 WHERE id_plan = ?",
+      [id_plan],
+      (err, results) => {
+        if (err) {
+          console.error("Error fetching documentation:", err);
+          return res
+            .status(500)
+            .json({ success: false, message: "Database error" });
+        }
+
+        if (results.length === 0) {
+          return res
+            .status(404)
+            .json({ success: false, message: "Process not found" });
+        }
+
+        const { documentation } = results[0];
+
+        // If no documentation, return empty array
+        if (!documentation) {
+          return res.json({ files: [] });
+        }
+
+        // Split documentation by "; " and parse each entry
+        const files = documentation.split("; ").map((doc, index) => {
+          const [url, directUrl, filename] = doc.split("|");
+          return {
+            id: index,
+            url: url,
+            directUrl: directUrl || url,
+            filename: filename || "Unknown File",
+          };
+        });
+
+        res.json({ files });
+      }
+    );
+  }
+);
+
+// Upload A3 documentation file to Google Drive and update tb_process_1
+app.post(
+  "/api/process1/upload-a3-documentation",
+  authenticateToken,
+  upload.array("files", 10),
+  async (req, res) => {
+    try {
+      const files = req.files;
+      const id_plan = req.body.id_plan;
+
+      if (!files || files.length === 0) {
+        return res
+          .status(400)
+          .json({ success: false, message: "No files uploaded" });
+      }
+
+      if (!id_plan) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Plan ID is required" });
+      }
+
+      const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
+
+      const planQuery =
+        "SELECT p.line, p.style, proc.A3_documentation FROM tb_plan p JOIN tb_process_1 proc ON p.id_plan = proc.id_plan WHERE p.id_plan = ?";
+      mysqlConnection.query(planQuery, [id_plan], async (err, planResults) => {
+        if (err) {
+          console.error("Error fetching plan details:", err);
+          return res
+            .status(500)
+            .json({ success: false, message: "Database error" });
+        }
+
+        if (planResults.length === 0) {
+          return res
+            .status(404)
+            .json({ success: false, message: "Plan not found" });
+        }
+
+        const { line, style, A3_documentation } = planResults[0];
+
+        try {
+          const newA3Urls = [];
+
+          const uploadPromises = files.map(async (file) => {
+            const fileStream = new Readable();
+            fileStream.push(file.buffer);
+            fileStream.push(null);
+
+            const fileName = file.originalname; // Keep original filename
+
+            const driveResponse = await drive.files.create({
+              requestBody: {
+                name: fileName,
+                mimeType: file.mimetype,
+                parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
+              },
+              media: {
+                mimeType: file.mimetype,
+                body: fileStream,
+              },
+            });
+
+            const fileId = driveResponse.data.id;
+
+            await drive.permissions.create({
+              fileId: fileId,
+              requestBody: {
+                role: "reader",
+                type: "anyone",
+              },
+            });
+
+            const getFileResponse = await drive.files.get({
+              fileId: fileId,
+              fields: "webViewLink, webContentLink", // Add webContentLink for direct viewing
+            });
+
+            return {
+              url: getFileResponse.data.webViewLink,
+              directUrl: getFileResponse.data.webContentLink,
+              filename: fileName,
+            };
+          });
+
+          const uploadResults = await Promise.all(uploadPromises);
+          newA3Urls.push(...uploadResults);
+
+          let updatedA3Documentation;
+          if (A3_documentation && A3_documentation.trim() !== "") {
+            updatedA3Documentation = `${A3_documentation}; ${newA3Urls
+              .map(
+                (result) =>
+                  `${result.url}|${result.directUrl}|${result.filename}`
+              )
+              .join("; ")}`;
+          } else {
+            updatedA3Documentation = newA3Urls
+              .map(
+                (result) =>
+                  `${result.url}|${result.directUrl}|${result.filename}`
+              )
+              .join("; ");
+          }
+
+          mysqlConnection.getConnection((connErr, connection) => {
+            if (connErr) {
+              console.error("Error getting connection:", connErr);
+              return res
+                .status(500)
+                .json({ success: false, message: "Database connection error" });
+            }
+
+            connection.beginTransaction((transErr) => {
+              if (transErr) {
+                connection.release();
+                console.error("Error starting transaction:", transErr);
+                return res
+                  .status(500)
+                  .json({ success: false, message: "Transaction error" });
+              }
+
+              connection.query(
+                "UPDATE tb_process_1 SET A3_documentation = ?, updated_by = ? WHERE id_plan = ?",
+                [updatedA3Documentation, updated_by, id_plan],
+                (updateErr) => {
+                  if (updateErr) {
+                    return connection.rollback(() => {
+                      connection.release();
+                      console.error(
+                        "Error updating A3 documentation:",
+                        updateErr
+                      );
+                      res.status(500).json({
+                        success: false,
+                        message: "Database update error",
+                      });
+                    });
+                  }
+
+                  const fileNames = files
+                    .map((file) => file.originalname)
+                    .join(", ");
+                  const history_log = `${updated_by} đã tải lên ${files.length} tài liệu A3 khắc phục [${fileNames}] cho quy trình 1 (Nghiên cứu mẫu gốc) của chuyền [${line}], mã hàng [${style}]`;
+
+                  connection.query(
+                    "INSERT INTO tb_log (history_log) VALUES (?)",
+                    [history_log],
+                    (logErr) => {
+                      if (logErr) {
+                        return connection.rollback(() => {
+                          connection.release();
+                          console.error("Error creating log entry:", logErr);
+                          res.status(500).json({
+                            success: false,
+                            message: "Database log error",
+                          });
+                        });
+                      }
+
+                      connection.commit((commitErr) => {
+                        if (commitErr) {
+                          return connection.rollback(() => {
+                            connection.release();
+                            console.error(
+                              "Error committing transaction:",
+                              commitErr
+                            );
+                            res.status(500).json({
+                              success: false,
+                              message: "Transaction commit error",
+                            });
+                          });
+                        }
+
+                        connection.release();
+                        res.json({
+                          success: true,
+                          message: `${files.length} A3 files uploaded successfully`,
+                          updatedA3Documentation,
+                        });
+                      });
+                    }
+                  );
+                }
+              );
+            });
+          });
+        } catch (uploadError) {
+          console.error("Error uploading to Google Drive:", uploadError);
+          res.status(500).json({
+            success: false,
+            message: "Error uploading to Google Drive",
+          });
+        }
+      });
+    } catch (error) {
+      console.error("Server error during file upload:", error);
+      res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+);
+
+// Get A3 documentation files for Process 1
+app.get(
+  "/api/process1/a3-documentation/:id_plan",
+  authenticateToken,
+  (req, res) => {
+    const { id_plan } = req.params;
+
+    mysqlConnection.query(
+      "SELECT A3_documentation FROM tb_process_1 WHERE id_plan = ?",
+      [id_plan],
+      (err, results) => {
+        if (err) {
+          console.error("Error fetching A3 documentation:", err);
+          return res
+            .status(500)
+            .json({ success: false, message: "Database error" });
+        }
+
+        if (results.length === 0) {
+          return res
+            .status(404)
+            .json({ success: false, message: "Process not found" });
+        }
+
+        const { A3_documentation } = results[0];
+
+        // If no documentation, return empty array
+        if (!A3_documentation) {
+          return res.json({ files: [] });
+        }
+
+        // Split documentation by "; " and parse each entry
+        const files = A3_documentation.split("; ").map((doc, index) => {
+          const [url, directUrl, filename] = doc.split("|");
+          return {
+            id: index,
+            url: url,
+            directUrl: directUrl || url,
+            filename: filename || "Unknown File",
+          };
+        });
+
+        res.json({ files });
+      }
+    );
+  }
+);
+
+// Delete an A3 documentation file from Process 1
+app.delete(
+  "/api/process1/delete-a3-documentation/:id_plan",
+  authenticateToken,
+  async (req, res) => {
+    const { id_plan } = req.params;
+    const { index } = req.query;
+
+    // Get user info from token for logging and tracking
+    const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
+
+    if (!index && index !== "0") {
+      return res.status(400).json({ message: "Index parameter is required" });
+    }
+
+    const indexNum = parseInt(index, 10);
+    if (isNaN(indexNum)) {
+      return res.status(400).json({ message: "Index must be a number" });
+    }
+
+    // Get the current A3 documentation
+    mysqlConnection.query(
+      "SELECT A3_documentation FROM tb_process_1 WHERE id_plan = ?",
+      [id_plan],
+      async (err, results) => {
+        if (err) {
+          console.error("Error fetching A3 documentation:", err);
+          return res
+            .status(500)
+            .json({ success: false, message: "Database error" });
+        }
+
+        if (results.length === 0) {
+          return res
+            .status(404)
+            .json({ success: false, message: "Process not found" });
+        }
+
+        const { A3_documentation } = results[0];
+
+        if (!A3_documentation) {
+          return res.status(404).json({ message: "No A3 documentation found" });
+        }
+
+        // Split the documentation string and remove the specified entry
+        const documentationEntries = A3_documentation.split("; ");
+
+        if (indexNum < 0 || indexNum >= documentationEntries.length) {
+          return res.status(400).json({ message: "Index out of bounds" });
+        }
+
+        // Get the file to delete
+        const fileToDelete = documentationEntries[indexNum];
+        const fileId = fileToDelete.match(/[-\w]{25,}/)?.[0]; // Extract Google Drive file ID
+
+        // Start a transaction
+        mysqlConnection.getConnection((connErr, connection) => {
+          if (connErr) {
+            console.error("Error getting connection:", connErr);
+            return res
+              .status(500)
+              .json({ success: false, message: "Database connection error" });
+          }
+
+          connection.beginTransaction(async (transErr) => {
+            if (transErr) {
+              connection.release();
+              console.error("Error starting transaction:", transErr);
+              return res
+                .status(500)
+                .json({ success: false, message: "Transaction error" });
+            }
+
+            try {
+              // Delete file from Google Drive if fileId exists
+              if (fileId) {
+                await drive.files.delete({ fileId });
+              }
+
+              // Remove the entry from the array
+              documentationEntries.splice(indexNum, 1);
+
+              // Rebuild the documentation string
+              const newDocumentation =
+                documentationEntries.length > 0
+                  ? documentationEntries.join("; ")
+                  : null;
+
+              // Update the documentation field
+              connection.query(
+                "UPDATE tb_process_1 SET A3_documentation = ?, updated_by = ? WHERE id_plan = ?",
+                [newDocumentation, updated_by, id_plan],
+                (updateErr) => {
+                  if (updateErr) {
+                    return connection.rollback(() => {
+                      connection.release();
+                      console.error(
+                        "Error updating A3 documentation:",
+                        updateErr
+                      );
+                      res.status(500).json({
+                        success: false,
+                        message: "Database update error",
+                      });
+                    });
+                  }
+
+                  // Log the action using format consistent with other logs
+                  const history_log = `${updated_by} đã xóa tài liệu A3 khắc phục từ quy trình 1 (Nghiên cứu mẫu gốc)`;
+
+                  connection.query(
+                    "INSERT INTO tb_log (history_log) VALUES (?)",
+                    [history_log],
+                    (logErr) => {
+                      if (logErr) {
+                        return connection.rollback(() => {
+                          connection.release();
+                          console.error("Error creating log entry:", logErr);
+                          res.status(500).json({
+                            success: false,
+                            message: "Database log error",
+                          });
+                        });
+                      }
+
+                      // Commit transaction
+                      connection.commit((commitErr) => {
+                        if (commitErr) {
+                          return connection.rollback(() => {
+                            connection.release();
+                            console.error(
+                              "Error committing transaction:",
+                              commitErr
+                            );
+                            res.status(500).json({
+                              success: false,
+                              message: "Commit error",
+                            });
+                          });
+                        }
+
+                        connection.release();
+                        res.json({
+                          success: true,
+                          message: "A3 documentation file deleted successfully",
+                          documentation: newDocumentation,
+                        });
+                      });
+                    }
+                  );
+                }
+              );
+            } catch (error) {
+              return connection.rollback(() => {
+                connection.release();
+                console.error("Error deleting file from Google Drive:", error);
+                res.status(500).json({
+                  success: false,
+                  message: "Error deleting file from Google Drive",
+                });
+              });
+            }
+          });
+        });
+      }
+    );
+  }
+);
 
 const PORT = process.env.MYSQL_PORT;
 app.listen(PORT, () => {
