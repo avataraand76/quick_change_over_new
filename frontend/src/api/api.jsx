@@ -128,8 +128,10 @@ let API = {
     }
   },
 
-  // Upload documentation file to Google Drive and update tb_process_1 documentation field
-  uploadDocumentationFile: async (id_plan, files) => {
+  // Generic documentation methods for all processes
+
+  // Upload documentation file to Google Drive and update the process table
+  uploadProcessDocumentation: async (processNum, id_plan, files) => {
     try {
       const formData = new FormData();
 
@@ -151,20 +153,23 @@ let API = {
       };
 
       const response = await axios.post(
-        `${API_URL}/api/process1/upload-documentation`,
+        `${API_URL}/api/process${processNum}/upload-documentation`,
         formData,
         config
       );
 
       return response.data;
     } catch (error) {
-      console.error("Error uploading documentation file:", error);
+      console.error(
+        `Error uploading documentation file for process ${processNum}:`,
+        error
+      );
       throw error;
     }
   },
 
-  // Upload A3 documentation file to Google Drive and update tb_process_1 A3_documentation field
-  uploadA3DocumentationFile: async (id_plan, files) => {
+  // Upload A3 documentation file to Google Drive and update process table
+  uploadProcessA3Documentation: async (processNum, id_plan, files) => {
     try {
       const formData = new FormData();
 
@@ -186,23 +191,26 @@ let API = {
       };
 
       const response = await axios.post(
-        `${API_URL}/api/process1/upload-a3-documentation`,
+        `${API_URL}/api/process${processNum}/upload-a3-documentation`,
         formData,
         config
       );
 
       return response.data;
     } catch (error) {
-      console.error("Error uploading A3 documentation file:", error);
+      console.error(
+        `Error uploading A3 documentation file for process ${processNum}:`,
+        error
+      );
       throw error;
     }
   },
 
-  // Get documentation files for Process 1
-  getProcess1Documentation: async (id_plan) => {
+  // Get documentation files
+  getProcessDocumentation: async (processNum, id_plan) => {
     try {
       const response = await httpConnect.get(
-        `/api/process1/documentation/${id_plan}`
+        `/api/process${processNum}/documentation/${id_plan}`
       );
       const files = response.data.files.map((file) => ({
         ...file,
@@ -212,32 +220,19 @@ let API = {
       }));
       return { files };
     } catch (error) {
-      console.error("Error fetching Process 1 documentation:", error);
-      throw error;
-    }
-  },
-
-  // Delete a documentation file from Process 1
-  deleteProcess1Documentation: async (id_plan, index) => {
-    try {
-      const response = await httpConnect.delete(
-        `/api/process1/delete-documentation/${id_plan}?index=${index}`
+      console.error(
+        `Error fetching process ${processNum} documentation:`,
+        error
       );
-      if (!response.data.success) {
-        throw new Error(response.data.message || "Failed to delete file");
-      }
-      return response.data;
-    } catch (error) {
-      console.error("Error deleting Process 1 documentation:", error);
       throw error;
     }
   },
 
-  // Get A3 documentation files for Process 1
-  getProcess1A3Documentation: async (id_plan) => {
+  // Get A3 documentation files
+  getProcessA3Documentation: async (processNum, id_plan) => {
     try {
       const response = await httpConnect.get(
-        `/api/process1/a3-documentation/${id_plan}`
+        `/api/process${processNum}/a3-documentation/${id_plan}`
       );
       const files = response.data.files.map((file) => ({
         ...file,
@@ -247,26 +242,92 @@ let API = {
       }));
       return { files };
     } catch (error) {
-      console.error("Error fetching Process 1 A3 documentation:", error);
+      console.error(
+        `Error fetching process ${processNum} A3 documentation:`,
+        error
+      );
       throw error;
     }
   },
 
-  // Delete an A3 documentation file from Process 1
-  deleteProcess1A3Documentation: async (id_plan, index) => {
+  // Delete a documentation file
+  deleteProcessDocumentation: async (processNum, id_plan, index) => {
     try {
       const response = await httpConnect.delete(
-        `/api/process1/delete-a3-documentation/${id_plan}?index=${index}`
+        `/api/process${processNum}/delete-documentation/${id_plan}?index=${index}`
       );
       if (!response.data.success) {
         throw new Error(response.data.message || "Failed to delete file");
       }
       return response.data;
     } catch (error) {
-      console.error("Error deleting Process 1 A3 documentation:", error);
+      console.error(
+        `Error deleting process ${processNum} documentation:`,
+        error
+      );
+      throw error;
+    }
+  },
+
+  // Delete an A3 documentation file
+  deleteProcessA3Documentation: async (processNum, id_plan, index) => {
+    try {
+      const response = await httpConnect.delete(
+        `/api/process${processNum}/delete-a3-documentation/${id_plan}?index=${index}`
+      );
+      if (!response.data.success) {
+        throw new Error(response.data.message || "Failed to delete file");
+      }
+      return response.data;
+    } catch (error) {
+      console.error(
+        `Error deleting process ${processNum} A3 documentation:`,
+        error
+      );
       throw error;
     }
   },
 };
+
+// Tự động tạo phương thức API cho tất cả các quy trình (1, 2, 3, 4, 6, 7, 8)
+// Cách này sẽ tạo ra các phương thức như uploadProcess1DocumentationFile, getProcess7Documentation, ...
+// mà không cần phải viết thủ công cho từng quy trình
+[1, 2, 3, 4, 6, 7, 8].forEach((processNum) => {
+  // Phương thức tải lên tài liệu thông thường
+  API[`uploadProcess${processNum}DocumentationFile`] = async (
+    id_plan,
+    files
+  ) => {
+    return API.uploadProcessDocumentation(processNum, id_plan, files);
+  };
+
+  // Phương thức tải lên tài liệu A3
+  API[`uploadProcess${processNum}A3DocumentationFile`] = async (
+    id_plan,
+    files
+  ) => {
+    return API.uploadProcessA3Documentation(processNum, id_plan, files);
+  };
+
+  // Phương thức lấy tài liệu thông thường
+  API[`getProcess${processNum}Documentation`] = async (id_plan) => {
+    return API.getProcessDocumentation(processNum, id_plan);
+  };
+
+  // Phương thức lấy tài liệu A3
+  API[`getProcess${processNum}A3Documentation`] = async (id_plan) => {
+    return API.getProcessA3Documentation(processNum, id_plan);
+  };
+
+  // Phương thức xóa tài liệu thông thường
+  API[`deleteProcess${processNum}Documentation`] = async (id_plan, index) => {
+    return API.deleteProcessDocumentation(processNum, id_plan, index);
+  };
+
+  // Phương thức xóa tài liệu A3
+  API[`deleteProcess${processNum}A3Documentation`] = async (id_plan, index) => {
+    return API.deleteProcessA3Documentation(processNum, id_plan, index);
+  };
+});
 
 export default API;

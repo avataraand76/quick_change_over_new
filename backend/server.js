@@ -1103,34 +1103,14 @@ app.get(
   }
 );
 
-// Setup Google Drive API
-let drive;
+// Setup Google Drive API using the auth utils
+const {
+  getDriveClient,
+  executeWithTokenRefresh,
+} = require("./utils/authUtils");
 
-// Initialize Google Drive API client
-const initDriveClient = async () => {
-  try {
-    // Sử dụng OAuth2 thay vì Service Account
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URI
-    );
-
-    // Đặt credentials với refresh token từ .env
-    oauth2Client.setCredentials({
-      access_token: process.env.GOOGLE_ACCESS_TOKEN,
-      refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
-    });
-
-    drive = google.drive({ version: "v3", auth: oauth2Client });
-    console.log("Google Drive API client initialized successfully with OAuth2");
-  } catch (error) {
-    console.error("Error initializing Google Drive API client:", error);
-  }
-};
-
-// Call the init function when server starts
-initDriveClient();
+// Get the drive client
+let drive = getDriveClient();
 
 // Configure multer for file uploads
 const upload = multer({
@@ -1147,213 +1127,281 @@ const upload = multer({
   },
 });
 
-// Upload documentation file to Google Drive and update tb_process_1
-app.post(
-  "/api/process1/upload-documentation",
-  authenticateToken,
-  upload.array("files", 10),
-  async (req, res) => {
-    try {
-      const files = req.files;
-      const id_plan = req.body.id_plan;
+// GENERIC DOCUMENTATION HANDLERS FOR ALL PROCESSES
 
-      if (!files || files.length === 0) {
-        return res
-          .status(400)
-          .json({ success: false, message: "No files uploaded" });
-      }
+/**
+ * Generic handler for uploading documentation files to Google Drive and updating the corresponding process table
+ * @param {string} processNum - The process number (e.g., 1, 2, 3, etc.)
+ * @param {string} processName - The display name of the process for logging
+ * @param {boolean} isA3 - Whether this is an A3 documentation or regular documentation
+ */
+const handleProcessDocumentationUpload = (
+  processNum,
+  processName,
+  isA3 = false
+) => {
+  const fieldName = isA3 ? "A3_documentation" : "documentation";
+  const routePath = isA3
+    ? `/api/process${processNum}/upload-a3-documentation`
+    : `/api/process${processNum}/upload-documentation`;
+  const tableName = `tb_process_${processNum}`;
 
-      if (!id_plan) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Plan ID is required" });
-      }
+  app.post(
+    routePath,
+    authenticateToken,
+    upload.array("files", 10),
+    async (req, res) => {
+      try {
+        const files = req.files;
+        const id_plan = req.body.id_plan;
 
-      const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
-
-      const planQuery =
-        "SELECT p.line, p.style, proc.documentation FROM tb_plan p JOIN tb_process_1 proc ON p.id_plan = proc.id_plan WHERE p.id_plan = ?";
-
-      mysqlConnection.query(planQuery, [id_plan], async (err, planResults) => {
-        if (err) {
-          console.error("Error fetching plan details:", err);
+        if (!files || files.length === 0) {
           return res
-            .status(500)
-            .json({ success: false, message: "Database error" });
+            .status(400)
+            .json({ success: false, message: "No files uploaded" });
         }
 
-        if (planResults.length === 0) {
+        if (!id_plan) {
           return res
-            .status(404)
-            .json({ success: false, message: "Plan not found" });
+            .status(400)
+            .json({ success: false, message: "Plan ID is required" });
         }
 
-        const { line, style, documentation } = planResults[0];
+        const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
 
-        try {
-          const newDocUrls = [];
+        const planQuery = `SELECT p.line, p.style, proc.${fieldName} FROM tb_plan p JOIN ${tableName} proc ON p.id_plan = proc.id_plan WHERE p.id_plan = ?`;
 
-          const uploadPromises = files.map(async (file) => {
-            const fileStream = new Readable();
-            fileStream.push(file.buffer);
-            fileStream.push(null);
-
-            const fileName = file.originalname; // Keep original filename
-
-            const driveResponse = await drive.files.create({
-              requestBody: {
-                name: fileName,
-                mimeType: file.mimetype,
-                parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
-              },
-              media: {
-                mimeType: file.mimetype,
-                body: fileStream,
-              },
-            });
-
-            const fileId = driveResponse.data.id;
-
-            await drive.permissions.create({
-              fileId: fileId,
-              requestBody: {
-                role: "reader",
-                type: "anyone",
-              },
-            });
-
-            const getFileResponse = await drive.files.get({
-              fileId: fileId,
-              fields: "webViewLink, webContentLink", // Add webContentLink for direct viewing
-            });
-
-            return {
-              url: getFileResponse.data.webViewLink,
-              directUrl: getFileResponse.data.webContentLink,
-              filename: fileName,
-            };
-          });
-
-          const uploadResults = await Promise.all(uploadPromises);
-          newDocUrls.push(...uploadResults);
-
-          let updatedDocumentation;
-          if (documentation && documentation.trim() !== "") {
-            updatedDocumentation = `${documentation}; ${newDocUrls
-              .map(
-                (result) =>
-                  `${result.url}|${result.directUrl}|${result.filename}`
-              )
-              .join("; ")}`;
-          } else {
-            updatedDocumentation = newDocUrls
-              .map(
-                (result) =>
-                  `${result.url}|${result.directUrl}|${result.filename}`
-              )
-              .join("; ");
-          }
-
-          mysqlConnection.getConnection((connErr, connection) => {
-            if (connErr) {
-              console.error("Error getting connection:", connErr);
+        mysqlConnection.query(
+          planQuery,
+          [id_plan],
+          async (err, planResults) => {
+            if (err) {
+              console.error("Error fetching plan details:", err);
               return res
                 .status(500)
-                .json({ success: false, message: "Database connection error" });
+                .json({ success: false, message: "Database error" });
             }
 
-            connection.beginTransaction((transErr) => {
-              if (transErr) {
-                connection.release();
-                console.error("Error starting transaction:", transErr);
-                return res
-                  .status(500)
-                  .json({ success: false, message: "Transaction error" });
+            if (planResults.length === 0) {
+              return res
+                .status(404)
+                .json({ success: false, message: "Plan not found" });
+            }
+
+            const { line, style } = planResults[0];
+            const existingDocumentation = planResults[0][fieldName];
+
+            try {
+              const newDocUrls = [];
+
+              // Process each file with retry mechanism in case of token expiration
+              const uploadPromises = files.map(async (file) => {
+                let fileStream;
+                let fileName;
+
+                try {
+                  // Try to upload the file with token refresh mechanism
+                  return await executeWithTokenRefresh(async () => {
+                    // Create a new readable stream for each attempt
+                    fileStream = new Readable();
+                    fileStream.push(file.buffer);
+                    fileStream.push(null);
+                    fileName = file.originalname;
+
+                    const driveResponse = await drive.files.create({
+                      requestBody: {
+                        name: fileName,
+                        mimeType: file.mimetype,
+                        parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
+                      },
+                      media: {
+                        mimeType: file.mimetype,
+                        body: fileStream,
+                      },
+                    });
+
+                    const fileId = driveResponse.data.id;
+
+                    await drive.permissions.create({
+                      fileId: fileId,
+                      requestBody: {
+                        role: "reader",
+                        type: "anyone",
+                      },
+                    });
+
+                    const getFileResponse = await drive.files.get({
+                      fileId: fileId,
+                      fields: "webViewLink, webContentLink",
+                    });
+
+                    return {
+                      url: getFileResponse.data.webViewLink,
+                      directUrl: getFileResponse.data.webContentLink,
+                      filename: fileName,
+                    };
+                  });
+                } catch (uploadError) {
+                  console.error(
+                    `Error uploading file ${file.originalname}:`,
+                    uploadError
+                  );
+                  throw uploadError;
+                }
+              });
+
+              const uploadResults = await Promise.all(uploadPromises);
+              newDocUrls.push(...uploadResults);
+
+              let updatedDocumentation;
+              if (
+                existingDocumentation &&
+                existingDocumentation.trim() !== ""
+              ) {
+                updatedDocumentation = `${existingDocumentation}; ${newDocUrls
+                  .map((result) => `${result.directUrl}|${result.filename}`)
+                  .join("; ")}`;
+              } else {
+                updatedDocumentation = newDocUrls
+                  .map((result) => `${result.directUrl}|${result.filename}`)
+                  .join("; ");
               }
 
-              connection.query(
-                "UPDATE tb_process_1 SET documentation = ?, percent_rate = 100, updated_by = ? WHERE id_plan = ?",
-                [updatedDocumentation, updated_by, id_plan],
-                (updateErr) => {
-                  if (updateErr) {
-                    return connection.rollback(() => {
-                      connection.release();
-                      console.error("Error updating documentation:", updateErr);
-                      res.status(500).json({
-                        success: false,
-                        message: "Database update error",
-                      });
-                    });
+              mysqlConnection.getConnection((connErr, connection) => {
+                if (connErr) {
+                  console.error("Error getting connection:", connErr);
+                  return res.status(500).json({
+                    success: false,
+                    message: "Database connection error",
+                  });
+                }
+
+                connection.beginTransaction((transErr) => {
+                  if (transErr) {
+                    connection.release();
+                    console.error("Error starting transaction:", transErr);
+                    return res
+                      .status(500)
+                      .json({ success: false, message: "Transaction error" });
                   }
 
-                  const fileNames = files
-                    .map((file) => file.originalname)
-                    .join(", ");
-                  const history_log = `${updated_by} đã tải lên ${files.length} tài liệu minh chứng [${fileNames}] cho quy trình 1 (Nghiên cứu mẫu gốc) của chuyền [${line}], mã hàng [${style}] và đã hoàn thành 100% quy trình`;
+                  // Set percent_rate to 100 only if this is regular documentation (not A3)
+                  const updateSQL = isA3
+                    ? `UPDATE ${tableName} SET ${fieldName} = ?, updated_by = ? WHERE id_plan = ?`
+                    : `UPDATE ${tableName} SET ${fieldName} = ?, percent_rate = 100, updated_by = ? WHERE id_plan = ?`;
 
                   connection.query(
-                    "INSERT INTO tb_log (history_log) VALUES (?)",
-                    [history_log],
-                    (logErr) => {
-                      if (logErr) {
+                    updateSQL,
+                    [updatedDocumentation, updated_by, id_plan],
+                    (updateErr) => {
+                      if (updateErr) {
                         return connection.rollback(() => {
                           connection.release();
-                          console.error("Error creating log entry:", logErr);
+                          console.error(
+                            `Error updating ${fieldName}:`,
+                            updateErr
+                          );
                           res.status(500).json({
                             success: false,
-                            message: "Database log error",
+                            message: "Database update error",
                           });
                         });
                       }
 
-                      connection.commit((commitErr) => {
-                        if (commitErr) {
-                          return connection.rollback(() => {
+                      const fileNames = files
+                        .map((file) => file.originalname)
+                        .join(", ");
+
+                      const docType = isA3
+                        ? "tài liệu A3 khắc phục"
+                        : "tài liệu minh chứng";
+                      const completionText = isA3
+                        ? ""
+                        : " và đã hoàn thành 100% quy trình";
+
+                      const history_log = `${updated_by} đã tải lên ${files.length} ${docType} [${fileNames}] cho quy trình ${processNum} (${processName}) của chuyền [${line}], mã hàng [${style}]${completionText}`;
+
+                      connection.query(
+                        "INSERT INTO tb_log (history_log) VALUES (?)",
+                        [history_log],
+                        (logErr) => {
+                          if (logErr) {
+                            return connection.rollback(() => {
+                              connection.release();
+                              console.error(
+                                "Error creating log entry:",
+                                logErr
+                              );
+                              res.status(500).json({
+                                success: false,
+                                message: "Database log error",
+                              });
+                            });
+                          }
+
+                          connection.commit((commitErr) => {
+                            if (commitErr) {
+                              return connection.rollback(() => {
+                                connection.release();
+                                console.error(
+                                  "Error committing transaction:",
+                                  commitErr
+                                );
+                                res.status(500).json({
+                                  success: false,
+                                  message: "Transaction commit error",
+                                });
+                              });
+                            }
+
                             connection.release();
-                            console.error(
-                              "Error committing transaction:",
-                              commitErr
-                            );
-                            res.status(500).json({
-                              success: false,
-                              message: "Transaction commit error",
+                            res.json({
+                              success: true,
+                              message: `${files.length} files uploaded successfully`,
+                              updatedDocumentation,
                             });
                           });
                         }
-
-                        connection.release();
-                        res.json({
-                          success: true,
-                          message: `${files.length} files uploaded successfully`,
-                          updatedDocumentation,
-                        });
-                      });
+                      );
                     }
                   );
-                }
-              );
-            });
-          });
-        } catch (uploadError) {
-          console.error("Error uploading to Google Drive:", uploadError);
-          res.status(500).json({
-            success: false,
-            message: "Error uploading to Google Drive",
-          });
-        }
-      });
-    } catch (error) {
-      console.error("Server error during file upload:", error);
-      res.status(500).json({ success: false, message: "Server error" });
+                });
+              });
+            } catch (uploadError) {
+              console.error("Error uploading to Google Drive:", uploadError);
+              res.status(500).json({
+                success: false,
+                message: "Error uploading to Google Drive",
+              });
+            }
+          }
+        );
+      } catch (error) {
+        console.error("Server error during file upload:", error);
+        res.status(500).json({ success: false, message: "Server error" });
+      }
     }
-  }
-);
+  );
+};
 
-// Delete documentation file entry
-app.delete(
-  "/api/process1/delete-documentation/:id_plan",
-  authenticateToken,
-  async (req, res) => {
+/**
+ * Generic handler for deleting documentation files from Google Drive and updating the process table
+ * @param {string} processNum - The process number (e.g., 1, 2, 3, etc.)
+ * @param {string} processName - The display name of the process for logging
+ * @param {boolean} isA3 - Whether this is an A3 documentation or regular documentation
+ */
+const handleProcessDocumentationDelete = (
+  processNum,
+  processName,
+  isA3 = false
+) => {
+  const fieldName = isA3 ? "A3_documentation" : "documentation";
+  const routePath = isA3
+    ? `/api/process${processNum}/delete-a3-documentation/:id_plan`
+    : `/api/process${processNum}/delete-documentation/:id_plan`;
+  const tableName = `tb_process_${processNum}`;
+
+  app.delete(routePath, authenticateToken, async (req, res) => {
     const { id_plan } = req.params;
     const { index } = req.query;
 
@@ -1371,11 +1419,11 @@ app.delete(
 
     // Get the current documentation
     mysqlConnection.query(
-      "SELECT documentation FROM tb_process_1 WHERE id_plan = ?",
+      `SELECT ${fieldName} FROM ${tableName} WHERE id_plan = ?`,
       [id_plan],
       async (err, results) => {
         if (err) {
-          console.error("Error fetching documentation:", err);
+          console.error(`Error fetching ${fieldName}:`, err);
           return res
             .status(500)
             .json({ success: false, message: "Database error" });
@@ -1387,10 +1435,12 @@ app.delete(
             .json({ success: false, message: "Process not found" });
         }
 
-        const { documentation } = results[0];
+        const documentation = results[0][fieldName];
 
         if (!documentation) {
-          return res.status(404).json({ message: "No documentation found" });
+          return res
+            .status(404)
+            .json({ message: `No ${isA3 ? "A3 " : ""}documentation found` });
         }
 
         // Split the documentation string and remove the specified entry
@@ -1437,69 +1487,78 @@ app.delete(
                   ? documentationEntries.join("; ")
                   : null;
 
-              // Update the documentation field and conditionally set percent_rate
-              const percentRate = newDocumentation ? 100 : 0;
+              // Update the documentation field and conditionally set percent_rate if it's regular documentation
+              const percentRate =
+                !isA3 && newDocumentation ? 100 : !isA3 ? 0 : null;
+              const updateSQL = !isA3
+                ? `UPDATE ${tableName} SET ${fieldName} = ?, percent_rate = ?, updated_by = ? WHERE id_plan = ?`
+                : `UPDATE ${tableName} SET ${fieldName} = ?, updated_by = ? WHERE id_plan = ?`;
 
-              connection.query(
-                "UPDATE tb_process_1 SET documentation = ?, percent_rate = ?, updated_by = ? WHERE id_plan = ?",
-                [newDocumentation, percentRate, updated_by, id_plan],
-                (updateErr) => {
-                  if (updateErr) {
-                    return connection.rollback(() => {
-                      connection.release();
-                      console.error("Error updating documentation:", updateErr);
-                      res.status(500).json({
-                        success: false,
-                        message: "Database update error",
-                      });
+              const updateParams = !isA3
+                ? [newDocumentation, percentRate, updated_by, id_plan]
+                : [newDocumentation, updated_by, id_plan];
+
+              connection.query(updateSQL, updateParams, (updateErr) => {
+                if (updateErr) {
+                  return connection.rollback(() => {
+                    connection.release();
+                    console.error(`Error updating ${fieldName}:`, updateErr);
+                    res.status(500).json({
+                      success: false,
+                      message: "Database update error",
                     });
-                  }
+                  });
+                }
 
-                  // Log the action using format consistent with other logs
-                  const history_log = `${updated_by} đã xóa tài liệu minh chứng từ quy trình 1 (Nghiên cứu mẫu gốc)`;
+                // Log the action using format consistent with other logs
+                const docType = isA3
+                  ? "tài liệu A3 khắc phục"
+                  : "tài liệu minh chứng";
+                const history_log = `${updated_by} đã xóa ${docType} từ quy trình ${processNum} (${processName})`;
 
-                  connection.query(
-                    "INSERT INTO tb_log (history_log) VALUES (?)",
-                    [history_log],
-                    (logErr) => {
-                      if (logErr) {
+                connection.query(
+                  "INSERT INTO tb_log (history_log) VALUES (?)",
+                  [history_log],
+                  (logErr) => {
+                    if (logErr) {
+                      return connection.rollback(() => {
+                        connection.release();
+                        console.error("Error creating log entry:", logErr);
+                        res.status(500).json({
+                          success: false,
+                          message: "Database log error",
+                        });
+                      });
+                    }
+
+                    // Commit transaction
+                    connection.commit((commitErr) => {
+                      if (commitErr) {
                         return connection.rollback(() => {
                           connection.release();
-                          console.error("Error creating log entry:", logErr);
+                          console.error(
+                            "Error committing transaction:",
+                            commitErr
+                          );
                           res.status(500).json({
                             success: false,
-                            message: "Database log error",
+                            message: "Commit error",
                           });
                         });
                       }
 
-                      // Commit transaction
-                      connection.commit((commitErr) => {
-                        if (commitErr) {
-                          return connection.rollback(() => {
-                            connection.release();
-                            console.error(
-                              "Error committing transaction:",
-                              commitErr
-                            );
-                            res.status(500).json({
-                              success: false,
-                              message: "Commit error",
-                            });
-                          });
-                        }
-
-                        connection.release();
-                        res.json({
-                          success: true,
-                          message: "Documentation file deleted successfully",
-                          documentation: newDocumentation,
-                        });
+                      connection.release();
+                      res.json({
+                        success: true,
+                        message: `${
+                          isA3 ? "A3 " : ""
+                        }Documentation file deleted successfully`,
+                        documentation: newDocumentation,
                       });
-                    }
-                  );
-                }
-              );
+                    });
+                  }
+                );
+              });
             } catch (error) {
               return connection.rollback(() => {
                 connection.release();
@@ -1514,22 +1573,30 @@ app.delete(
         });
       }
     );
-  }
-);
+  });
+};
 
-// Get documentation files for Process 1
-app.get(
-  "/api/process1/documentation/:id_plan",
-  authenticateToken,
-  (req, res) => {
+/**
+ * Generic handler for getting documentation files
+ * @param {string} processNum - The process number (e.g., 1, 2, 3, etc.)
+ * @param {boolean} isA3 - Whether this is an A3 documentation or regular documentation
+ */
+const handleProcessDocumentationGet = (processNum, isA3 = false) => {
+  const fieldName = isA3 ? "A3_documentation" : "documentation";
+  const routePath = isA3
+    ? `/api/process${processNum}/a3-documentation/:id_plan`
+    : `/api/process${processNum}/documentation/:id_plan`;
+  const tableName = `tb_process_${processNum}`;
+
+  app.get(routePath, authenticateToken, (req, res) => {
     const { id_plan } = req.params;
 
     mysqlConnection.query(
-      "SELECT documentation FROM tb_process_1 WHERE id_plan = ?",
+      `SELECT ${fieldName} FROM ${tableName} WHERE id_plan = ?`,
       [id_plan],
       (err, results) => {
         if (err) {
-          console.error("Error fetching documentation:", err);
+          console.error(`Error fetching ${fieldName}:`, err);
           return res
             .status(500)
             .json({ success: false, message: "Database error" });
@@ -1541,7 +1608,7 @@ app.get(
             .json({ success: false, message: "Process not found" });
         }
 
-        const { documentation } = results[0];
+        const documentation = results[0][fieldName];
 
         // If no documentation, return empty array
         if (!documentation) {
@@ -1550,11 +1617,10 @@ app.get(
 
         // Split documentation by "; " and parse each entry
         const files = documentation.split("; ").map((doc, index) => {
-          const [url, directUrl, filename] = doc.split("|");
+          const [directUrl, filename] = doc.split("|");
           return {
             id: index,
-            url: url,
-            directUrl: directUrl || url,
+            directUrl: directUrl,
             filename: filename || "Unknown File",
           };
         });
@@ -1562,429 +1628,32 @@ app.get(
         res.json({ files });
       }
     );
-  }
-);
+  });
+};
 
-// Upload A3 documentation file to Google Drive and update tb_process_1
-app.post(
-  "/api/process1/upload-a3-documentation",
-  authenticateToken,
-  upload.array("files", 10),
-  async (req, res) => {
-    try {
-      const files = req.files;
-      const id_plan = req.body.id_plan;
+// Define process names for logging purposes
+const processNames = {
+  1: "NGHIÊN CỨU MẪU GỐC",
+  2: "HỌP CÔNG TÁC CHUẨN BỊ SẢN XUẤT MÃ HÀNG MỚI",
+  3: "LÀM RẬP SẢN XUẤT MAY MẪU ĐỐI, MẪU MOCKUP ",
+  4: "LẬP QUY TRÌNH CÔNG NGHỆ, THIẾT KẾ SƠ ĐỒ CHUYỀN, CÂN BẰNG YAMAZUMI",
+  6: "HỌP CHUYỂN ĐỔI MÃ HÀNG MỚI",
+  7: "CUNG CẤP BTP, PL",
+  8: "ĐÀO TẠO BCV MỚI CHO CÔNG NHÂN",
+};
 
-      if (!files || files.length === 0) {
-        return res
-          .status(400)
-          .json({ success: false, message: "No files uploaded" });
-      }
+// Register documentation endpoints for all processes
+[1, 2, 3, 4, 6, 7, 8].forEach((processNum) => {
+  // Regular documentation endpoints
+  handleProcessDocumentationUpload(processNum, processNames[processNum], false);
+  handleProcessDocumentationDelete(processNum, processNames[processNum], false);
+  handleProcessDocumentationGet(processNum, false);
 
-      if (!id_plan) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Plan ID is required" });
-      }
-
-      const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
-
-      const planQuery =
-        "SELECT p.line, p.style, proc.A3_documentation FROM tb_plan p JOIN tb_process_1 proc ON p.id_plan = proc.id_plan WHERE p.id_plan = ?";
-      mysqlConnection.query(planQuery, [id_plan], async (err, planResults) => {
-        if (err) {
-          console.error("Error fetching plan details:", err);
-          return res
-            .status(500)
-            .json({ success: false, message: "Database error" });
-        }
-
-        if (planResults.length === 0) {
-          return res
-            .status(404)
-            .json({ success: false, message: "Plan not found" });
-        }
-
-        const { line, style, A3_documentation } = planResults[0];
-
-        try {
-          const newA3Urls = [];
-
-          const uploadPromises = files.map(async (file) => {
-            const fileStream = new Readable();
-            fileStream.push(file.buffer);
-            fileStream.push(null);
-
-            const fileName = file.originalname; // Keep original filename
-
-            const driveResponse = await drive.files.create({
-              requestBody: {
-                name: fileName,
-                mimeType: file.mimetype,
-                parents: [process.env.GOOGLE_DRIVE_FOLDER_ID],
-              },
-              media: {
-                mimeType: file.mimetype,
-                body: fileStream,
-              },
-            });
-
-            const fileId = driveResponse.data.id;
-
-            await drive.permissions.create({
-              fileId: fileId,
-              requestBody: {
-                role: "reader",
-                type: "anyone",
-              },
-            });
-
-            const getFileResponse = await drive.files.get({
-              fileId: fileId,
-              fields: "webViewLink, webContentLink", // Add webContentLink for direct viewing
-            });
-
-            return {
-              url: getFileResponse.data.webViewLink,
-              directUrl: getFileResponse.data.webContentLink,
-              filename: fileName,
-            };
-          });
-
-          const uploadResults = await Promise.all(uploadPromises);
-          newA3Urls.push(...uploadResults);
-
-          let updatedA3Documentation;
-          if (A3_documentation && A3_documentation.trim() !== "") {
-            updatedA3Documentation = `${A3_documentation}; ${newA3Urls
-              .map(
-                (result) =>
-                  `${result.url}|${result.directUrl}|${result.filename}`
-              )
-              .join("; ")}`;
-          } else {
-            updatedA3Documentation = newA3Urls
-              .map(
-                (result) =>
-                  `${result.url}|${result.directUrl}|${result.filename}`
-              )
-              .join("; ");
-          }
-
-          mysqlConnection.getConnection((connErr, connection) => {
-            if (connErr) {
-              console.error("Error getting connection:", connErr);
-              return res
-                .status(500)
-                .json({ success: false, message: "Database connection error" });
-            }
-
-            connection.beginTransaction((transErr) => {
-              if (transErr) {
-                connection.release();
-                console.error("Error starting transaction:", transErr);
-                return res
-                  .status(500)
-                  .json({ success: false, message: "Transaction error" });
-              }
-
-              connection.query(
-                "UPDATE tb_process_1 SET A3_documentation = ?, updated_by = ? WHERE id_plan = ?",
-                [updatedA3Documentation, updated_by, id_plan],
-                (updateErr) => {
-                  if (updateErr) {
-                    return connection.rollback(() => {
-                      connection.release();
-                      console.error(
-                        "Error updating A3 documentation:",
-                        updateErr
-                      );
-                      res.status(500).json({
-                        success: false,
-                        message: "Database update error",
-                      });
-                    });
-                  }
-
-                  const fileNames = files
-                    .map((file) => file.originalname)
-                    .join(", ");
-                  const history_log = `${updated_by} đã tải lên ${files.length} tài liệu A3 khắc phục [${fileNames}] cho quy trình 1 (Nghiên cứu mẫu gốc) của chuyền [${line}], mã hàng [${style}]`;
-
-                  connection.query(
-                    "INSERT INTO tb_log (history_log) VALUES (?)",
-                    [history_log],
-                    (logErr) => {
-                      if (logErr) {
-                        return connection.rollback(() => {
-                          connection.release();
-                          console.error("Error creating log entry:", logErr);
-                          res.status(500).json({
-                            success: false,
-                            message: "Database log error",
-                          });
-                        });
-                      }
-
-                      connection.commit((commitErr) => {
-                        if (commitErr) {
-                          return connection.rollback(() => {
-                            connection.release();
-                            console.error(
-                              "Error committing transaction:",
-                              commitErr
-                            );
-                            res.status(500).json({
-                              success: false,
-                              message: "Transaction commit error",
-                            });
-                          });
-                        }
-
-                        connection.release();
-                        res.json({
-                          success: true,
-                          message: `${files.length} A3 files uploaded successfully`,
-                          updatedA3Documentation,
-                        });
-                      });
-                    }
-                  );
-                }
-              );
-            });
-          });
-        } catch (uploadError) {
-          console.error("Error uploading to Google Drive:", uploadError);
-          res.status(500).json({
-            success: false,
-            message: "Error uploading to Google Drive",
-          });
-        }
-      });
-    } catch (error) {
-      console.error("Server error during file upload:", error);
-      res.status(500).json({ success: false, message: "Server error" });
-    }
-  }
-);
-
-// Get A3 documentation files for Process 1
-app.get(
-  "/api/process1/a3-documentation/:id_plan",
-  authenticateToken,
-  (req, res) => {
-    const { id_plan } = req.params;
-
-    mysqlConnection.query(
-      "SELECT A3_documentation FROM tb_process_1 WHERE id_plan = ?",
-      [id_plan],
-      (err, results) => {
-        if (err) {
-          console.error("Error fetching A3 documentation:", err);
-          return res
-            .status(500)
-            .json({ success: false, message: "Database error" });
-        }
-
-        if (results.length === 0) {
-          return res
-            .status(404)
-            .json({ success: false, message: "Process not found" });
-        }
-
-        const { A3_documentation } = results[0];
-
-        // If no documentation, return empty array
-        if (!A3_documentation) {
-          return res.json({ files: [] });
-        }
-
-        // Split documentation by "; " and parse each entry
-        const files = A3_documentation.split("; ").map((doc, index) => {
-          const [url, directUrl, filename] = doc.split("|");
-          return {
-            id: index,
-            url: url,
-            directUrl: directUrl || url,
-            filename: filename || "Unknown File",
-          };
-        });
-
-        res.json({ files });
-      }
-    );
-  }
-);
-
-// Delete an A3 documentation file from Process 1
-app.delete(
-  "/api/process1/delete-a3-documentation/:id_plan",
-  authenticateToken,
-  async (req, res) => {
-    const { id_plan } = req.params;
-    const { index } = req.query;
-
-    // Get user info from token for logging and tracking
-    const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
-
-    if (!index && index !== "0") {
-      return res.status(400).json({ message: "Index parameter is required" });
-    }
-
-    const indexNum = parseInt(index, 10);
-    if (isNaN(indexNum)) {
-      return res.status(400).json({ message: "Index must be a number" });
-    }
-
-    // Get the current A3 documentation
-    mysqlConnection.query(
-      "SELECT A3_documentation FROM tb_process_1 WHERE id_plan = ?",
-      [id_plan],
-      async (err, results) => {
-        if (err) {
-          console.error("Error fetching A3 documentation:", err);
-          return res
-            .status(500)
-            .json({ success: false, message: "Database error" });
-        }
-
-        if (results.length === 0) {
-          return res
-            .status(404)
-            .json({ success: false, message: "Process not found" });
-        }
-
-        const { A3_documentation } = results[0];
-
-        if (!A3_documentation) {
-          return res.status(404).json({ message: "No A3 documentation found" });
-        }
-
-        // Split the documentation string and remove the specified entry
-        const documentationEntries = A3_documentation.split("; ");
-
-        if (indexNum < 0 || indexNum >= documentationEntries.length) {
-          return res.status(400).json({ message: "Index out of bounds" });
-        }
-
-        // Get the file to delete
-        const fileToDelete = documentationEntries[indexNum];
-        const fileId = fileToDelete.match(/[-\w]{25,}/)?.[0]; // Extract Google Drive file ID
-
-        // Start a transaction
-        mysqlConnection.getConnection((connErr, connection) => {
-          if (connErr) {
-            console.error("Error getting connection:", connErr);
-            return res
-              .status(500)
-              .json({ success: false, message: "Database connection error" });
-          }
-
-          connection.beginTransaction(async (transErr) => {
-            if (transErr) {
-              connection.release();
-              console.error("Error starting transaction:", transErr);
-              return res
-                .status(500)
-                .json({ success: false, message: "Transaction error" });
-            }
-
-            try {
-              // Delete file from Google Drive if fileId exists
-              if (fileId) {
-                await drive.files.delete({ fileId });
-              }
-
-              // Remove the entry from the array
-              documentationEntries.splice(indexNum, 1);
-
-              // Rebuild the documentation string
-              const newDocumentation =
-                documentationEntries.length > 0
-                  ? documentationEntries.join("; ")
-                  : null;
-
-              // Update the documentation field
-              connection.query(
-                "UPDATE tb_process_1 SET A3_documentation = ?, updated_by = ? WHERE id_plan = ?",
-                [newDocumentation, updated_by, id_plan],
-                (updateErr) => {
-                  if (updateErr) {
-                    return connection.rollback(() => {
-                      connection.release();
-                      console.error(
-                        "Error updating A3 documentation:",
-                        updateErr
-                      );
-                      res.status(500).json({
-                        success: false,
-                        message: "Database update error",
-                      });
-                    });
-                  }
-
-                  // Log the action using format consistent with other logs
-                  const history_log = `${updated_by} đã xóa tài liệu A3 khắc phục từ quy trình 1 (Nghiên cứu mẫu gốc)`;
-
-                  connection.query(
-                    "INSERT INTO tb_log (history_log) VALUES (?)",
-                    [history_log],
-                    (logErr) => {
-                      if (logErr) {
-                        return connection.rollback(() => {
-                          connection.release();
-                          console.error("Error creating log entry:", logErr);
-                          res.status(500).json({
-                            success: false,
-                            message: "Database log error",
-                          });
-                        });
-                      }
-
-                      // Commit transaction
-                      connection.commit((commitErr) => {
-                        if (commitErr) {
-                          return connection.rollback(() => {
-                            connection.release();
-                            console.error(
-                              "Error committing transaction:",
-                              commitErr
-                            );
-                            res.status(500).json({
-                              success: false,
-                              message: "Commit error",
-                            });
-                          });
-                        }
-
-                        connection.release();
-                        res.json({
-                          success: true,
-                          message: "A3 documentation file deleted successfully",
-                          documentation: newDocumentation,
-                        });
-                      });
-                    }
-                  );
-                }
-              );
-            } catch (error) {
-              return connection.rollback(() => {
-                connection.release();
-                console.error("Error deleting file from Google Drive:", error);
-                res.status(500).json({
-                  success: false,
-                  message: "Error deleting file from Google Drive",
-                });
-              });
-            }
-          });
-        });
-      }
-    );
-  }
-);
+  // A3 documentation endpoints
+  handleProcessDocumentationUpload(processNum, processNames[processNum], true);
+  handleProcessDocumentationDelete(processNum, processNames[processNum], true);
+  handleProcessDocumentationGet(processNum, true);
+});
 
 const PORT = process.env.MYSQL_PORT;
 app.listen(PORT, () => {

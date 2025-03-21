@@ -218,7 +218,7 @@ const Process1Page = () => {
 
     setUploadingDocumentation(true);
     try {
-      await API.uploadDocumentationFile(id, documentationFiles);
+      await API.uploadProcess1DocumentationFile(id, documentationFiles);
       setDocumentationFiles([]);
       fetchDocumentationFiles(); // Refresh the list
       // Also refresh the table data since percent_rate could have changed
@@ -242,7 +242,7 @@ const Process1Page = () => {
 
     setUploadingA3(true);
     try {
-      await API.uploadA3DocumentationFile(id, a3DocumentationFiles);
+      await API.uploadProcess1A3DocumentationFile(id, a3DocumentationFiles);
       setA3DocumentationFiles([]);
       fetchA3DocumentationFiles(); // Refresh the list
     } catch (error) {
@@ -301,7 +301,7 @@ const Process1Page = () => {
   };
 
   // Open file preview
-  const openPreview = (url, directUrl, filename) => {
+  const openPreview = (directUrl, filename) => {
     // Convert Google Drive URL to preview URL if it's not already a preview URL
     let previewUrl = directUrl;
     if (directUrl.includes("drive.google.com")) {
@@ -752,11 +752,7 @@ const Process1Page = () => {
                                 <IconButton
                                   edge="end"
                                   onClick={() =>
-                                    openPreview(
-                                      doc.url,
-                                      doc.directUrl,
-                                      doc.filename
-                                    )
+                                    openPreview(doc.directUrl, doc.filename)
                                   }
                                   sx={{ mr: 1 }}
                                 >
@@ -900,11 +896,7 @@ const Process1Page = () => {
                                 <IconButton
                                   edge="end"
                                   onClick={() =>
-                                    openPreview(
-                                      doc.url,
-                                      doc.directUrl,
-                                      doc.filename
-                                    )
+                                    openPreview(doc.directUrl, doc.filename)
                                   }
                                   sx={{ mr: 1 }}
                                 >
