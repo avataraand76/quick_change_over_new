@@ -71,7 +71,7 @@ const DetailedPhasePage = () => {
         setProcessRates(processRatesResponse);
         setPlanDate(formatDate(planResponse.plan_date));
         setActualDate(formatDate(planResponse.actual_date));
-        setPercentRate(planResponse.percent_rate || 0);
+        setPercentRate(planResponse.total_percent_rate || 0);
       } catch (error) {
         console.error("Error fetching data:", error);
         alert("Không thể tải thông tin chi tiết");

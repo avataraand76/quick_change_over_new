@@ -58,7 +58,10 @@ function App() {
       <ScrollToTop />
       <NavBar />
       <Routes>
-        <Route path="/" element={<PrivateRoute element={<HomePage />} />} />
+        <Route
+          path="/"
+          element={<PrivateRoute element={<CalendarViewPage />} />}
+        />
         <Route
           path="/create-phase"
           element={<PrivateRoute element={<CreatePhasePage />} />}

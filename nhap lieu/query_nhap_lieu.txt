@@ -1,7 +1,7 @@
 INSERT INTO tb_process (name_process, deadline) VALUES
 ('NGHIÊN CỨU MẪU GỐC','5'), -- id 1
 ('HỌP CÔNG TÁC CHUẨN BỊ SẢN XUẤT MÃ HÀNG MỚI','5'), -- id 2
-('LÀM RẬP SẢN XUẤT MAY MẪU ĐỐI, MẪU MOCKUP ','5'), -- id 3
+('LÀM RẬP SẢN XUẤT MAY MẪU ĐỐI, MẪU MOCKUP','5'), -- id 3
 ('LẬP QUY TRÌNH CÔNG NGHỆ, THIẾT KẾ SƠ ĐỒ CHUYỀN, CÂN BẰNG YAMAZUMI','3'), -- id 4
 ('CHUẨN BỊ MÁY MÓC THIẾT BỊ, CỮ GÁ LẮP','3'), -- id 5
 ('HỌP CHUYỂN ĐỔI MÃ HÀNG MỚI','3'), -- id 6

@@ -362,39 +362,9 @@ app.post("/api/create-plan", authenticateToken, (req, res) => {
                     }
                     // Process 5 has two special tables
                     else if (id_process === 5) {
-                      // Insert into tb_process_5_preparing_machine
-                      insertQueries.push(
-                        new Promise((resolve, reject) => {
-                          connection.query(
-                            "INSERT INTO tb_process_5_preparing_machine (id_process, id_plan, updated_by) VALUES (?, ?, ?)",
-                            [id_process, id_plan, updated_by],
-                            (err) => {
-                              if (err) {
-                                reject(err);
-                              } else {
-                                resolve();
-                              }
-                            }
-                          );
-                        })
-                      );
-
-                      // Insert into tb_process_5_preventive_machine
-                      insertQueries.push(
-                        new Promise((resolve, reject) => {
-                          connection.query(
-                            "INSERT INTO tb_process_5_preventive_machine (id_process, id_plan, updated_by) VALUES (?, ?, ?)",
-                            [id_process, id_plan, updated_by],
-                            (err) => {
-                              if (err) {
-                                reject(err);
-                              } else {
-                                resolve();
-                              }
-                            }
-                          );
-                        })
-                      );
+                      // No insertions to tb_process_5_preparing_machine and tb_process_5_backup_machine for process 5
+                      // Just resolve the promise immediately
+                      insertQueries.push(Promise.resolve());
                     }
                   });
 
@@ -504,6 +474,77 @@ app.get("/api/plans/:id", authenticateToken, (req, res) => {
       res.json(results[0]);
     }
   );
+});
+
+// API lấy danh sách kế hoạch cho view calendar trong MAIN mysql
+app.get("/api/plans-for-calendar", authenticateToken, (req, res) => {
+  const query = `
+    SELECT id_plan, line, style, plan_date, actual_date, total_percent_rate
+    FROM tb_plan
+    ORDER BY plan_date DESC
+  `;
+
+  mysqlConnection.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching plans for calendar:", err);
+      return res
+        .status(500)
+        .json({ error: "Database error", details: err.message });
+    }
+
+    // Format the data for calendar events
+    const events = results.map((plan) => {
+      // Calculate start date (plan_date - 5 days)
+      const endDate = new Date(plan.plan_date);
+      const startDate = new Date(endDate);
+      startDate.setDate(startDate.getDate() - 5);
+
+      // Calculate how close we are to the deadline
+      const now = new Date();
+      const daysUntilDeadline = Math.floor(
+        (endDate - now) / (1000 * 60 * 60 * 24)
+      );
+
+      // Determine color based on urgency
+      let backgroundColor, borderColor;
+      if (daysUntilDeadline < 0) {
+        // Past deadline
+        backgroundColor = "#d32f2f"; // red
+        borderColor = "#b71c1c";
+      } else if (daysUntilDeadline <= 3) {
+        // Very urgent (3 days or less)
+        backgroundColor = "#f57c00"; // orange
+        borderColor = "#e65100";
+      } else if (daysUntilDeadline <= 7) {
+        // Urgent (within a week)
+        backgroundColor = "#ffc107"; // amber
+        borderColor = "#ff8f00";
+      } else {
+        // Normal
+        backgroundColor = "#1976d2"; // blue
+        borderColor = "#1565c0";
+      }
+
+      return {
+        id: plan.id_plan,
+        title: `Chuyền: ${plan.line} - Mã hàng: ${plan.style}`,
+        start: startDate,
+        end: endDate,
+        extendedProps: {
+          line: plan.line,
+          style: plan.style,
+          daysUntilDeadline,
+          plan_date: plan.plan_date,
+          actual_date: plan.actual_date,
+          total_percent_rate: plan.total_percent_rate || 0,
+        },
+        backgroundColor,
+        borderColor,
+      };
+    });
+
+    res.json(events);
+  });
 });
 
 // API cập nhật thời gian kế hoạch theo id trong MAIN mysql
@@ -918,9 +959,9 @@ app.get("/api/process-rates/:id_plan", authenticateToken, (req, res) => {
               reject(err);
             } else {
               connection.query(
-                `SELECT AVG(prepare_rate) as avg_rate FROM tb_process_5_preventive_machine WHERE id_plan = ?`,
+                `SELECT AVG(prepare_rate) as avg_rate FROM tb_process_5_backup_machine WHERE id_plan = ?`,
                 [id_plan],
-                (err, preventiveResults) => {
+                (err, backupResults) => {
                   if (err) {
                     reject(err);
                   } else {
@@ -929,15 +970,14 @@ app.get("/api/process-rates/:id_plan", authenticateToken, (req, res) => {
                       preparingResults.length > 0
                         ? preparingResults[0].avg_rate || 0
                         : 0;
-                    const preventiveRate =
-                      preventiveResults.length > 0
-                        ? preventiveResults[0].avg_rate || 0
+                    const backupRate =
+                      backupResults.length > 0
+                        ? backupResults[0].avg_rate || 0
                         : 0;
 
                     // Calculate the average of both rates
                     const avgRate =
-                      (parseFloat(preparingRate) + parseFloat(preventiveRate)) /
-                      2;
+                      (parseFloat(preparingRate) + parseFloat(backupRate)) / 2;
 
                     resolve({
                       id_process: 5,
@@ -1100,6 +1140,1388 @@ app.get(
       console.error("Error in downtime issues endpoint:", error);
       res.status(500).json({ success: false, message: "Server error" });
     }
+  }
+);
+
+// Function to calculate and update total_percent_rate in tb_plan
+const updateTotalPercentRate = (id_plan, connection, callback) => {
+  // Create an array to store all query promises
+  const queryPromises = [];
+
+  // For processes 1-4 and 6-8, get percent_rate directly
+  [1, 2, 3, 4, 6, 7, 8].forEach((processId) => {
+    queryPromises.push(
+      new Promise((resolve, reject) => {
+        connection.query(
+          `SELECT percent_rate FROM tb_process_${processId} WHERE id_plan = ?`,
+          [id_plan],
+          (err, results) => {
+            if (err) {
+              reject(err);
+            } else {
+              // If no results, return 0 as the percent_rate
+              const rate =
+                results.length > 0 ? results[0].percent_rate || 0 : 0;
+              resolve(rate);
+            }
+          }
+        );
+      })
+    );
+  });
+
+  // For process 5, calculate average of prepare_rate from both tables
+  queryPromises.push(
+    new Promise((resolve, reject) => {
+      connection.query(
+        `SELECT AVG(prepare_rate) as avg_rate FROM tb_process_5_preparing_machine WHERE id_plan = ?`,
+        [id_plan],
+        (err, preparingResults) => {
+          if (err) {
+            reject(err);
+          } else {
+            connection.query(
+              `SELECT AVG(prepare_rate) as avg_rate FROM tb_process_5_backup_machine WHERE id_plan = ?`,
+              [id_plan],
+              (err, backupResults) => {
+                if (err) {
+                  reject(err);
+                } else {
+                  // Get the average rates, default to 0 if null
+                  const preparingRate =
+                    preparingResults.length > 0
+                      ? preparingResults[0].avg_rate || 0
+                      : 0;
+                  const backupRate =
+                    backupResults.length > 0
+                      ? backupResults[0].avg_rate || 0
+                      : 0;
+
+                  // Calculate the average of both rates
+                  const avgRate =
+                    (parseFloat(preparingRate) + parseFloat(backupRate)) / 2;
+
+                  resolve(Math.round(avgRate));
+                }
+              }
+            );
+          }
+        }
+      );
+    })
+  );
+
+  // Execute all queries and calculate the average
+  Promise.all(queryPromises)
+    .then((rates) => {
+      // Calculate average of all process rates
+      const totalRates = rates.reduce((sum, rate) => sum + rate, 0);
+      const avgRate = Math.round(totalRates / rates.length);
+
+      // Update the total_percent_rate in tb_plan
+      connection.query(
+        "UPDATE tb_plan SET total_percent_rate = ? WHERE id_plan = ?",
+        [avgRate, id_plan],
+        (err) => {
+          if (err) {
+            console.error("Error updating total_percent_rate:", err);
+            if (callback) callback(err);
+          } else {
+            if (callback) callback(null, avgRate);
+          }
+        }
+      );
+    })
+    .catch((err) => {
+      console.error("Error calculating total_percent_rate:", err);
+      if (callback) callback(err);
+    });
+};
+
+// API endpoints for Process 5 preparing machines
+app.get(
+  "/api/process5/preparing-machines/:id_plan",
+  authenticateToken,
+  (req, res) => {
+    const { id_plan } = req.params;
+
+    mysqlConnection.query(
+      "SELECT * FROM tb_process_5_preparing_machine WHERE id_plan = ? ORDER BY name_machine ASC",
+      [id_plan],
+      (err, results) => {
+        if (err) {
+          console.error("Error fetching preparing machines:", err);
+          return res
+            .status(500)
+            .json({ success: false, message: "Database error" });
+        }
+        res.json(results);
+      }
+    );
+  }
+);
+
+// Preparing Machines POST endpoint
+app.post("/api/process5/preparing-machines", authenticateToken, (req, res) => {
+  const {
+    id_plan,
+    id_process,
+    adjust_date,
+    SQL_oid_thiet_bi,
+    name_machine,
+    quantity,
+    prepared,
+    pass,
+    fail,
+  } = req.body;
+
+  // Calculate derived values
+  const pass_rate = pass > 0 ? Math.round((pass / prepared) * 100) : 0;
+  const not_prepared = quantity - prepared;
+  const prepare_rate =
+    quantity > 0 ? Math.round((prepared / quantity) * 100) : 0;
+
+  // Get user info from token
+  const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
+
+  // Allow adjust_date to be NULL if it's empty
+  const adjustDateValue =
+    adjust_date && adjust_date.trim() !== "" ? adjust_date : null;
+
+  mysqlConnection.getConnection((err, connection) => {
+    if (err) {
+      console.error("Error getting connection:", err);
+      return res
+        .status(500)
+        .json({ success: false, message: "Database connection error" });
+    }
+
+    connection.beginTransaction((err) => {
+      if (err) {
+        connection.release();
+        console.error("Error starting transaction:", err);
+        return res
+          .status(500)
+          .json({ success: false, message: "Transaction error" });
+      }
+
+      // Insert or update preparing machine record
+      connection.query(
+        `INSERT INTO tb_process_5_preparing_machine 
+         (id_plan, id_process, adjust_date, SQL_oid_thiet_bi, name_machine, quantity, prepared, pass, fail, pass_rate, not_prepared, prepare_rate, updated_by) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id_plan,
+          id_process || 5, // Default to 5 if not provided
+          adjustDateValue,
+          SQL_oid_thiet_bi,
+          name_machine,
+          quantity,
+          prepared,
+          pass,
+          fail,
+          pass_rate,
+          not_prepared,
+          prepare_rate,
+          updated_by,
+        ],
+        (err, results) => {
+          if (err) {
+            return connection.rollback(() => {
+              connection.release();
+              console.error("Error adding/updating preparing machine:", err);
+              res
+                .status(500)
+                .json({ success: false, message: "Database error" });
+            });
+          }
+
+          // Get plan information for logging
+          connection.query(
+            "SELECT line, style FROM tb_plan WHERE id_plan = ?",
+            [id_plan],
+            (err, planResults) => {
+              if (err) {
+                return connection.rollback(() => {
+                  connection.release();
+                  console.error("Error fetching plan data:", err);
+                  res
+                    .status(500)
+                    .json({ success: false, message: "Database error" });
+                });
+              }
+
+              const line =
+                planResults.length > 0 ? planResults[0].line : "Unknown";
+              const style =
+                planResults.length > 0 ? planResults[0].style : "Unknown";
+
+              // Update process rate
+              connection.query(
+                "SELECT AVG(prepare_rate) as avg_prepare_rate FROM tb_process_5_preparing_machine WHERE id_plan = ?",
+                [id_plan],
+                (err, avgResults) => {
+                  if (err) {
+                    return connection.rollback(() => {
+                      connection.release();
+                      console.error(
+                        "Error calculating average prepare rate:",
+                        err
+                      );
+                      res
+                        .status(500)
+                        .json({ success: false, message: "Database error" });
+                    });
+                  }
+
+                  // Now update the total_percent_rate in the plan
+                  updateTotalPercentRate(id_plan, connection, (err) => {
+                    if (err) {
+                      return connection.rollback(() => {
+                        connection.release();
+                        console.error(
+                          "Error updating total percent rate:",
+                          err
+                        );
+                        res
+                          .status(500)
+                          .json({ success: false, message: "Database error" });
+                      });
+                    }
+
+                    // Create log entry
+                    const action = results.insertId ? "THÊM MỚI" : "CẬP NHẬT";
+                    const history_log = `${updated_by} vừa ${action} thông tin máy chuẩn bị "${name_machine}" cho quy trình 5 (CHUẨN BỊ MÁY MÓC THIẾT BỊ, CỮ GÁ LẮP) của chuyền [${line}], mã hàng [${style}]`;
+
+                    connection.query(
+                      "INSERT INTO tb_log (history_log) VALUES (?)",
+                      [history_log],
+                      (err) => {
+                        if (err) {
+                          return connection.rollback(() => {
+                            connection.release();
+                            console.error("Error creating log entry:", err);
+                            res.status(500).json({
+                              success: false,
+                              message: "Database error",
+                            });
+                          });
+                        }
+
+                        // Commit the transaction
+                        connection.commit((err) => {
+                          if (err) {
+                            return connection.rollback(() => {
+                              connection.release();
+                              console.error(
+                                "Error committing transaction:",
+                                err
+                              );
+                              res.status(500).json({
+                                success: false,
+                                message: "Transaction commit error",
+                              });
+                            });
+                          }
+
+                          connection.release();
+                          res.json({
+                            success: true,
+                            message:
+                              "Preparing machine data saved successfully",
+                            id: results.insertId || null,
+                          });
+                        });
+                      }
+                    );
+                  });
+                }
+              );
+            }
+          );
+        }
+      );
+    });
+  });
+});
+
+// Preparing Machines PUT endpoint
+app.put(
+  "/api/process5/preparing-machines/:id",
+  authenticateToken,
+  (req, res) => {
+    const { id } = req.params;
+    const {
+      id_plan,
+      id_process,
+      adjust_date,
+      SQL_oid_thiet_bi,
+      name_machine,
+      quantity,
+      prepared,
+      pass,
+      fail,
+    } = req.body;
+
+    // Calculate derived values
+    const pass_rate = pass > 0 ? Math.round((pass / prepared) * 100) : 0;
+    const not_prepared = quantity - prepared;
+    const prepare_rate =
+      quantity > 0 ? Math.round((prepared / quantity) * 100) : 0;
+
+    // Get user info from token
+    const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
+
+    // Allow adjust_date to be NULL if it's empty
+    const adjustDateValue =
+      adjust_date && adjust_date.trim() !== "" ? adjust_date : null;
+
+    mysqlConnection.getConnection((err, connection) => {
+      if (err) {
+        console.error("Error getting connection:", err);
+        return res
+          .status(500)
+          .json({ success: false, message: "Database connection error" });
+      }
+
+      connection.beginTransaction((err) => {
+        if (err) {
+          connection.release();
+          console.error("Error starting transaction:", err);
+          return res
+            .status(500)
+            .json({ success: false, message: "Transaction error" });
+        }
+
+        // Update the preparing machine record
+        connection.query(
+          `UPDATE tb_process_5_preparing_machine 
+         SET adjust_date = ?, 
+             name_machine = ?,
+             SQL_oid_thiet_bi = ?,
+             quantity = ?,
+             prepared = ?,
+             pass = ?,
+             fail = ?,
+             pass_rate = ?,
+             not_prepared = ?,
+             prepare_rate = ?,
+             id_process = ?,
+             updated_by = ?
+         WHERE id_process_5_preparing_machine = ?`,
+          [
+            adjustDateValue,
+            name_machine,
+            SQL_oid_thiet_bi,
+            quantity,
+            prepared,
+            pass,
+            fail,
+            pass_rate,
+            not_prepared,
+            prepare_rate,
+            id_process || 5, // Default to 5 if not provided
+            updated_by,
+            id,
+          ],
+          (err, results) => {
+            if (err) {
+              return connection.rollback(() => {
+                connection.release();
+                console.error("Error updating preparing machine:", err);
+                res
+                  .status(500)
+                  .json({ success: false, message: "Database error" });
+              });
+            }
+
+            if (results.affectedRows === 0) {
+              return connection.rollback(() => {
+                connection.release();
+                res.status(404).json({
+                  success: false,
+                  message: "Machine not found or no changes made",
+                });
+              });
+            }
+
+            // Get plan information for logging
+            connection.query(
+              "SELECT line, style FROM tb_plan WHERE id_plan = ?",
+              [id_plan],
+              (err, planResults) => {
+                if (err) {
+                  return connection.rollback(() => {
+                    connection.release();
+                    console.error("Error fetching plan data:", err);
+                    res
+                      .status(500)
+                      .json({ success: false, message: "Database error" });
+                  });
+                }
+
+                const line =
+                  planResults.length > 0 ? planResults[0].line : "Unknown";
+                const style =
+                  planResults.length > 0 ? planResults[0].style : "Unknown";
+
+                // Update process rate
+                updateTotalPercentRate(id_plan, connection, (err) => {
+                  if (err) {
+                    return connection.rollback(() => {
+                      connection.release();
+                      console.error("Error updating total percent rate:", err);
+                      res
+                        .status(500)
+                        .json({ success: false, message: "Database error" });
+                    });
+                  }
+
+                  // Create log entry
+                  const history_log = `${updated_by} vừa CẬP NHẬT thông tin máy chuẩn bị "${name_machine}" cho quy trình 5 (CHUẨN BỊ MÁY MÓC THIẾT BỊ, CỮ GÁ LẮP) của chuyền [${line}], mã hàng [${style}]`;
+
+                  connection.query(
+                    "INSERT INTO tb_log (history_log) VALUES (?)",
+                    [history_log],
+                    (err) => {
+                      if (err) {
+                        return connection.rollback(() => {
+                          connection.release();
+                          console.error("Error creating log entry:", err);
+                          res.status(500).json({
+                            success: false,
+                            message: "Database error",
+                          });
+                        });
+                      }
+
+                      // Commit the transaction
+                      connection.commit((err) => {
+                        if (err) {
+                          return connection.rollback(() => {
+                            connection.release();
+                            console.error("Error committing transaction:", err);
+                            res.status(500).json({
+                              success: false,
+                              message: "Transaction commit error",
+                            });
+                          });
+                        }
+
+                        connection.release();
+                        res.json({
+                          success: true,
+                          message:
+                            "Preparing machine data updated successfully",
+                        });
+                      });
+                    }
+                  );
+                });
+              }
+            );
+          }
+        );
+      });
+    });
+  }
+);
+
+app.delete(
+  "/api/process5/preparing-machines/:id",
+  authenticateToken,
+  (req, res) => {
+    const { id } = req.params;
+    const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
+
+    mysqlConnection.getConnection((err, connection) => {
+      if (err) {
+        console.error("Error getting connection:", err);
+        return res
+          .status(500)
+          .json({ success: false, message: "Database connection error" });
+      }
+
+      connection.beginTransaction((err) => {
+        if (err) {
+          connection.release();
+          console.error("Error starting transaction:", err);
+          return res
+            .status(500)
+            .json({ success: false, message: "Transaction error" });
+        }
+
+        // Get machine and plan info for logging
+        connection.query(
+          `SELECT m.name_machine, m.id_plan, p.line, p.style 
+         FROM tb_process_5_preparing_machine m 
+         JOIN tb_plan p ON m.id_plan = p.id_plan 
+         WHERE m.id_process_5_preparing_machine = ?`,
+          [id],
+          (err, results) => {
+            if (err) {
+              return connection.rollback(() => {
+                connection.release();
+                console.error("Error fetching machine info:", err);
+                res
+                  .status(500)
+                  .json({ success: false, message: "Database error" });
+              });
+            }
+
+            if (results.length === 0) {
+              return connection.rollback(() => {
+                connection.release();
+                res.status(404).json({
+                  success: false,
+                  message: "Machine record not found",
+                });
+              });
+            }
+
+            const { name_machine, id_plan, line, style } = results[0];
+
+            // Delete the machine record
+            connection.query(
+              "DELETE FROM tb_process_5_preparing_machine WHERE id_process_5_preparing_machine = ?",
+              [id],
+              (err) => {
+                if (err) {
+                  return connection.rollback(() => {
+                    connection.release();
+                    console.error("Error deleting preparing machine:", err);
+                    res
+                      .status(500)
+                      .json({ success: false, message: "Database error" });
+                  });
+                }
+
+                // Update process rate
+                updateTotalPercentRate(id_plan, connection, (err) => {
+                  if (err) {
+                    return connection.rollback(() => {
+                      connection.release();
+                      console.error("Error updating total percent rate:", err);
+                      res
+                        .status(500)
+                        .json({ success: false, message: "Database error" });
+                    });
+                  }
+
+                  // Create log entry
+                  const history_log = `${updated_by} vừa XÓA thông tin máy chuẩn bị "${name_machine}" từ quy trình 5 (CHUẨN BỊ MÁY MÓC THIẾT BỊ, CỮ GÁ LẮP) của chuyền [${line}], mã hàng [${style}]`;
+
+                  connection.query(
+                    "INSERT INTO tb_log (history_log) VALUES (?)",
+                    [history_log],
+                    (err) => {
+                      if (err) {
+                        return connection.rollback(() => {
+                          connection.release();
+                          console.error("Error creating log entry:", err);
+                          res.status(500).json({
+                            success: false,
+                            message: "Database error",
+                          });
+                        });
+                      }
+
+                      // Commit the transaction
+                      connection.commit((err) => {
+                        if (err) {
+                          return connection.rollback(() => {
+                            connection.release();
+                            console.error("Error committing transaction:", err);
+                            res.status(500).json({
+                              success: false,
+                              message: "Transaction commit error",
+                            });
+                          });
+                        }
+
+                        connection.release();
+                        res.json({
+                          success: true,
+                          message: "Preparing machine deleted successfully",
+                        });
+                      });
+                    }
+                  );
+                });
+              }
+            );
+          }
+        );
+      });
+    });
+  }
+);
+
+// API endpoints for Process 5 backup machines
+app.get(
+  "/api/process5/backup-machines/:id_plan",
+  authenticateToken,
+  (req, res) => {
+    const { id_plan } = req.params;
+
+    mysqlConnection.query(
+      "SELECT * FROM tb_process_5_backup_machine WHERE id_plan = ? ORDER BY name_machine ASC",
+      [id_plan],
+      (err, results) => {
+        if (err) {
+          console.error("Error fetching backup machines:", err);
+          return res
+            .status(500)
+            .json({ success: false, message: "Database error" });
+        }
+        res.json(results);
+      }
+    );
+  }
+);
+
+// Process 5 Hi-Line data synchronization endpoint
+app.post(
+  "/api/process5/sync-machines-from-hiline",
+  authenticateToken,
+  async (req, res) => {
+    const { id_plan, line, style } = req.body;
+
+    // Get user info from token for logging
+    const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
+
+    try {
+      // Connect to MSSQL
+      const pool = await sql.connect(mssqlConfig);
+
+      // Execute the query with parameterized inputs for safety
+      const result = await pool
+        .request()
+        .input("mahang", sql.VarChar, style)
+        .input("chuyen", sql.VarChar, line).query(`
+          SELECT DISTINCT
+            ctp.ThietBi as [oid_thietbi],
+            cltb.TenChungLoai as [ten_may],
+            ctp.SoLuongTrenSDC as [so_luong_may]
+          FROM [HiPro].[dbo].[ChiTietPhieuYeuCauThietBiCongCuSanXuat] ctp
+          INNER JOIN [HiPro].[dbo].[PhieuYeuCauThietBiCongCuSanXuat] p
+            ON ctp.idPhieu = p.id
+          INNER JOIN [HiPro].[dbo].[NV_SoDoChuyen] sdc
+            ON p.OidSoDoChuyen = sdc.Oid
+          INNER JOIN [HiPro].[dbo].[NV_QuiTrinhCongNghe] qtcn 
+            ON sdc.QuiTrinh = qtcn.Oid
+          INNER JOIN [HiPro].[dbo].[DM_SanPham] sp 
+            ON qtcn.SanPham = sp.Oid
+          INNER JOIN [HiPro].[dbo].[pro_chuyen] c
+            ON c.oid_mapping = sdc.Chuyen
+          LEFT JOIN [HiPro].[dbo].[DM_ChungLoaiThietBi] cltb
+            ON ctp.ThietBi = cltb.Oid
+          WHERE sp.MaSanPham = @mahang 
+            AND c.stt = @chuyen
+            AND ctp.ThietBi IS NOT NULL
+            AND ctp.SoLuongTrenSDC != 0
+          ORDER BY cltb.TenChungLoai ASC
+        `);
+
+      // Close the SQL Server connection
+      await sql.close();
+
+      // No machines found
+      if (!result.recordset || result.recordset.length === 0) {
+        return res.json({
+          success: true,
+          message: "Không tìm thấy dữ liệu máy từ Hi-Line",
+          count: 0,
+        });
+      }
+
+      // Get MySQL connection to insert data
+      mysqlConnection.getConnection((err, connection) => {
+        if (err) {
+          console.error("Error getting connection:", err);
+          return res.status(500).json({
+            success: false,
+            message: "Database connection error",
+          });
+        }
+
+        connection.beginTransaction(async (err) => {
+          if (err) {
+            connection.release();
+            console.error("Error starting transaction:", err);
+            return res.status(500).json({
+              success: false,
+              message: "Transaction error",
+            });
+          }
+
+          try {
+            // First, get existing machines for this plan
+            const existingMachines = await new Promise((resolve, reject) => {
+              connection.query(
+                "SELECT id_process_5_preparing_machine, SQL_oid_thiet_bi FROM tb_process_5_preparing_machine WHERE id_plan = ?",
+                [id_plan],
+                (err, results) => {
+                  if (err) {
+                    return reject(err);
+                  }
+                  resolve(results);
+                }
+              );
+            });
+
+            // Create a map of existing machines by SQL_oid_thiet_bi
+            const existingMachineMap = {};
+            existingMachines.forEach((machine) => {
+              if (machine.SQL_oid_thiet_bi) {
+                existingMachineMap[machine.SQL_oid_thiet_bi] =
+                  machine.id_process_5_preparing_machine;
+              }
+            });
+
+            // Track operations
+            let insertCount = 0;
+            let updateCount = 0;
+            let errors = [];
+
+            // Process each machine from the result
+            for (const machine of result.recordset) {
+              // Default values for new machine entries
+              const quantity = machine["so_luong_may"] || 0;
+              const prepared = 0;
+              const pass = 0;
+              const fail = 0;
+              const pass_rate = 0;
+              const not_prepared = quantity;
+              const prepare_rate = 0;
+              const SQL_oid_thiet_bi = machine["oid_thietbi"];
+
+              try {
+                if (existingMachineMap[SQL_oid_thiet_bi]) {
+                  // Update existing record
+                  await new Promise((resolve, reject) => {
+                    connection.query(
+                      `UPDATE tb_process_5_preparing_machine 
+                      SET name_machine = ?,
+                          quantity = ?,
+                          not_prepared = quantity - prepared,
+                          updated_by = ?
+                      WHERE id_process_5_preparing_machine = ?`,
+                      [
+                        machine["ten_may"],
+                        quantity,
+                        updated_by,
+                        existingMachineMap[SQL_oid_thiet_bi],
+                      ],
+                      (err, results) => {
+                        if (err) {
+                          return reject(err);
+                        }
+                        updateCount++;
+                        resolve(results);
+                      }
+                    );
+                  });
+                } else {
+                  // Insert new record
+                  await new Promise((resolve, reject) => {
+                    connection.query(
+                      `INSERT INTO tb_process_5_preparing_machine 
+                      (id_plan, id_process, SQL_oid_thiet_bi, name_machine, quantity, prepared, pass, fail, pass_rate, not_prepared, prepare_rate, updated_by) 
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                      [
+                        id_plan,
+                        5, // Set id_process to 5 for Process 5
+                        SQL_oid_thiet_bi,
+                        machine["ten_may"],
+                        quantity,
+                        prepared,
+                        pass,
+                        fail,
+                        pass_rate,
+                        not_prepared,
+                        prepare_rate,
+                        updated_by,
+                      ],
+                      (err, results) => {
+                        if (err) {
+                          return reject(err);
+                        }
+                        insertCount++;
+                        resolve(results);
+                      }
+                    );
+                  });
+                }
+              } catch (error) {
+                errors.push({
+                  machine: machine["ten_may"],
+                  error: error.message,
+                });
+                console.error(
+                  `Error processing machine ${machine["ten_may"]}:`,
+                  error
+                );
+              }
+            }
+
+            // Create log entry
+            const history_log = `${updated_by} vừa đồng bộ dữ liệu từ Hi-Line cho quy trình 5 (CHUẨN BỊ MÁY MÓC THIẾT BỊ, CỮ GÁ LẮP) - Thêm mới: ${insertCount}, Cập nhật: ${updateCount}`;
+
+            await new Promise((resolve, reject) => {
+              connection.query(
+                "INSERT INTO tb_log (history_log) VALUES (?)",
+                [history_log],
+                (err) => {
+                  if (err) {
+                    return reject(err);
+                  }
+                  resolve();
+                }
+              );
+            });
+
+            // Update process rate
+            await new Promise((resolve, reject) => {
+              updateTotalPercentRate(id_plan, connection, (err) => {
+                if (err) {
+                  return reject(err);
+                }
+                resolve();
+              });
+            });
+
+            // Commit the transaction
+            connection.commit((err) => {
+              if (err) {
+                return connection.rollback(() => {
+                  connection.release();
+                  console.error("Error committing transaction:", err);
+                  res.status(500).json({
+                    success: false,
+                    message: "Transaction commit error",
+                  });
+                });
+              }
+
+              connection.release();
+              res.json({
+                success: true,
+                message: `Đồng bộ thành công ${
+                  insertCount + updateCount
+                } máy từ Hi-Line (Thêm mới: ${insertCount}, Cập nhật: ${updateCount})`,
+                count: insertCount + updateCount,
+                insertedCount: insertCount,
+                updatedCount: updateCount,
+                errors: errors.length > 0 ? errors : undefined,
+              });
+            });
+          } catch (error) {
+            return connection.rollback(() => {
+              connection.release();
+              console.error("Error during synchronization process:", error);
+              res.status(500).json({
+                success: false,
+                message: "Database error during synchronization",
+                error: error.message,
+              });
+            });
+          }
+        });
+      });
+    } catch (error) {
+      console.error("Error during Hi-Line synchronization:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error connecting to Hi-Line database or processing data",
+        error: error.message,
+      });
+    }
+  }
+);
+
+// Backup Machines POST endpoint
+app.post("/api/process5/backup-machines", authenticateToken, (req, res) => {
+  const {
+    id_plan,
+    id_process,
+    adjust_date,
+    name_machine,
+    quantity,
+    prepared,
+    pass,
+    fail,
+  } = req.body;
+
+  // Calculate derived values
+  const pass_rate = pass > 0 ? Math.round((pass / prepared) * 100) : 0;
+  const not_prepared = quantity - prepared;
+  const prepare_rate =
+    quantity > 0 ? Math.round((prepared / quantity) * 100) : 0;
+
+  // Get user info from token
+  const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
+
+  // Allow adjust_date to be NULL if it's empty
+  const adjustDateValue =
+    adjust_date && adjust_date.trim() !== "" ? adjust_date : null;
+
+  mysqlConnection.getConnection((err, connection) => {
+    if (err) {
+      console.error("Error getting connection:", err);
+      return res
+        .status(500)
+        .json({ success: false, message: "Database connection error" });
+    }
+
+    connection.beginTransaction((err) => {
+      if (err) {
+        connection.release();
+        console.error("Error starting transaction:", err);
+        return res
+          .status(500)
+          .json({ success: false, message: "Transaction error" });
+      }
+
+      // Insert or update backup machine record
+      connection.query(
+        `INSERT INTO tb_process_5_backup_machine 
+         (id_plan, id_process, adjust_date, name_machine, quantity, prepared, pass, fail, pass_rate, not_prepared, prepare_rate, updated_by) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id_plan,
+          id_process || 5, // Default to 5 if not provided
+          adjustDateValue,
+          name_machine,
+          quantity,
+          prepared,
+          pass,
+          fail,
+          pass_rate,
+          not_prepared,
+          prepare_rate,
+          updated_by,
+        ],
+        (err, results) => {
+          if (err) {
+            return connection.rollback(() => {
+              connection.release();
+              console.error("Error adding/updating backup machine:", err);
+              res
+                .status(500)
+                .json({ success: false, message: "Database error" });
+            });
+          }
+
+          // Get plan information for logging
+          connection.query(
+            "SELECT line, style FROM tb_plan WHERE id_plan = ?",
+            [id_plan],
+            (err, planResults) => {
+              if (err) {
+                return connection.rollback(() => {
+                  connection.release();
+                  console.error("Error fetching plan data:", err);
+                  res
+                    .status(500)
+                    .json({ success: false, message: "Database error" });
+                });
+              }
+
+              const line =
+                planResults.length > 0 ? planResults[0].line : "Unknown";
+              const style =
+                planResults.length > 0 ? planResults[0].style : "Unknown";
+
+              // Update process rate
+              connection.query(
+                "SELECT AVG(prepare_rate) as avg_prepare_rate FROM tb_process_5_backup_machine WHERE id_plan = ?",
+                [id_plan],
+                (err, avgResults) => {
+                  if (err) {
+                    return connection.rollback(() => {
+                      connection.release();
+                      console.error(
+                        "Error calculating average prepare rate:",
+                        err
+                      );
+                      res
+                        .status(500)
+                        .json({ success: false, message: "Database error" });
+                    });
+                  }
+
+                  // Now update the total_percent_rate in the plan
+                  updateTotalPercentRate(id_plan, connection, (err) => {
+                    if (err) {
+                      return connection.rollback(() => {
+                        connection.release();
+                        console.error(
+                          "Error updating total percent rate:",
+                          err
+                        );
+                        res
+                          .status(500)
+                          .json({ success: false, message: "Database error" });
+                      });
+                    }
+
+                    // Create log entry
+                    const action = results.insertId ? "THÊM MỚI" : "CẬP NHẬT";
+                    const history_log = `${updated_by} vừa ${action} thông tin máy dự phòng "${name_machine}" cho quy trình 5 (CHUẨN BỊ MÁY MÓC THIẾT BỊ, CỮ GÁ LẮP) của chuyền [${line}], mã hàng [${style}]`;
+
+                    connection.query(
+                      "INSERT INTO tb_log (history_log) VALUES (?)",
+                      [history_log],
+                      (err) => {
+                        if (err) {
+                          return connection.rollback(() => {
+                            connection.release();
+                            console.error("Error creating log entry:", err);
+                            res.status(500).json({
+                              success: false,
+                              message: "Database error",
+                            });
+                          });
+                        }
+
+                        // Commit the transaction
+                        connection.commit((err) => {
+                          if (err) {
+                            return connection.rollback(() => {
+                              connection.release();
+                              console.error(
+                                "Error committing transaction:",
+                                err
+                              );
+                              res.status(500).json({
+                                success: false,
+                                message: "Transaction commit error",
+                              });
+                            });
+                          }
+
+                          connection.release();
+                          res.json({
+                            success: true,
+                            message: "Backup machine data saved successfully",
+                            id: results.insertId || null,
+                          });
+                        });
+                      }
+                    );
+                  });
+                }
+              );
+            }
+          );
+        }
+      );
+    });
+  });
+});
+
+// Backup Machines PUT endpoint
+app.put("/api/process5/backup-machines/:id", authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const {
+    id_plan,
+    id_process,
+    adjust_date,
+    name_machine,
+    quantity,
+    prepared,
+    pass,
+    fail,
+  } = req.body;
+
+  // Calculate derived values
+  const pass_rate = pass > 0 ? Math.round((pass / prepared) * 100) : 0;
+  const not_prepared = quantity - prepared;
+  const prepare_rate =
+    quantity > 0 ? Math.round((prepared / quantity) * 100) : 0;
+
+  // Get user info from token
+  const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
+
+  // Allow adjust_date to be NULL if it's empty
+  const adjustDateValue =
+    adjust_date && adjust_date.trim() !== "" ? adjust_date : null;
+
+  mysqlConnection.getConnection((err, connection) => {
+    if (err) {
+      console.error("Error getting connection:", err);
+      return res
+        .status(500)
+        .json({ success: false, message: "Database connection error" });
+    }
+
+    connection.beginTransaction((err) => {
+      if (err) {
+        connection.release();
+        console.error("Error starting transaction:", err);
+        return res
+          .status(500)
+          .json({ success: false, message: "Transaction error" });
+      }
+
+      // Update the backup machine record
+      connection.query(
+        `UPDATE tb_process_5_backup_machine 
+         SET adjust_date = ?, 
+             name_machine = ?,
+             quantity = ?,
+             prepared = ?,
+             pass = ?,
+             fail = ?,
+             pass_rate = ?,
+             not_prepared = ?,
+             prepare_rate = ?,
+             id_process = ?,
+             updated_by = ?
+         WHERE id_process_5_backup_machine = ?`,
+        [
+          adjustDateValue,
+          name_machine,
+          quantity,
+          prepared,
+          pass,
+          fail,
+          pass_rate,
+          not_prepared,
+          prepare_rate,
+          id_process || 5, // Default to 5 if not provided
+          updated_by,
+          id,
+        ],
+        (err, results) => {
+          if (err) {
+            return connection.rollback(() => {
+              connection.release();
+              console.error("Error updating backup machine:", err);
+              res
+                .status(500)
+                .json({ success: false, message: "Database error" });
+            });
+          }
+
+          if (results.affectedRows === 0) {
+            return connection.rollback(() => {
+              connection.release();
+              res.status(404).json({
+                success: false,
+                message: "Machine not found or no changes made",
+              });
+            });
+          }
+
+          // Get plan information for logging
+          connection.query(
+            "SELECT line, style FROM tb_plan WHERE id_plan = ?",
+            [id_plan],
+            (err, planResults) => {
+              if (err) {
+                return connection.rollback(() => {
+                  connection.release();
+                  console.error("Error fetching plan data:", err);
+                  res
+                    .status(500)
+                    .json({ success: false, message: "Database error" });
+                });
+              }
+
+              const line =
+                planResults.length > 0 ? planResults[0].line : "Unknown";
+              const style =
+                planResults.length > 0 ? planResults[0].style : "Unknown";
+
+              // Update process rate
+              updateTotalPercentRate(id_plan, connection, (err) => {
+                if (err) {
+                  return connection.rollback(() => {
+                    connection.release();
+                    console.error("Error updating total percent rate:", err);
+                    res
+                      .status(500)
+                      .json({ success: false, message: "Database error" });
+                  });
+                }
+
+                // Create log entry
+                const history_log = `${updated_by} vừa CẬP NHẬT thông tin máy dự phòng "${name_machine}" cho quy trình 5 (CHUẨN BỊ MÁY MÓC THIẾT BỊ, CỮ GÁ LẮP) của chuyền [${line}], mã hàng [${style}]`;
+
+                connection.query(
+                  "INSERT INTO tb_log (history_log) VALUES (?)",
+                  [history_log],
+                  (err) => {
+                    if (err) {
+                      return connection.rollback(() => {
+                        connection.release();
+                        console.error("Error creating log entry:", err);
+                        res.status(500).json({
+                          success: false,
+                          message: "Database error",
+                        });
+                      });
+                    }
+
+                    // Commit the transaction
+                    connection.commit((err) => {
+                      if (err) {
+                        return connection.rollback(() => {
+                          connection.release();
+                          console.error("Error committing transaction:", err);
+                          res.status(500).json({
+                            success: false,
+                            message: "Transaction commit error",
+                          });
+                        });
+                      }
+
+                      connection.release();
+                      res.json({
+                        success: true,
+                        message: "Backup machine data updated successfully",
+                      });
+                    });
+                  }
+                );
+              });
+            }
+          );
+        }
+      );
+    });
+  });
+});
+
+app.delete(
+  "/api/process5/backup-machines/:id",
+  authenticateToken,
+  (req, res) => {
+    const { id } = req.params;
+    const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
+
+    mysqlConnection.getConnection((err, connection) => {
+      if (err) {
+        console.error("Error getting connection:", err);
+        return res
+          .status(500)
+          .json({ success: false, message: "Database connection error" });
+      }
+
+      connection.beginTransaction((err) => {
+        if (err) {
+          connection.release();
+          console.error("Error starting transaction:", err);
+          return res
+            .status(500)
+            .json({ success: false, message: "Transaction error" });
+        }
+
+        // Get machine and plan info for logging
+        connection.query(
+          `SELECT m.name_machine, m.id_plan, p.line, p.style 
+         FROM tb_process_5_backup_machine m 
+         JOIN tb_plan p ON m.id_plan = p.id_plan 
+         WHERE m.id_process_5_backup_machine = ?`,
+          [id],
+          (err, results) => {
+            if (err) {
+              return connection.rollback(() => {
+                connection.release();
+                console.error("Error fetching machine info:", err);
+                res
+                  .status(500)
+                  .json({ success: false, message: "Database error" });
+              });
+            }
+
+            if (results.length === 0) {
+              return connection.rollback(() => {
+                connection.release();
+                res.status(404).json({
+                  success: false,
+                  message: "Machine record not found",
+                });
+              });
+            }
+
+            const { name_machine, id_plan, line, style } = results[0];
+
+            // Delete the machine record
+            connection.query(
+              "DELETE FROM tb_process_5_backup_machine WHERE id_process_5_backup_machine = ?",
+              [id],
+              (err) => {
+                if (err) {
+                  return connection.rollback(() => {
+                    connection.release();
+                    console.error("Error deleting backup machine:", err);
+                    res
+                      .status(500)
+                      .json({ success: false, message: "Database error" });
+                  });
+                }
+
+                // Update process rate
+                updateTotalPercentRate(id_plan, connection, (err) => {
+                  if (err) {
+                    return connection.rollback(() => {
+                      connection.release();
+                      console.error("Error updating total percent rate:", err);
+                      res
+                        .status(500)
+                        .json({ success: false, message: "Database error" });
+                    });
+                  }
+
+                  // Create log entry
+                  const history_log = `${updated_by} vừa XÓA thông tin máy dự phòng "${name_machine}" từ quy trình 5 (CHUẨN BỊ MÁY MÓC THIẾT BỊ, CỮ GÁ LẮP) của chuyền [${line}], mã hàng [${style}]`;
+
+                  connection.query(
+                    "INSERT INTO tb_log (history_log) VALUES (?)",
+                    [history_log],
+                    (err) => {
+                      if (err) {
+                        return connection.rollback(() => {
+                          connection.release();
+                          console.error("Error creating log entry:", err);
+                          res.status(500).json({
+                            success: false,
+                            message: "Database error",
+                          });
+                        });
+                      }
+
+                      // Commit the transaction
+                      connection.commit((err) => {
+                        if (err) {
+                          return connection.rollback(() => {
+                            connection.release();
+                            console.error("Error committing transaction:", err);
+                            res.status(500).json({
+                              success: false,
+                              message: "Transaction commit error",
+                            });
+                          });
+                        }
+
+                        connection.release();
+                        res.json({
+                          success: true,
+                          message: "Backup machine deleted successfully",
+                        });
+                      });
+                    }
+                  );
+                });
+              }
+            );
+          }
+        );
+      });
+    });
   }
 );
 
@@ -1308,6 +2730,19 @@ const handleProcessDocumentationUpload = (
                         });
                       }
 
+                      // If this is regular documentation, update the total_percent_rate
+                      if (!isA3) {
+                        updateTotalPercentRate(id_plan, connection, (err) => {
+                          if (err) {
+                            console.error(
+                              "Error updating total percent rate:",
+                              err
+                            );
+                            // Continue with the transaction anyway
+                          }
+                        });
+                      }
+
                       const fileNames = files
                         .map((file) => file.originalname)
                         .join(", ");
@@ -1510,6 +2945,16 @@ const handleProcessDocumentationDelete = (
                   });
                 }
 
+                // Update total_percent_rate if this is regular documentation
+                if (!isA3) {
+                  updateTotalPercentRate(id_plan, connection, (err) => {
+                    if (err) {
+                      console.error("Error updating total percent rate:", err);
+                      // Continue with the transaction anyway
+                    }
+                  });
+                }
+
                 // Log the action using format consistent with other logs
                 const docType = isA3
                   ? "tài liệu A3 khắc phục"
@@ -1542,7 +2987,7 @@ const handleProcessDocumentationDelete = (
                           );
                           res.status(500).json({
                             success: false,
-                            message: "Commit error",
+                            message: "Transaction commit error",
                           });
                         });
                       }

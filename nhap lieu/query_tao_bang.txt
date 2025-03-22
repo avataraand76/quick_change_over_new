@@ -10,7 +10,7 @@ CREATE TABLE tb_plan
 	plan_date DATETIME,
 	actual_date DATETIME,
 	A3_documentation TEXT,
-    percent_rate INT,
+    total_percent_rate INT,
 
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -147,7 +147,7 @@ CREATE TABLE tb_process_5_preparing_machine
     id_process BIGINT,
     id_plan BIGINT,
 	
-    adjust_date DATE,
+    adjust_date DATETIME,
 	SQL_oid_thiet_bi TEXT, -- [HiPro].[dbo].[ChiTietPhieuYeuCauThietBiCongCuSanXuat].ThietBi
 	name_machine TEXT, -- [HiPro].[dbo].[DM_ChungLoaiThietBi].TenChungLoai
 	quantity INT, -- [HiPro].[dbo].[ChiTietPhieuYeuCauThietBiCongCuSanXuat].SoLuongTrenSDC
@@ -155,9 +155,9 @@ CREATE TABLE tb_process_5_preparing_machine
 	prepared INT,
 	pass INT,
 	fail INT,
-	pass_rate DECIMAL(15,2),
+	pass_rate INT,
 	not_prepared INT,
-	prepare_rate DECIMAL(15,2),
+	prepare_rate INT,
 	
 	-- reason TEXT,
 	-- mechanical_name TEXT,
@@ -172,22 +172,22 @@ CREATE TABLE tb_process_5_preparing_machine
     UNIQUE (id_process_5_preparing_machine, id_process, id_plan, SQL_oid_thiet_bi(255))    
 );
 
-CREATE TABLE tb_process_5_preventive_machine
+CREATE TABLE tb_process_5_backup_machine
 (
-	id_process_5_preventive_machine BIGINT NOT NULL AUTO_INCREMENT,
+	id_process_5_backup_machine BIGINT NOT NULL AUTO_INCREMENT,
 	id_process BIGINT,
     id_plan BIGINT,
 	
-    adjust_date DATE,
+    adjust_date DATETIME,
 	name_machine TEXT,
 	quantity INT,
 	
 	prepared INT,
 	pass INT,
 	fail INT,
-	pass_rate DECIMAL(15,2),
+	pass_rate INT,
 	not_prepared INT,
-	prepare_rate DECIMAL(15,2),
+	prepare_rate INT,
 	
 	-- reason TEXT,
 	-- mechanical_name TEXT,
@@ -198,8 +198,8 @@ CREATE TABLE tb_process_5_preventive_machine
   	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 	updated_by TEXT,
 
-	PRIMARY KEY (id_process_5_preventive_machine),
-    UNIQUE (id_process_5_preventive_machine, id_process, id_plan)    
+	PRIMARY KEY (id_process_5_backup_machine),
+    UNIQUE (id_process_5_backup_machine, id_process, id_plan)    
 );
 
 CREATE TABLE tb_process_6

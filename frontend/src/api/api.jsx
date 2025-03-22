@@ -287,6 +287,132 @@ let API = {
       throw error;
     }
   },
+
+  // Process 5 preparing machines API methods
+  getProcess5PreparingMachines: async (id_plan) => {
+    try {
+      const response = await httpConnect.get(
+        `/api/process5/preparing-machines/${id_plan}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching Process 5 preparing machines:", error);
+      throw error;
+    }
+  },
+
+  saveProcess5PreparingMachine: async (machineData) => {
+    try {
+      let response;
+      // Check if this is an update (id present) or create (no id)
+      if (machineData.id_process_5_preparing_machine) {
+        // Update existing record
+        response = await httpConnect.put(
+          `/api/process5/preparing-machines/${machineData.id_process_5_preparing_machine}`,
+          machineData
+        );
+      } else {
+        // Create new record
+        response = await httpConnect.post(
+          "/api/process5/preparing-machines",
+          machineData
+        );
+      }
+      return response.data;
+    } catch (error) {
+      console.error("Error saving Process 5 preparing machine:", error);
+      throw error;
+    }
+  },
+
+  deleteProcess5PreparingMachine: async (id) => {
+    try {
+      const response = await httpConnect.delete(
+        `/api/process5/preparing-machines/${id}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error deleting Process 5 preparing machine:", error);
+      throw error;
+    }
+  },
+
+  // Process 5 backup machines API methods
+  getProcess5BackupMachines: async (id_plan) => {
+    try {
+      const response = await httpConnect.get(
+        `/api/process5/backup-machines/${id_plan}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching Process 5 backup machines:", error);
+      throw error;
+    }
+  },
+
+  saveProcess5BackupMachine: async (machineData) => {
+    try {
+      let response;
+      // Check if this is an update (id present) or create (no id)
+      if (machineData.id_process_5_backup_machine) {
+        // Update existing record
+        response = await httpConnect.put(
+          `/api/process5/backup-machines/${machineData.id_process_5_backup_machine}`,
+          machineData
+        );
+      } else {
+        // Create new record
+        response = await httpConnect.post(
+          "/api/process5/backup-machines",
+          machineData
+        );
+      }
+      return response.data;
+    } catch (error) {
+      console.error("Error saving Process 5 backup machine:", error);
+      throw error;
+    }
+  },
+
+  deleteProcess5BackupMachine: async (id) => {
+    try {
+      const response = await httpConnect.delete(
+        `/api/process5/backup-machines/${id}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error deleting Process 5 backup machine:", error);
+      throw error;
+    }
+  },
+
+  // Process 5 Hi-Line data synchronization
+  syncProcess5MachinesFromHiLine: async (id_plan, line, style) => {
+    try {
+      const response = await httpConnect.post(
+        `/api/process5/sync-machines-from-hiline`,
+        {
+          id_plan,
+          line,
+          style,
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error synchronizing machines:", error);
+      throw error;
+    }
+  },
+
+  getAllPlansForCalendar: async () => {
+    try {
+      const response = await httpConnect.get("/api/plans-for-calendar");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching plans for calendar:", error);
+      throw error;
+    }
+  },
 };
 
 // Tự động tạo phương thức API cho tất cả các quy trình (1, 2, 3, 4, 6, 7, 8)
