@@ -162,6 +162,21 @@ const Navbar = () => {
           >
             Báo cáo
           </Button>
+          <Button
+            color="inherit"
+            component="a"
+            href="https://drive.google.com/file/d/1a2pABLGmp4h6j98objZ-R5-nASF5CZJE/view?usp=sharing"
+            target="_blank"
+            startIcon={<i className="fas fa-book" />}
+            sx={{
+              borderRadius: "15px",
+              "&:hover": {
+                backgroundColor: "rgba(255, 255, 255, 0.1)",
+              },
+            }}
+          >
+            HDSD
+          </Button>
           {token ? (
             <Button
               color="inherit"
@@ -238,6 +253,15 @@ const Navbar = () => {
             <MenuItem component={Link} to="/report" onClick={handleClose}>
               <i className="fas fa-chart-bar" style={{ marginRight: 8 }} />
               Báo cáo
+            </MenuItem>
+            <MenuItem
+              component="a"
+              href="https://drive.google.com/file/d/1a2pABLGmp4h6j98objZ-R5-nASF5CZJE/view?usp=sharing"
+              target="_blank"
+              onClick={handleClose}
+            >
+              <i className="fas fa-book" style={{ marginRight: 8 }} />
+              HDSD
             </MenuItem>
             {token ? (
               <MenuItem

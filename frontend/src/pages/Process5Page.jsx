@@ -1161,17 +1161,6 @@ const Process5Page = () => {
                 required
               />
             </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Mã thiết bị SQL (nếu có)"
-                name="SQL_oid_thiet_bi"
-                value={preparingMachineData.SQL_oid_thiet_bi}
-                onChange={handlePreparingMachineChange}
-                variant="outlined"
-                margin="normal"
-              />
-            </Grid>
             <Grid item xs={12} sm={4}>
               <TextField
                 fullWidth
