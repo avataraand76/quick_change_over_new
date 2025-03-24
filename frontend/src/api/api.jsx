@@ -48,8 +48,13 @@ let API = {
     return response.data;
   },
 
-  getLinesAndStyles: async () => {
-    const response = await httpConnect.get("/api/lines-styles");
+  // getLinesAndStyles: async () => {
+  //   const response = await httpConnect.get("/api/lines-styles");
+  //   return response.data;
+  // },
+
+  getHigmfLinesAndStyles: async () => {
+    const response = await httpConnect.get("/api/higmf-lines-styles");
     return response.data;
   },
 

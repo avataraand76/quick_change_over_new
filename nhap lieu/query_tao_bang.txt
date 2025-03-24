@@ -2,11 +2,10 @@ CREATE TABLE tb_plan
 (
   	id_plan BIGINT NOT NULL AUTO_INCREMENT,
   
-	SQL_oid_line TEXT, -- trỏ tới [HiPro].[dbo].[pro_chuyen].oid_mapping
-  	line TEXT, -- [HiPro].[dbo].[pro_chuyen].stt
-  	SQL_oid_ma_hang TEXT, -- trỏ tới [HiPro].[dbo].[DM_SanPham].oid
-  	style TEXT, -- [HiPro].[dbo].[DM_SanPham].MaSanPham
-	
+	KHTId BIGINT,
+	line TEXT,
+  	style TEXT,
+	quantity INT,
 	plan_date DATETIME,
 	actual_date DATETIME,
 	A3_documentation TEXT,
@@ -16,7 +15,8 @@ CREATE TABLE tb_plan
   	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 	updated_by TEXT,
 
-	PRIMARY KEY (id_plan)
+	PRIMARY KEY (id_plan),
+	UNIQUE (id_plan, KHTId)
 );
 
 CREATE TABLE tb_co

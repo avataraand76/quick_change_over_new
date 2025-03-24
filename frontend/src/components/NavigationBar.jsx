@@ -10,7 +10,11 @@ import {
   Box,
   Avatar,
 } from "@mui/material";
-import { Menu as MenuIcon, Login as LoginIcon, AccountCircle } from "@mui/icons-material";
+import {
+  Menu as MenuIcon,
+  Login as LoginIcon,
+  AccountCircle,
+} from "@mui/icons-material";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import logo from "../assets/logo_vlh.jpg";
 
@@ -42,17 +46,17 @@ const Navbar = () => {
   }
 
   return (
-    <AppBar 
-      position="static" 
-      sx={{ 
-        backgroundColor: '#1976d2',
-        borderRadius: '20px',
-        margin: '10px',
-        width: 'calc(100% - 20px)'
+    <AppBar
+      position="static"
+      sx={{
+        backgroundColor: "#1976d2",
+        borderRadius: "20px",
+        margin: "10px",
+        width: "calc(100% - 20px)",
       }}
     >
       <Toolbar>
-        <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
+        <Box sx={{ display: "flex", alignItems: "center", flexGrow: 1 }}>
           <Avatar
             src={logo}
             alt="Logo"
@@ -66,31 +70,37 @@ const Navbar = () => {
             to="/"
             sx={{
               flexGrow: 1,
-              textDecoration: 'none',
-              color: 'white',
-              fontWeight: 'bold',
-              '&:hover': {
-                color: '#e3f2fd',
-              }
+              textDecoration: "none",
+              color: "white",
+              fontWeight: "bold",
+              "&:hover": {
+                color: "#e3f2fd",
+              },
             }}
           >
             Quick Change Over
           </Typography>
         </Box>
 
-        <Box sx={{ display: { xs: "none", md: "flex" }, gap: 1, alignItems: "center" }}>
+        <Box
+          sx={{
+            display: { xs: "none", md: "flex" },
+            gap: 1,
+            alignItems: "center",
+          }}
+        >
           {token && (
             <Button
               color="inherit"
               startIcon={<AccountCircle />}
               sx={{
-                borderRadius: '15px',
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                '&:hover': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                borderRadius: "15px",
+                backgroundColor: "rgba(255, 255, 255, 0.1)",
+                "&:hover": {
+                  backgroundColor: "rgba(255, 255, 255, 0.2)",
                 },
                 marginRight: 1,
-                textTransform: 'none'
+                textTransform: "none",
               }}
             >
               {user.ma_nv}: {user.ten_nv}
@@ -102,10 +112,10 @@ const Navbar = () => {
             to="/"
             startIcon={<i className="fas fa-home" />}
             sx={{
-              borderRadius: '15px',
-              '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              }
+              borderRadius: "15px",
+              "&:hover": {
+                backgroundColor: "rgba(255, 255, 255, 0.1)",
+              },
             }}
           >
             Trang chủ
@@ -116,15 +126,15 @@ const Navbar = () => {
             to="/create-phase"
             startIcon={<i className="fas fa-plus" />}
             sx={{
-              borderRadius: '15px',
-              '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              }
+              borderRadius: "15px",
+              "&:hover": {
+                backgroundColor: "rgba(255, 255, 255, 0.1)",
+              },
             }}
           >
             Tạo kế hoạch
           </Button>
-          <Button
+          {/* <Button
             color="inherit"
             component={Link}
             to="/calendar"
@@ -137,17 +147,17 @@ const Navbar = () => {
             }}
           >
             Kế hoạch
-          </Button>
+          </Button> */}
           <Button
             color="inherit"
             component={Link}
             to="/report"
             startIcon={<i className="fas fa-chart-bar" />}
             sx={{
-              borderRadius: '15px',
-              '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              }
+              borderRadius: "15px",
+              "&:hover": {
+                backgroundColor: "rgba(255, 255, 255, 0.1)",
+              },
             }}
           >
             Báo cáo
@@ -158,10 +168,10 @@ const Navbar = () => {
               onClick={handleLogout}
               startIcon={<i className="fas fa-sign-out-alt" />}
               sx={{
-                borderRadius: '15px',
-                '&:hover': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                }
+                borderRadius: "15px",
+                "&:hover": {
+                  backgroundColor: "rgba(255, 255, 255, 0.1)",
+                },
               }}
             >
               Đăng xuất
@@ -173,10 +183,10 @@ const Navbar = () => {
               to="/login"
               startIcon={<LoginIcon />}
               sx={{
-                borderRadius: '15px',
-                '&:hover': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                }
+                borderRadius: "15px",
+                "&:hover": {
+                  backgroundColor: "rgba(255, 255, 255, 0.1)",
+                },
               }}
             >
               Đăng nhập
@@ -191,7 +201,7 @@ const Navbar = () => {
             color="inherit"
             aria-label="menu"
             onClick={handleMenu}
-            sx={{ borderRadius: '15px' }}
+            sx={{ borderRadius: "15px" }}
           >
             <MenuIcon />
           </IconButton>
@@ -200,15 +210,15 @@ const Navbar = () => {
             open={Boolean(anchorEl)}
             onClose={handleClose}
             sx={{
-              '& .MuiPaper-root': {
-                backgroundColor: '#fff',
-                boxShadow: '0px 2px 4px rgba(0,0,0,0.1)',
-                borderRadius: '15px'
-              }
+              "& .MuiPaper-root": {
+                backgroundColor: "#fff",
+                boxShadow: "0px 2px 4px rgba(0,0,0,0.1)",
+                borderRadius: "15px",
+              },
             }}
           >
             {token && (
-              <MenuItem sx={{ color: '#1976d2' }}>
+              <MenuItem sx={{ color: "#1976d2" }}>
                 <AccountCircle sx={{ mr: 1 }} />
                 {user.ma_nv}: {user.ten_nv}
               </MenuItem>

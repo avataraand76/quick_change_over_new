@@ -1,6 +1,6 @@
 // frontend/src/pages/CreatePhasePage.jsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Container,
   TextField,
@@ -26,6 +26,9 @@ import {
   LinearProgress,
   InputAdornment,
   Chip,
+  Collapse,
+  TableContainer,
+  CircularProgress,
 } from "@mui/material";
 import API from "../api/api";
 import {
@@ -35,80 +38,51 @@ import {
   Search as SearchIcon,
   Clear as ClearIcon,
   ArrowBack as ArrowBackIcon,
+  ExpandMore,
+  ChevronRight,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
+import NotificationDialog from "../components/NotificationDialog";
 
 const CreatePhasePage = () => {
-  const getCurrentDateTime = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  };
-
-  const [lines, setLines] = useState([]);
-  const [allStyles, setAllStyles] = useState([]);
-  const [filteredStyles, setFilteredStyles] = useState([]);
-  const [selectedLine, setSelectedLine] = useState("");
-  const [selectedStyle, setSelectedStyle] = useState("");
-  const [planDate, setPlanDate] = useState(getCurrentDateTime());
-  const [actualDate, setActualDate] = useState(getCurrentDateTime());
   const [plans, setPlans] = useState([]);
   const [lineFilter, setLineFilter] = useState([]);
   const [styleFilter, setStyleFilter] = useState([]);
   const [planDateFilter, setPlanDateFilter] = useState([]);
   const [actualDateFilter, setActualDateFilter] = useState([]);
   const [userFilter, setUserFilter] = useState([]);
+  const [higmfData, setHigmfData] = useState([]);
+
+  const [searchLine, setSearchLine] = useState("");
+  const [searchStyle, setSearchStyle] = useState("");
+
+  const [selectedPlans, setSelectedPlans] = useState([]);
+
+  const [collapsedLines, setCollapsedLines] = useState({});
+
+  const [notification, setNotification] = useState({
+    open: false,
+    title: "",
+    message: "",
+    severity: "info",
+  });
+
+  const [isCreating, setIsCreating] = useState(false);
 
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchLinesAndStyles = async () => {
-      try {
-        const response = await API.getLinesAndStyles();
+  const handleCloseNotification = () => {
+    setNotification({ ...notification, open: false });
+  };
 
-        // Lọc và sắp xếp chuyền
-        const uniqueLines = response
-          .filter(
-            (item, index, self) =>
-              self.findIndex(
-                (t) => t["OID cua Line"] === item["OID cua Line"]
-              ) === index
-          )
-          .sort((a, b) => a["stt cua line"] - b["stt cua line"]);
-
-        setLines(uniqueLines);
-        setAllStyles(response);
-      } catch (error) {
-        console.error("Error fetching lines and styles:", error);
-        alert("Không thể tải dữ liệu chuyền và mã hàng");
-      }
-    };
-    fetchLinesAndStyles();
-  }, []);
-
-  useEffect(() => {
-    if (selectedLine) {
-      const stylesForLine = allStyles
-        .filter((item) => item["OID cua Line"] === selectedLine)
-        .filter(
-          (item, index, self) =>
-            self.findIndex(
-              (t) => t["OID cua ma hang"] === item["OID cua ma hang"]
-            ) === index
-        )
-        .sort((a, b) => a["ma hang"].localeCompare(b["ma hang"]));
-
-      setFilteredStyles(stylesForLine);
-      setSelectedStyle("");
-    } else {
-      setFilteredStyles([]);
-      setSelectedStyle("");
-    }
-  }, [selectedLine, allStyles]);
+  const showNotification = (title, message, severity = "info") => {
+    setNotification({
+      open: true,
+      title,
+      message,
+      severity,
+    });
+  };
 
   useEffect(() => {
     const fetchPlans = async () => {
@@ -117,48 +91,93 @@ const CreatePhasePage = () => {
         setPlans(response);
       } catch (error) {
         console.error("Error fetching plans:", error);
-        alert("Không thể tải danh sách kế hoạch");
+        showNotification("Lỗi", "Không thể tải danh sách kế hoạch", "error");
       }
     };
     fetchPlans();
   }, []);
 
+  useEffect(() => {
+    const fetchHigmfData = async () => {
+      try {
+        const response = await API.getHigmfLinesAndStyles();
+        setHigmfData(response);
+      } catch (error) {
+        console.error("Error fetching HIGMF data:", error);
+        showNotification("Lỗi", "Không thể tải dữ liệu từ HIGMF", "error");
+      }
+    };
+    fetchHigmfData();
+  }, []);
+
+  useEffect(() => {
+    if (higmfData.length > 0) {
+      const initialState = {};
+      higmfData.forEach((item) => {
+        initialState[item.line] = true; // true = collapsed
+      });
+      setCollapsedLines(initialState);
+    }
+  }, [higmfData]);
+
   const handleCreatePlan = async () => {
-    // Validate required fields
-    if (!selectedLine || !selectedStyle || !planDate) {
-      alert(
-        "Vui lòng nhập đầy đủ thông tin Chuyền, Mã hàng và Thời gian dự kiến"
+    if (selectedPlans.length === 0) {
+      showNotification(
+        "Cảnh báo",
+        "Vui lòng chọn ít nhất một kế hoạch để tạo",
+        "warning"
       );
       return;
     }
 
+    setIsCreating(true);
     try {
-      const newPlan = {
-        SQL_oid_line: selectedLine,
-        line: lines.find((line) => line["OID cua Line"] === selectedLine)?.[
-          "stt cua line"
-        ],
-        SQL_oid_ma_hang: selectedStyle,
-        style: filteredStyles.find(
-          (style) => style["OID cua ma hang"] === selectedStyle
-        )?.["ma hang"],
-        plan_date: planDate,
-        actual_date: actualDate,
-      };
+      const createPromises = selectedPlans.map((plan) => {
+        const newPlan = {
+          KHTId: plan.KHTId,
+          line: plan.line,
+          style: plan.style,
+          quantity: plan.quantity,
+          plan_date: plan.plan_date,
+          actual_date: plan.plan_date,
+        };
+        return API.createPlan(newPlan);
+      });
 
-      const response = await API.createPlan(newPlan);
-      if (response.success) {
+      const results = await Promise.all(createPromises);
+
+      const hasError = results.some((result) => !result.success);
+      if (!hasError) {
         const updatedPlans = await API.getPlans();
         setPlans(updatedPlans);
-        alert("Tạo kế hoạch thành công!");
+        setSelectedPlans([]);
+        showNotification("Thành công", "Tạo kế hoạch thành công!", "success");
       } else {
-        console.error("Failed to create plan:", response.message);
-        alert("Lỗi: " + response.message);
+        showNotification(
+          "Lỗi",
+          "Có lỗi xảy ra khi tạo một số kế hoạch",
+          "error"
+        );
       }
     } catch (error) {
-      console.error("Error creating plan:", error);
-      alert("Có lỗi xảy ra khi tạo kế hoạch");
+      console.error("Error creating plans:", error);
+      showNotification("Lỗi", "Có lỗi xảy ra khi tạo kế hoạch", "error");
+    } finally {
+      setIsCreating(false);
     }
+  };
+
+  const handleSelectPlan = (plan) => {
+    setSelectedPlans((prev) => {
+      const isSelected = prev.some((p) => p.KHTId === plan.KHTId);
+      if (isSelected) {
+        // Nếu đã chọn thì bỏ chọn
+        return prev.filter((p) => p.KHTId !== plan.KHTId);
+      } else {
+        // Nếu chưa chọn thì thêm vào
+        return [...prev, plan];
+      }
+    });
   };
 
   const formatDateTime = (datetime) => {
@@ -345,6 +364,68 @@ const CreatePhasePage = () => {
 
   const filteredOptions = getFilteredOptions();
 
+  // Thêm hàm filter data
+  const filteredHigmfData = higmfData.filter((item) => {
+    const lineMatch = item.line
+      .toString()
+      .toLowerCase()
+      .includes(searchLine.toLowerCase());
+    const styleMatch = item.style
+      .toLowerCase()
+      .includes(searchStyle.toLowerCase());
+    return lineMatch && styleMatch;
+  });
+
+  // Thêm hàm toggle collapse
+  const toggleLineCollapse = (line) => {
+    setCollapsedLines((prev) => ({
+      ...prev,
+      [line]: !prev[line],
+    }));
+  };
+
+  // Thay đổi cách tạo groupedData
+  const groupedData = useMemo(() => {
+    // Sắp xếp filteredHigmfData trước khi nhóm
+    const sortedData = [...filteredHigmfData].sort((a, b) => {
+      // Lấy số chuyền
+      const getLineNumber = (line) => {
+        const num = parseInt(line.toString().replace(/[^\d]/g, ""));
+        // Thêm padding 0 cho số < 10 để sort đúng thứ tự 01, 02, 03...
+        return num < 10 ? `0${num}` : num.toString();
+      };
+
+      const lineA = getLineNumber(a.line);
+      const lineB = getLineNumber(b.line);
+
+      // Ưu tiên sắp xếp chuyền 1-9 lên đầu
+      const numA = parseInt(lineA);
+      const numB = parseInt(lineB);
+
+      // Sắp xếp theo số
+      return numA - numB;
+    });
+
+    // Tạo một object để nhóm các items theo line
+    const grouped = sortedData.reduce((acc, item) => {
+      const line = item.line;
+      if (!acc[line]) {
+        acc[line] = [];
+      }
+      acc[line].push(item);
+      return acc;
+    }, {});
+
+    // Tạo mảng các cặp [line, items] để giữ thứ tự đã sắp xếp
+    const orderedLines = Object.keys(grouped).sort((a, b) => {
+      const numA = parseInt(a.replace(/[^\d]/g, ""));
+      const numB = parseInt(b.replace(/[^\d]/g, ""));
+      return numA - numB;
+    });
+
+    return orderedLines.map((line) => [line, grouped[line]]);
+  }, [filteredHigmfData]);
+
   return (
     <Container component="main" maxWidth="xl">
       <Box sx={{ display: "flex", alignItems: "center", mt: 2 }}>
@@ -378,6 +459,9 @@ const CreatePhasePage = () => {
             color: "white",
             borderTopLeftRadius: 8,
             borderTopRightRadius: 8,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
           }}
         >
           <Typography variant="h5" fontWeight="bold">
@@ -385,141 +469,238 @@ const CreatePhasePage = () => {
           </Typography>
         </Box>
 
-        <CardContent sx={{ padding: 3 }}>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Card variant="outlined" sx={{ height: "100%" }}>
-                <CardContent>
-                  <Typography variant="h6" color="primary" gutterBottom>
-                    Thông Tin Cơ Bản
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12}>
-                      <Autocomplete
-                        value={
-                          lines.find(
-                            (line) => line["OID cua Line"] === selectedLine
-                          ) || null
-                        }
-                        onChange={(event, newValue) => {
-                          setSelectedLine(
-                            newValue ? newValue["OID cua Line"] : ""
-                          );
-                        }}
-                        options={lines}
-                        getOptionLabel={(option) =>
-                          `Chuyền ${option["stt cua line"]}`
-                        }
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            label="Chọn Chuyền"
-                            required
-                            fullWidth
-                          />
-                        )}
-                        isOptionEqualToValue={(option, value) =>
-                          option["OID cua Line"] === value["OID cua Line"]
-                        }
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Autocomplete
-                        value={
-                          filteredStyles.find(
-                            (style) =>
-                              style["OID cua ma hang"] === selectedStyle
-                          ) || null
-                        }
-                        onChange={(event, newValue) => {
-                          setSelectedStyle(
-                            newValue ? newValue["OID cua ma hang"] : ""
-                          );
-                        }}
-                        options={filteredStyles}
-                        getOptionLabel={(option) => option["ma hang"]}
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            label="Chọn Mã Hàng"
-                            required
-                            fullWidth
-                            disabled={!selectedLine}
-                          />
-                        )}
-                        disabled={!selectedLine}
-                        isOptionEqualToValue={(option, value) =>
-                          option["OID cua ma hang"] === value["OID cua ma hang"]
-                        }
-                        noOptionsText={
-                          !selectedLine
-                            ? "Vui lòng chọn chuyền trước"
-                            : "Không có mã hàng cho chuyền này"
-                        }
-                      />
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
-            </Grid>
+        <CardContent sx={{ padding: 0 }}>
+          <Box sx={{ p: 3 }}>
+            <Typography variant="h6" color="primary" gutterBottom>
+              Chọn Kế Hoạch Từ HIGARMENT
+            </Typography>
 
-            <Grid item xs={12} md={6}>
-              <Card variant="outlined" sx={{ height: "100%" }}>
-                <CardContent>
-                  <Typography variant="h6" color="primary" gutterBottom>
-                    Thời Gian
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12}>
-                      <TextField
-                        label="Chọn Thời Gian CĐ Dự Kiến"
-                        type="datetime-local"
-                        value={planDate}
-                        onChange={(e) => setPlanDate(e.target.value)}
-                        fullWidth
-                        required
-                        InputLabelProps={{
-                          shrink: true,
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <TextField
-                        label="Chọn Thời Gian CĐ Thực Tế"
-                        type="datetime-local"
-                        value={actualDate}
-                        onChange={(e) => setActualDate(e.target.value)}
-                        fullWidth
-                        required
-                        InputLabelProps={{
-                          shrink: true,
-                        }}
-                      />
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-
-          <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleCreatePlan}
-              size="large"
-              startIcon={<AddIcon />}
+            {/* Phần tìm kiếm */}
+            <Box
               sx={{
-                minWidth: 150,
-                borderRadius: 2,
-                boxShadow: 2,
-                "&:hover": {
-                  boxShadow: 4,
-                },
+                mb: 2,
+                display: "flex",
+                gap: 2,
+                backgroundColor: "#f8f9fa",
+                p: 2,
+                borderRadius: 1,
               }}
             >
-              Tạo Kế Hoạch
-            </Button>
+              <TextField
+                size="small"
+                placeholder="Tìm chuyền"
+                value={searchLine}
+                onChange={(e) => setSearchLine(e.target.value)}
+                sx={{ width: 200 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <TextField
+                size="small"
+                placeholder="Tìm mã hàng"
+                value={searchStyle}
+                onChange={(e) => setSearchStyle(e.target.value)}
+                sx={{ width: 200 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Box>
+
+            {/* Header cột */}
+            <TableContainer>
+              <Table>
+                <TableBody>
+                  {groupedData.map(([line, items]) => (
+                    <React.Fragment key={line}>
+                      {/* Header chuyền */}
+                      <TableRow
+                        sx={{
+                          backgroundColor: "#e3f2fd",
+                          "&:hover": { backgroundColor: "#bbdefb" },
+                          cursor: "pointer",
+                        }}
+                        onClick={() => toggleLineCollapse(line)}
+                      >
+                        <TableCell colSpan={5}>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
+                            <IconButton size="small">
+                              {collapsedLines[line] ? (
+                                <ExpandMore />
+                              ) : (
+                                <ChevronRight />
+                              )}
+                            </IconButton>
+                            <Typography
+                              sx={{ fontWeight: "bold", color: "#1976d2" }}
+                            >
+                              Chuyền {line} ({items.length} kế hoạch)
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+
+                      {/* Chi tiết các đợt */}
+                      {!collapsedLines[line] && (
+                        <>
+                          {/* Header columns cho mỗi phần collapse */}
+                          <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+                            <TableCell
+                              sx={{
+                                fontWeight: "bold",
+                                width: "15%",
+                                pl: 6,
+                              }}
+                            >
+                              Chuyền
+                            </TableCell>
+                            <TableCell
+                              sx={{
+                                fontWeight: "bold",
+                                width: "20%",
+                              }}
+                            >
+                              Mã Hàng
+                            </TableCell>
+                            <TableCell
+                              sx={{
+                                fontWeight: "bold",
+                                width: "15%",
+                                textAlign: "center",
+                              }}
+                            >
+                              Số Lượng
+                            </TableCell>
+                            <TableCell
+                              sx={{
+                                fontWeight: "bold",
+                                width: "30%",
+                              }}
+                            >
+                              Thời Gian CĐ Dự Kiến
+                            </TableCell>
+                            <TableCell
+                              sx={{
+                                fontWeight: "bold",
+                                width: "20%",
+                                textAlign: "left",
+                              }}
+                            >
+                              Thao Tác
+                            </TableCell>
+                          </TableRow>
+
+                          {/* Dữ liệu */}
+                          {items.map((item) => (
+                            <TableRow
+                              key={item.KHTId}
+                              selected={selectedPlans.some(
+                                (p) => p.KHTId === item.KHTId
+                              )}
+                              hover
+                              sx={{
+                                "& td": { borderBottom: "1px solid #e0e0e0" },
+                                "&.Mui-selected": {
+                                  backgroundColor: "#e8f5e9",
+                                },
+                                "&.Mui-selected:hover": {
+                                  backgroundColor: "#c8e6c9",
+                                },
+                              }}
+                            >
+                              <TableCell sx={{ pl: 6 }}>
+                                Chuyền {item.line}
+                              </TableCell>
+                              <TableCell>{item.style}</TableCell>
+                              <TableCell align="center">
+                                {item.quantity}
+                              </TableCell>
+                              <TableCell>
+                                {formatDateTime(item.plan_date)}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="contained"
+                                  color={
+                                    selectedPlans.some(
+                                      (p) => p.KHTId === item.KHTId
+                                    )
+                                      ? "success"
+                                      : "primary"
+                                  }
+                                  size="small"
+                                  onClick={() => handleSelectPlan(item)}
+                                  sx={{
+                                    textTransform: "none",
+                                    minWidth: 80,
+                                    boxShadow: "none",
+                                    "&:hover": { boxShadow: 1 },
+                                  }}
+                                >
+                                  {selectedPlans.some(
+                                    (p) => p.KHTId === item.KHTId
+                                  )
+                                    ? "Bỏ Chọn"
+                                    : "Chọn"}
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+
+            <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleCreatePlan}
+                disabled={selectedPlans.length === 0 || isCreating}
+                size="large"
+                startIcon={
+                  isCreating ? (
+                    <CircularProgress size={20} color="inherit" />
+                  ) : (
+                    <AddIcon />
+                  )
+                }
+                sx={{
+                  minWidth: 200,
+                  borderRadius: 2,
+                  boxShadow: 2,
+                  "&:hover": {
+                    boxShadow: 4,
+                  },
+                  textTransform: "none",
+                  bgcolor: "#1976d2",
+                  color: "white",
+                  fontWeight: "medium",
+                }}
+              >
+                {isCreating
+                  ? "Đang tạo..."
+                  : `Tạo ${selectedPlans.length} Kế Hoạch`}
+              </Button>
+            </Box>
           </Box>
         </CardContent>
       </Card>
@@ -864,6 +1045,13 @@ const CreatePhasePage = () => {
           </Table>
         </Box>
       </Card>
+      <NotificationDialog
+        open={notification.open}
+        onClose={handleCloseNotification}
+        title={notification.title}
+        message={notification.message}
+        severity={notification.severity}
+      />
     </Container>
   );
 };

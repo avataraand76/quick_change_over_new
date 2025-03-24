@@ -32,6 +32,7 @@ import {
   CheckCircle as CheckCircleIcon,
 } from "@mui/icons-material";
 import API from "../api/api";
+import NotificationDialog from "../components/NotificationDialog";
 
 // Danh sách khách hàng
 const BUYERS = [
@@ -120,6 +121,12 @@ const CoPage = () => {
   const [downtimeIssues, setDowntimeIssues] = useState([]);
   const [loadingDowntime, setLoadingDowntime] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [notification, setNotification] = useState({
+    open: false,
+    title: "",
+    message: "",
+    severity: "info",
+  });
 
   // Add calculation functions
   const calculateTargetOfCOPT = (sam) => {
@@ -186,6 +193,19 @@ const CoPage = () => {
     coData.last_garment_of_old_style,
   ]);
 
+  const handleCloseNotification = () => {
+    setNotification({ ...notification, open: false });
+  };
+
+  const showNotification = (title, message, severity = "info") => {
+    setNotification({
+      open: true,
+      title,
+      message,
+      severity,
+    });
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -198,7 +218,6 @@ const CoPage = () => {
           const coData = await API.getCoDataByPlanId(id);
           setCoData({
             id_plan: id,
-            // CO_begin_date: coData.CO_begin_date || planData.actual_date || "",
             CO_begin_date: coData.CO_begin_date || "",
             CO_end_date: coData.CO_end_date || "",
             last_garment_of_old_style: coData.last_garment_of_old_style || "",
@@ -216,7 +235,6 @@ const CoPage = () => {
           });
         } catch (error) {
           console.error("Error fetching CO data:", error);
-          // If CO data doesn't exist yet, use plan's actual_date for CO_begin_date
           setCoData((prev) => ({
             ...prev,
             CO_begin_date: planData.actual_date || "",
@@ -236,7 +254,7 @@ const CoPage = () => {
         }
       } catch (error) {
         console.error("Error fetching data:", error);
-        alert("Không thể tải thông tin chi tiết");
+        showNotification("Lỗi", "Không thể tải thông tin chi tiết", "error");
         navigate("/create-phase");
       }
     };
@@ -315,11 +333,13 @@ const CoPage = () => {
 
   const handleSave = async () => {
     try {
-      // Save CO data to the backend
       await API.updateCoData(id, coData);
-      alert("Dữ liệu đã được lưu thành công!");
+      showNotification(
+        "Thành công",
+        "Dữ liệu đã được lưu thành công!",
+        "success"
+      );
 
-      // Refresh downtime issues data after saving
       setLoadingDowntime(true);
       try {
         const downtimeData = await API.getDowntimeIssues(id);
@@ -335,7 +355,11 @@ const CoPage = () => {
         console.error("Error response data:", error.response.data);
         console.error("Error response status:", error.response.status);
       }
-      alert("Lỗi khi lưu dữ liệu. Vui lòng thử lại!");
+      showNotification(
+        "Lỗi",
+        "Lỗi khi lưu dữ liệu. Vui lòng thử lại!",
+        "error"
+      );
     }
   };
 
@@ -1198,6 +1222,13 @@ const CoPage = () => {
           )}
         </CardContent>
       </Card>
+      <NotificationDialog
+        open={notification.open}
+        onClose={handleCloseNotification}
+        title={notification.title}
+        message={notification.message}
+        severity={notification.severity}
+      />
     </Container>
   );
 };

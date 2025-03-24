@@ -37,6 +37,7 @@ import {
   ExpandLess as ExpandLessIcon,
 } from "@mui/icons-material";
 import API from "../api/api";
+import NotificationDialog from "../components/NotificationDialog";
 
 const DetailedPhasePage = () => {
   const { id } = useParams();
@@ -50,6 +51,25 @@ const DetailedPhasePage = () => {
   const [workSteps, setWorkSteps] = useState({});
   const [loadingWorkSteps, setLoadingWorkSteps] = useState({});
   const navigate = useNavigate();
+  const [notification, setNotification] = useState({
+    open: false,
+    title: "",
+    message: "",
+    severity: "info",
+  });
+
+  const handleCloseNotification = () => {
+    setNotification({ ...notification, open: false });
+  };
+
+  const showNotification = (title, message, severity = "info") => {
+    setNotification({
+      open: true,
+      title,
+      message,
+      severity,
+    });
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -62,7 +82,7 @@ const DetailedPhasePage = () => {
           ]);
 
         if (planResponse.success === false) {
-          alert("Không tìm thấy kế hoạch");
+          showNotification("Lỗi", "Không tìm thấy kế hoạch", "error");
           navigate("/create-phase");
           return;
         }
@@ -74,7 +94,7 @@ const DetailedPhasePage = () => {
         setPercentRate(planResponse.total_percent_rate || 0);
       } catch (error) {
         console.error("Error fetching data:", error);
-        alert("Không thể tải thông tin chi tiết");
+        showNotification("Lỗi", "Không thể tải thông tin chi tiết", "error");
         navigate("/create-phase");
       }
     };
@@ -130,10 +150,10 @@ const DetailedPhasePage = () => {
     };
     try {
       await API.updatePlan(id, updatedPlan);
-      alert("Plan updated successfully");
+      showNotification("Thành công", "Cập nhật kế hoạch thành công", "success");
     } catch (error) {
       console.error("Error updating plan:", error);
-      alert("Không thể cập nhật kế hoạch");
+      showNotification("Lỗi", "Không thể cập nhật kế hoạch", "error");
     }
   };
 
@@ -668,6 +688,13 @@ const DetailedPhasePage = () => {
           </Table>
         </Box>
       </Card>
+      <NotificationDialog
+        open={notification.open}
+        onClose={handleCloseNotification}
+        title={notification.title}
+        message={notification.message}
+        severity={notification.severity}
+      />
     </Container>
   );
 };
