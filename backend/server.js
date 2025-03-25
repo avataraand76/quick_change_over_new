@@ -610,20 +610,37 @@ app.get("/api/plans-for-calendar", authenticateToken, (req, res) => {
       let backgroundColor, borderColor;
       if (daysUntilDeadline < 0) {
         // Past deadline
-        backgroundColor = "#d32f2f"; // red
-        borderColor = "#b71c1c";
+        backgroundColor = "#e57373"; // light red
+        borderColor = "#d32f2f";
       } else if (daysUntilDeadline <= 3) {
         // Very urgent (3 days or less)
-        backgroundColor = "#f57c00"; // orange
-        borderColor = "#e65100";
-      } else if (daysUntilDeadline <= 7) {
-        // Urgent (within a week)
-        backgroundColor = "#ffc107"; // amber
-        borderColor = "#ff8f00";
+        backgroundColor = "#ff7043"; // Coral
+        borderColor = "#f4511e";
       } else {
-        // Normal
-        backgroundColor = "#1976d2"; // blue
-        borderColor = "#1565c0";
+        // Generate consistent color based on line and style
+        const colors = [
+          "#2196F3", // Blue
+          "#9C27B0", // Purple
+          "#FF9800", // Orange
+          "#00BCD4", // Cyan
+          "#795548", // Brown
+          "#009688", // Teal
+          "#673AB7", // Deep Purple
+          "#3F51B5", // Indigo
+        ];
+
+        // Create a simple hash from line and style
+        const hashString = `${plan.line}-${plan.style}`;
+        let hash = 0;
+        for (let i = 0; i < hashString.length; i++) {
+          hash = (hash << 5) - hash + hashString.charCodeAt(i);
+          hash = hash & hash; // Convert to 32-bit integer
+        }
+
+        // Use absolute value of hash to get consistent index
+        const colorIndex = Math.abs(hash) % colors.length;
+        backgroundColor = colors[colorIndex];
+        borderColor = colors[colorIndex];
       }
 
       return {

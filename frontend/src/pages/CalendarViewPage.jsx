@@ -148,13 +148,23 @@ const CalendarViewPage = () => {
     },
     ".fc .fc-event": {
       cursor: "pointer",
-      fontSize: theme.typography.body2.fontSize,
+      fontSize: "1.2rem",
     },
     ".fc .fc-event:hover": {
       opacity: 0.9,
     },
+    ".fc .fc-daygrid-day-number": {
+      fontSize: "1.2rem",
+    },
+    ".fc th": {
+      fontSize: "1.2rem",
+    },
+    // ".fc .fc-day-today": {
+    //   backgroundColor: "#ACFFFC !important",
+    // },
     ".fc-theme-standard .fc-list-day-cushion": {
       backgroundColor: theme.palette.grey[100],
+      fontSize: "1.2rem",
     },
     "@media (max-width: 600px)": {
       ".fc .fc-toolbar": {
@@ -243,6 +253,7 @@ const CalendarViewPage = () => {
                   multiMonthYear: {
                     buttonText: "Year",
                     hiddenDays: [0],
+                    multiMonthMaxColumns: 2,
                   },
                 }}
                 hiddenDays={[0]}
