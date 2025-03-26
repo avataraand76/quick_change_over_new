@@ -58,6 +58,16 @@ let API = {
     return response.data;
   },
 
+  // syncHigmfData: async () => {
+  //   try {
+  //     const response = await httpConnect.post("/api/sync-higmf-data");
+  //     return response.data;
+  //   } catch (error) {
+  //     console.error("Error syncing HIGMF data:", error);
+  //     throw error;
+  //   }
+  // },
+
   createPlan: async (plan) => {
     const response = await httpConnect.post("/api/create-plan", plan);
     return response.data;

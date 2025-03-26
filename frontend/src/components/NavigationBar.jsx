@@ -1,3 +1,5 @@
+// frontend/src/components/NavigationBar.jsx
+
 import React from "react";
 import {
   AppBar,
@@ -132,7 +134,7 @@ const Navbar = () => {
               },
             }}
           >
-            Tạo kế hoạch
+            Quản Lý kế hoạch
           </Button>
           {/* <Button
             color="inherit"
@@ -244,7 +246,7 @@ const Navbar = () => {
             </MenuItem>
             <MenuItem component={Link} to="/create-phase" onClick={handleClose}>
               <i className="fas fa-plus" style={{ marginRight: 8 }} />
-              Tạo kế hoạch
+              Quản Lý kế hoạch
             </MenuItem>
             <MenuItem component={Link} to="/calendar" onClick={handleClose}>
               <i className="fas fa-calendar" style={{ marginRight: 8 }} />

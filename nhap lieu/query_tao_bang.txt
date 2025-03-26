@@ -10,13 +10,13 @@ CREATE TABLE tb_plan
 	actual_date DATETIME,
 	A3_documentation TEXT,
     total_percent_rate INT,
-
+	inactive INT CHECK (inactive IN (0,1)),
 	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   	updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 	updated_by TEXT,
 
 	PRIMARY KEY (id_plan),
-	UNIQUE (id_plan, KHTId)
+	UNIQUE (KHTId)
 );
 
 CREATE TABLE tb_co

@@ -1,3 +1,5 @@
+// backend/utils/authUtils.js
+
 const { google } = require("googleapis");
 
 // Global variable for the OAuth2 client

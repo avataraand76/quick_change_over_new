@@ -931,7 +931,7 @@ const Process5Page = () => {
                     <TableCell align="center">Tỉ lệ đạt (%)</TableCell>
                     <TableCell align="center">Chưa chuẩn bị</TableCell>
                     <TableCell align="center">Tỉ lệ chuẩn bị (%)</TableCell>
-                    <TableCell>Thao tác</TableCell>
+                    <TableCell>{/* Thao tác */}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -1046,7 +1046,7 @@ const Process5Page = () => {
                     <TableCell align="center">Tỉ lệ đạt (%)</TableCell>
                     <TableCell align="center">Chưa chuẩn bị</TableCell>
                     <TableCell align="center">Tỉ lệ chuẩn bị (%)</TableCell>
-                    <TableCell>Thao tác</TableCell>
+                    <TableCell>{/* Thao tác */}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>

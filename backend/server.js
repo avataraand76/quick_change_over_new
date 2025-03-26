@@ -282,68 +282,72 @@ app.post("/login", (req, res) => {
 
 // API lấy thông tin chuyền và mã hàng từ MSSQL HiGMF
 app.get("/api/higmf-lines-styles", authenticateToken, async (req, res) => {
+  // Hàm formatDate để chuẩn hóa thời gian
+  const formatDate = (date) => {
+    return new Date(date).toISOString().slice(0, 19).replace("T", " ");
+  };
+
   try {
     const pool = await sql.connect(mssqlHigmfConfig);
     const result = await pool.request().query(`
       WITH GetData AS (
-        SELECT 
+        SELECT
           kht.KHTId,
-          dh.MaHang, 
-          cc.MaCum, 
-          kht.SoLuong, 
+          dh.MaHang,
+          cc.MaCum,
+          kht.SoLuong,
           kht.NgayVaoChuyenKeHoachBatDau,
           kht.NgayVaoChuyenKeHoachKetThuc,
-          ROW_NUMBER() OVER (PARTITION BY dh.MaHang, cc.MaCum 
-                            ORDER BY kht.NgayVaoChuyenKeHoachBatDau ASC, 
+          ROW_NUMBER() OVER (PARTITION BY dh.MaHang, cc.MaCum
+                            ORDER BY kht.NgayVaoChuyenKeHoachBatDau ASC,
                                     DATEDIFF(HOUR, kht.NgayVaoChuyenKeHoachBatDau, kht.NgayVaoChuyenKeHoachKetThuc) DESC) AS RowNum
         FROM [eGMF].[dbo].[OMM_DonHang] dh
         LEFT JOIN [eGMF].[dbo].[OMM_PO] po ON dh.DHId = po.DHId
         LEFT JOIN [eGMF].[dbo].[OMM_PO_ChiTiet] poct ON poct.POId = po.POId
         LEFT JOIN [eGMF].[dbo].[OMM_KeHoachThang] kht ON kht.CTPOId = poct.POCTId
         LEFT JOIN [eGMF].[dbo].[Lib_CumChuyen] cc ON kht.ChuyenId = cc.CumId
-        WHERE 
+        WHERE
           cc.CumId IS NOT NULL
           AND kht.NgayVaoChuyenKeHoachBatDau IS NOT NULL
           AND kht.NgayVaoChuyenKeHoachBatDau BETWEEN DATEADD(MONTH, -2, GETDATE()) AND DATEADD(MONTH, 2, GETDATE())
       ),
       FilteredData AS (
-        SELECT 
+        SELECT
           KHTId,
-          MaHang, 
-          MaCum, 
-          SoLuong, 
+          MaHang,
+          MaCum,
+          SoLuong,
           NgayVaoChuyenKeHoachBatDau,
           NgayVaoChuyenKeHoachKetThuc,
           RowNum,
-          LAG(NgayVaoChuyenKeHoachBatDau) OVER (PARTITION BY MaHang, MaCum 
+          LAG(NgayVaoChuyenKeHoachBatDau) OVER (PARTITION BY MaHang, MaCum
                                                 ORDER BY NgayVaoChuyenKeHoachBatDau ASC) AS Prev_NgayBatDau,
-          LAG(NgayVaoChuyenKeHoachKetThuc) OVER (PARTITION BY MaHang, MaCum 
+          LAG(NgayVaoChuyenKeHoachKetThuc) OVER (PARTITION BY MaHang, MaCum
                                                 ORDER BY NgayVaoChuyenKeHoachBatDau ASC) AS Prev_NgayKetThuc
         FROM GetData
       ),
       FinalFiltered AS (
-        SELECT 
+        SELECT
           KHTId,
-          MaHang, 
-          MaCum, 
-          SoLuong, 
+          MaHang,
+          MaCum,
+          SoLuong,
           NgayVaoChuyenKeHoachBatDau,
           NgayVaoChuyenKeHoachKetThuc
         FROM FilteredData
-        WHERE 
+        WHERE
           RowNum = 1
           OR (
             NgayVaoChuyenKeHoachBatDau <> Prev_NgayBatDau
             AND NgayVaoChuyenKeHoachBatDau <> Prev_NgayKetThuc
           )
       )
-      SELECT 
+      SELECT
         KHTId,
-        MaHang as style, 
-        MaCum as line, 
+        MaHang as style,
+        MaCum as line,
         SoLuong as quantity,
-        NgayVaoChuyenKeHoachBatDau as plan_date,
-        NgayVaoChuyenKeHoachKetThuc as plan_end_date
+        NgayVaoChuyenKeHoachBatDau as plan_date
       FROM FinalFiltered
       ORDER BY MaCum, NgayVaoChuyenKeHoachBatDau ASC
     `);
@@ -353,9 +357,6 @@ app.get("/api/higmf-lines-styles", authenticateToken, async (req, res) => {
       ...record,
       KHTId: record.KHTId.toString(),
       plan_date: record.plan_date ? formatDate(record.plan_date) : null,
-      plan_end_date: record.plan_end_date
-        ? formatDate(record.plan_end_date)
-        : null,
     }));
 
     res.json(formattedResults);
@@ -365,177 +366,283 @@ app.get("/api/higmf-lines-styles", authenticateToken, async (req, res) => {
   }
 });
 
-// API tạo kế hoạch để sử dụng middleware trong MAIN mysql
-app.post("/api/create-plan", authenticateToken, (req, res) => {
-  const { KHTId, line, style, quantity, plan_date, actual_date } = req.body;
+// API đồng bộ dữ liệu từ HIGARMENT
+// app.post("/api/sync-higmf-data", authenticateToken, async (req, res) => {
+//   try {
+//     // Kết nối SQL Server để lấy dữ liệu từ HIGMF
+//     const pool = await sql.connect(mssqlHigmfConfig);
+//     const result = await pool.request().query(`
+//       WITH GetData AS (
+//         SELECT
+//           kht.KHTId,
+//           dh.MaHang,
+//           cc.MaCum,
+//           kht.SoLuong,
+//           kht.NgayVaoChuyenKeHoachBatDau,
+//           kht.NgayVaoChuyenKeHoachKetThuc,
+//           ROW_NUMBER() OVER (PARTITION BY dh.MaHang, cc.MaCum
+//                             ORDER BY kht.NgayVaoChuyenKeHoachBatDau ASC,
+//                                     DATEDIFF(HOUR, kht.NgayVaoChuyenKeHoachBatDau, kht.NgayVaoChuyenKeHoachKetThuc) DESC) AS RowNum
+//         FROM [eGMF].[dbo].[OMM_DonHang] dh
+//         LEFT JOIN [eGMF].[dbo].[OMM_PO] po ON dh.DHId = po.DHId
+//         LEFT JOIN [eGMF].[dbo].[OMM_PO_ChiTiet] poct ON poct.POId = po.POId
+//         LEFT JOIN [eGMF].[dbo].[OMM_KeHoachThang] kht ON kht.CTPOId = poct.POCTId
+//         LEFT JOIN [eGMF].[dbo].[Lib_CumChuyen] cc ON kht.ChuyenId = cc.CumId
+//         WHERE
+//           cc.CumId IS NOT NULL
+//           AND kht.NgayVaoChuyenKeHoachBatDau IS NOT NULL
+//           AND kht.NgayVaoChuyenKeHoachBatDau BETWEEN DATEADD(MONTH, -2, GETDATE()) AND DATEADD(MONTH, 2, GETDATE())
+//       ),
+//       FilteredData AS (
+//         SELECT
+//           KHTId,
+//           MaHang,
+//           MaCum,
+//           SoLuong,
+//           NgayVaoChuyenKeHoachBatDau,
+//           NgayVaoChuyenKeHoachKetThuc,
+//           RowNum,
+//           LAG(NgayVaoChuyenKeHoachBatDau) OVER (PARTITION BY MaHang, MaCum
+//                                                 ORDER BY NgayVaoChuyenKeHoachBatDau ASC) AS Prev_NgayBatDau,
+//           LAG(NgayVaoChuyenKeHoachKetThuc) OVER (PARTITION BY MaHang, MaCum
+//                                                 ORDER BY NgayVaoChuyenKeHoachBatDau ASC) AS Prev_NgayKetThuc
+//         FROM GetData
+//       ),
+//       FinalFiltered AS (
+//         SELECT
+//           KHTId,
+//           MaHang,
+//           MaCum,
+//           SoLuong,
+//           NgayVaoChuyenKeHoachBatDau,
+//           NgayVaoChuyenKeHoachKetThuc
+//         FROM FilteredData
+//         WHERE
+//           RowNum = 1
+//           OR (
+//             NgayVaoChuyenKeHoachBatDau <> Prev_NgayBatDau
+//             AND NgayVaoChuyenKeHoachBatDau <> Prev_NgayKetThuc
+//           )
+//       )
+//       SELECT
+//         KHTId,
+//         MaHang as style,
+//         MaCum as line,
+//         SoLuong as quantity,
+//         NgayVaoChuyenKeHoachBatDau as plan_date
+//       FROM FinalFiltered
+//       ORDER BY MaCum, NgayVaoChuyenKeHoachBatDau ASC
+//     `);
 
-  // Lấy ma_nv từ token đã được decode trong middleware
+//     // Hàm formatDate để chuẩn hóa thời gian
+//     const formatDate = (date) => {
+//       return new Date(date).toISOString().slice(0, 19).replace("T", " ");
+//     };
+
+//     const higmfData = result.recordset.map((record) => ({
+//       ...record,
+//       KHTId: record.KHTId.toString(),
+//       plan_date: record.plan_date ? formatDate(record.plan_date) : null,
+//     }));
+
+//     const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
+
+//     // Sử dụng transaction để đồng bộ dữ liệu
+//     const connection = await mysqlConnection.promise().getConnection();
+//     try {
+//       await connection.beginTransaction();
+
+//       // Lưu các id_plan đã xử lý để trả về
+//       const processedPlans = [];
+
+//       for (const plan of higmfData) {
+//         // 1. Insert hoặc update tb_plan
+//         const [planResult] = await connection.query(
+//           `
+//           INSERT INTO tb_plan (KHTId, line, style, quantity, plan_date, actual_date, updated_by)
+//           VALUES (?, ?, ?, ?, ?, ?, ?)
+//           ON DUPLICATE KEY UPDATE
+//             line = VALUES(line),
+//             style = VALUES(style),
+//             quantity = VALUES(quantity),
+//             plan_date = VALUES(plan_date),
+//             actual_date = VALUES(actual_date),
+//             updated_by = VALUES(updated_by)
+//           `,
+//           [
+//             plan.KHTId,
+//             plan.line,
+//             plan.style,
+//             plan.quantity,
+//             plan.plan_date,
+//             plan.plan_date, // actual_date mặc định bằng plan_date
+//             updated_by,
+//           ]
+//         );
+
+//         // Lấy id_plan (nếu insert thì dùng insertId, nếu update thì query lại)
+//         let id_plan;
+//         if (planResult.insertId) {
+//           id_plan = planResult.insertId;
+//         } else {
+//           const [existingPlan] = await connection.query(
+//             "SELECT id_plan FROM tb_plan WHERE KHTId = ?",
+//             [plan.KHTId]
+//           );
+//           id_plan = existingPlan[0].id_plan;
+//         }
+
+//         processedPlans.push({ KHTId: plan.KHTId, id_plan });
+
+//         // 2. Insert hoặc update tb_co
+//         await connection.query(
+//           `
+//           INSERT INTO tb_co (id_plan, updated_by, CO_begin_date)
+//           VALUES (?, ?, ?)
+//           ON DUPLICATE KEY UPDATE
+//             updated_by = VALUES(updated_by),
+//             CO_begin_date = VALUES(CO_begin_date)
+//           `,
+//           [id_plan, updated_by, plan.plan_date]
+//         );
+
+//         // 3. Insert hoặc update các bảng tb_process_1,2,3,4,6,7,8
+//         const processIds = [1, 2, 3, 4, 6, 7, 8];
+//         for (const id_process of processIds) {
+//           await connection.query(
+//             `
+//             INSERT INTO tb_process_${id_process} (id_process, id_plan, updated_by)
+//             VALUES (?, ?, ?)
+//             ON DUPLICATE KEY UPDATE
+//               updated_by = VALUES(updated_by)
+//             `,
+//             [id_process, id_plan, updated_by]
+//           );
+//         }
+//       }
+
+//       // Commit transaction nếu mọi thứ thành công
+//       await connection.commit();
+
+//       res.json({
+//         success: true,
+//         message: `Đã đồng bộ thành công ${processedPlans.length} kế hoạch`,
+//         processedPlans, // Trả về danh sách KHTId và id_plan đã xử lý
+//       });
+//     } catch (err) {
+//       // Rollback nếu có lỗi
+//       await connection.rollback();
+//       throw err;
+//     } finally {
+//       connection.release();
+//     }
+//   } catch (err) {
+//     console.error("Error syncing HIGMF data:", err);
+//     res.status(500).json({ success: false, message: "Database error" });
+//   }
+// });
+
+// API tạo kế hoạch để sử dụng middleware trong MAIN mysql
+app.post("/api/create-plan", authenticateToken, async (req, res) => {
+  const { KHTId, line, style, quantity, plan_date, actual_date } = req.body;
   const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
 
-  // Use a transaction to ensure all inserts succeed or fail together
-  mysqlConnection.getConnection((err, connection) => {
-    if (err) {
-      console.error("Error getting connection for transaction:", err);
-      return res
-        .status(500)
-        .json({ success: false, message: "Database connection error" });
+  let connection;
+  try {
+    // Get a connection from the pool
+    connection = await mysqlConnection.promise().getConnection();
+    await connection.beginTransaction();
+
+    // Insert or update tb_plan
+    const [planResult] = await connection.query(
+      `
+      INSERT INTO tb_plan (KHTId, line, style, quantity, plan_date, actual_date, updated_by) 
+      VALUES (?, ?, ?, ?, ?, ?, ?) 
+      ON DUPLICATE KEY UPDATE 
+        line = VALUES(line), 
+        style = VALUES(style), 
+        quantity = VALUES(quantity), 
+        plan_date = VALUES(plan_date), 
+        updated_by = VALUES(updated_by)
+      `,
+      [KHTId, line, style, quantity, plan_date, actual_date, updated_by]
+    );
+
+    // Get id_plan (insertId if new, or fetch if updated)
+    let id_plan = planResult.insertId;
+    if (!id_plan) {
+      const [existingPlan] = await connection.query(
+        "SELECT id_plan FROM tb_plan WHERE KHTId = ?",
+        [KHTId]
+      );
+      id_plan = existingPlan[0].id_plan;
     }
 
-    connection.beginTransaction((err) => {
-      if (err) {
-        connection.release();
-        console.error("Error starting transaction:", err);
-        return res
-          .status(500)
-          .json({ success: false, message: "Transaction error" });
+    // Insert or update tb_co
+    await connection.query(
+      `
+      INSERT INTO tb_co (id_plan, updated_by, CO_begin_date) 
+      VALUES (?, ?, ?) 
+      ON DUPLICATE KEY UPDATE 
+        updated_by = VALUES(updated_by), 
+        CO_begin_date = VALUES(CO_begin_date)
+      `,
+      [id_plan, updated_by, formatDate(actual_date)]
+    );
+
+    // Get all process IDs
+    const [processResults] = await connection.query(
+      "SELECT id_process FROM tb_process ORDER BY id_process ASC"
+    );
+
+    // Insert or update process tables
+    const processQueries = processResults.map((process) => {
+      const id_process = process.id_process;
+
+      if ([1, 2, 3, 4, 6, 7, 8].includes(id_process)) {
+        return connection.query(
+          `
+          INSERT INTO tb_process_${id_process} (id_process, id_plan, updated_by) 
+          VALUES (?, ?, ?) 
+          ON DUPLICATE KEY UPDATE 
+            updated_by = VALUES(updated_by)
+          `,
+          [id_process, id_plan, updated_by]
+        );
       }
-
-      // Insert into tb_plan first to get the id_plan
-      connection.query(
-        "INSERT INTO tb_plan (KHTId, line, style, quantity, plan_date, actual_date, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [KHTId, line, style, quantity, plan_date, actual_date, updated_by],
-        (err, planResults) => {
-          if (err) {
-            return connection.rollback(() => {
-              connection.release();
-              console.error("Error creating plan:", err);
-              res
-                .status(500)
-                .json({ success: false, message: "Database error" });
-            });
-          }
-
-          const id_plan = planResults.insertId;
-
-          // Insert into tb_co with the new id_plan
-          connection.query(
-            "INSERT INTO tb_co (id_plan, updated_by, CO_begin_date) VALUES (?, ?, ?)",
-            [id_plan, updated_by, actual_date],
-            (err) => {
-              if (err) {
-                return connection.rollback(() => {
-                  connection.release();
-                  console.error("Error creating CO record:", err);
-                  res
-                    .status(500)
-                    .json({ success: false, message: "Database error" });
-                });
-              }
-
-              // Get all process IDs
-              connection.query(
-                "SELECT id_process FROM tb_process ORDER BY id_process ASC",
-                (err, processResults) => {
-                  if (err) {
-                    return connection.rollback(() => {
-                      connection.release();
-                      console.error("Error fetching processes:", err);
-                      res
-                        .status(500)
-                        .json({ success: false, message: "Database error" });
-                    });
-                  }
-
-                  // Create an array to store all insert queries
-                  const insertQueries = [];
-
-                  // For each process, insert into the corresponding process table
-                  processResults.forEach((process) => {
-                    const id_process = process.id_process;
-
-                    // Process 1-4 and 6-8 have the same structure
-                    if ([1, 2, 3, 4, 6, 7, 8].includes(id_process)) {
-                      insertQueries.push(
-                        new Promise((resolve, reject) => {
-                          connection.query(
-                            `INSERT INTO tb_process_${id_process} (id_process, id_plan, updated_by) VALUES (?, ?, ?)`,
-                            [id_process, id_plan, updated_by],
-                            (err) => {
-                              if (err) {
-                                reject(err);
-                              } else {
-                                resolve();
-                              }
-                            }
-                          );
-                        })
-                      );
-                    }
-                    // Process 5 has two special tables
-                    else if (id_process === 5) {
-                      // No insertions to tb_process_5_preparing_machine and tb_process_5_backup_machine for process 5
-                      // Just resolve the promise immediately
-                      insertQueries.push(Promise.resolve());
-                    }
-                  });
-
-                  // Execute all insert queries
-                  Promise.all(insertQueries)
-                    .then(() => {
-                      // Create log entry for plan creation
-                      const history_log = `${updated_by} vừa TẠO KẾ HOẠCH chuyền: [${line}], mã hàng: [${style}], thời gian dự kiến: [${formatDate(
-                        plan_date
-                      )}], thời gian thực tế: [${formatDate(actual_date)}]`;
-
-                      connection.query(
-                        "INSERT INTO tb_log (history_log) VALUES (?)",
-                        [history_log],
-                        (err) => {
-                          if (err) {
-                            return connection.rollback(() => {
-                              connection.release();
-                              console.error("Error creating log entry:", err);
-                              res.status(500).json({
-                                success: false,
-                                message: "Database error",
-                              });
-                            });
-                          }
-
-                          // Commit the transaction if all inserts succeed
-                          connection.commit((err) => {
-                            if (err) {
-                              return connection.rollback(() => {
-                                connection.release();
-                                console.error(
-                                  "Error committing transaction:",
-                                  err
-                                );
-                                res.status(500).json({
-                                  success: false,
-                                  message: "Transaction commit error",
-                                });
-                              });
-                            }
-
-                            connection.release();
-                            res.json({
-                              success: true,
-                              message:
-                                "Plan created successfully with all related process records",
-                              id_plan: id_plan,
-                            });
-                          });
-                        }
-                      );
-                    })
-                    .catch((err) => {
-                      return connection.rollback(() => {
-                        connection.release();
-                        console.error("Error inserting process records:", err);
-                        res
-                          .status(500)
-                          .json({ success: false, message: "Database error" });
-                      });
-                    });
-                }
-              );
-            }
-          );
-        }
-      );
+      // Process 5: No insertions (as per original logic)
+      return Promise.resolve();
     });
-  });
+
+    await Promise.all(processQueries);
+
+    // Create log entry
+    const history_log = `${updated_by} vừa TẠO KẾ HOẠCH chuyền: [${line}], mã hàng: [${style}], thời gian dự kiến: [${plan_date}], thời gian thực tế: [${actual_date}]`;
+
+    await connection.query("INSERT INTO tb_log (history_log) VALUES (?)", [
+      history_log,
+    ]);
+
+    // Commit the transaction
+    await connection.commit();
+
+    res.json({
+      success: true,
+      message:
+        "Plan created/updated successfully with all related process records",
+      id_plan,
+    });
+  } catch (err) {
+    if (connection) {
+      await connection.rollback();
+    }
+    console.error("Error in transaction:", err);
+    res.status(500).json({ success: false, message: "Database error" });
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
 });
 
 // API lấy danh sách kế hoạch trong MAIN mysql
@@ -584,6 +691,16 @@ app.get("/api/plans-for-calendar", authenticateToken, (req, res) => {
     FROM tb_plan
     ORDER BY plan_date DESC
   `;
+
+  // Function to determine workshop based on line number
+  const getWorkshop = (line) => {
+    const lineNum = parseInt(line);
+    if ((lineNum >= 1 && lineNum <= 10) || lineNum === 1001) return 1;
+    if ((lineNum >= 11 && lineNum <= 20) || lineNum === 2001) return 2;
+    if (lineNum >= 21 && lineNum <= 30) return 3;
+    if (lineNum >= 31 && lineNum <= 40) return 4;
+    return null;
+  };
 
   mysqlConnection.query(query, (err, results) => {
     if (err) {
@@ -643,6 +760,9 @@ app.get("/api/plans-for-calendar", authenticateToken, (req, res) => {
         borderColor = colors[colorIndex];
       }
 
+      // Add workshop information
+      const workshop = getWorkshop(plan.line);
+
       return {
         id: plan.id_plan,
         title: `Chuyền: ${plan.line} - Mã hàng: ${plan.style}`,
@@ -655,6 +775,7 @@ app.get("/api/plans-for-calendar", authenticateToken, (req, res) => {
           plan_date: plan.plan_date,
           actual_date: plan.actual_date,
           total_percent_rate: plan.total_percent_rate || 0,
+          workshop: workshop, // Add workshop number to extendedProps
         },
         backgroundColor,
         borderColor,
@@ -906,11 +1027,10 @@ app.put("/api/co/:id_plan", authenticateToken, (req, res) => {
           if (err) {
             return connection.rollback(() => {
               connection.release();
-              console.error("Error fetching plan data for log:", err);
-              res.status(500).json({
-                success: false,
-                message: "Database error",
-              });
+              console.error("Error fetching plan data:", err);
+              res
+                .status(500)
+                .json({ success: false, message: "Database error" });
             });
           }
 

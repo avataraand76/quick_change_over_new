@@ -49,6 +49,7 @@ const CalendarViewPage = () => {
   const [error, setError] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedWorkshop, setSelectedWorkshop] = useState(null);
   const theme = useTheme();
   const navigate = useNavigate();
 
@@ -69,6 +70,36 @@ const CalendarViewPage = () => {
 
     fetchEvents();
   }, []);
+
+  // Filter events based on selected workshop
+  const filteredEvents = selectedWorkshop
+    ? events.filter(
+        (event) => event.extendedProps.workshop === selectedWorkshop
+      )
+    : events;
+
+  // Workshop selection buttons
+  const WorkshopButtons = () => (
+    <Box sx={{ mb: 2, display: "flex", gap: 1 }}>
+      <Button
+        variant={selectedWorkshop === null ? "contained" : "outlined"}
+        onClick={() => setSelectedWorkshop(null)}
+        sx={{ borderRadius: 2 }}
+      >
+        Tất cả
+      </Button>
+      {[1, 2, 3, 4].map((workshop) => (
+        <Button
+          key={workshop}
+          variant={selectedWorkshop === workshop ? "contained" : "outlined"}
+          onClick={() => setSelectedWorkshop(workshop)}
+          sx={{ borderRadius: 2 }}
+        >
+          Xưởng {workshop}
+        </Button>
+      ))}
+    </Box>
+  );
 
   const handleEventClick = (clickInfo) => {
     setSelectedEvent({
@@ -159,9 +190,9 @@ const CalendarViewPage = () => {
     ".fc th": {
       fontSize: "1.2rem",
     },
-    // ".fc .fc-day-today": {
-    //   backgroundColor: "#ACFFFC !important",
-    // },
+    ".fc .fc-day-today": {
+      backgroundColor: "#ACFFFC !important",
+    },
     ".fc-theme-standard .fc-list-day-cushion": {
       backgroundColor: theme.palette.grey[100],
       fontSize: "1.2rem",
@@ -223,51 +254,54 @@ const CalendarViewPage = () => {
               {error}
             </Alert>
           ) : (
-            <Box sx={{ ...calendarStyles, ".fc": { width: "100%" } }}>
-              <FullCalendar
-                plugins={[
-                  dayGridPlugin,
-                  timeGridPlugin,
-                  listPlugin,
-                  multiMonthPlugin,
-                ]}
-                headerToolbar={{
-                  left: "prev,next today",
-                  center: "title",
-                  right: "listDay,dayGridWeek,dayGridMonth,multiMonthYear",
-                }}
-                initialView="dayGridMonth"
-                views={{
-                  listDay: {
-                    buttonText: "Day",
-                    hiddenDays: [0],
-                  },
-                  dayGridWeek: {
-                    buttonText: "Week",
-                    hiddenDays: [0],
-                  },
-                  dayGridMonth: {
-                    buttonText: "Month",
-                    hiddenDays: [0],
-                  },
-                  multiMonthYear: {
-                    buttonText: "Year",
-                    hiddenDays: [0],
-                    multiMonthMaxColumns: 2,
-                  },
-                }}
-                hiddenDays={[0]}
-                events={events}
-                eventClick={handleEventClick}
-                eventContent={renderEventContent}
-                height="auto"
-                // locale={viLocale}
-                timeZone="local"
-                firstDay={1}
-                nowIndicator={true}
-                displayEventTime={false}
-              />
-            </Box>
+            <>
+              <WorkshopButtons />
+              <Box sx={{ ...calendarStyles, ".fc": { width: "100%" } }}>
+                <FullCalendar
+                  plugins={[
+                    dayGridPlugin,
+                    timeGridPlugin,
+                    listPlugin,
+                    multiMonthPlugin,
+                  ]}
+                  headerToolbar={{
+                    left: "prev,next today",
+                    center: "title",
+                    right: "listDay,dayGridWeek,dayGridMonth,multiMonthYear",
+                  }}
+                  initialView="dayGridMonth"
+                  views={{
+                    listDay: {
+                      buttonText: "Day",
+                      hiddenDays: [0],
+                    },
+                    dayGridWeek: {
+                      buttonText: "Week",
+                      hiddenDays: [0],
+                    },
+                    dayGridMonth: {
+                      buttonText: "Month",
+                      hiddenDays: [0],
+                    },
+                    multiMonthYear: {
+                      buttonText: "Year",
+                      hiddenDays: [0],
+                      multiMonthMaxColumns: 2,
+                    },
+                  }}
+                  hiddenDays={[0]}
+                  events={filteredEvents}
+                  eventClick={handleEventClick}
+                  eventContent={renderEventContent}
+                  height="auto"
+                  // locale={viLocale}
+                  timeZone="local"
+                  firstDay={1}
+                  nowIndicator={true}
+                  displayEventTime={false}
+                />
+              </Box>
+            </>
           )}
         </Box>
       </Paper>
