@@ -124,7 +124,7 @@ const CreatePhasePage = () => {
     if (selectedPlans.length === 0) {
       showNotification(
         "Cảnh báo",
-        "Vui lòng chọn ít nhất một kế hoạch để tạo",
+        "Vui lòng chọn ít nhất một kế hoạch để cập nhật",
         "warning"
       );
       return;
@@ -151,17 +151,21 @@ const CreatePhasePage = () => {
         const updatedPlans = await API.getPlans();
         setPlans(updatedPlans);
         setSelectedPlans([]);
-        showNotification("Thành công", "Tạo kế hoạch thành công!", "success");
+        showNotification(
+          "Thành công",
+          "Cập nhật kế hoạch thành công!",
+          "success"
+        );
       } else {
         showNotification(
           "Lỗi",
-          "Có lỗi xảy ra khi tạo một số kế hoạch",
+          "Có lỗi xảy ra khi cập nhật một số kế hoạch",
           "error"
         );
       }
     } catch (error) {
       console.error("Error creating plans:", error);
-      showNotification("Lỗi", "Có lỗi xảy ra khi tạo kế hoạch", "error");
+      showNotification("Lỗi", "Có lỗi xảy ra khi cập nhật kế hoạch", "error");
     } finally {
       setIsCreating(false);
     }
@@ -465,14 +469,14 @@ const CreatePhasePage = () => {
           }}
         >
           <Typography variant="h5" fontWeight="bold">
-            TẠO KẾ HOẠCH CHUYỂN ĐỔI
+            CẬP NHẬT KẾ HOẠCH CHUYỂN ĐỔI
           </Typography>
         </Box>
 
         <CardContent sx={{ padding: 0 }}>
           <Box sx={{ p: 3 }}>
             <Typography variant="h6" color="primary" gutterBottom>
-              Chọn Kế Hoạch Từ HIGARMENT
+              Chọn Kế Hoạch Từ Hi-Garment
             </Typography>
 
             {/* Phần tìm kiếm */}
@@ -655,7 +659,7 @@ const CreatePhasePage = () => {
                                   {selectedPlans.some(
                                     (p) => p.KHTId === item.KHTId
                                   )
-                                    ? "Bỏ Chọn"
+                                    ? "Đã Chọn"
                                     : "Chọn"}
                                 </Button>
                               </TableCell>
@@ -669,7 +673,55 @@ const CreatePhasePage = () => {
               </Table>
             </TableContainer>
 
-            <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "right",
+                gap: 2,
+                position: "sticky",
+                bottom: 0,
+                left: 0,
+                right: 0,
+                zIndex: 2,
+                padding: "16px",
+                // background: "transparent",
+                // backdropFilter: "blur(5px)",
+                marginTop: 2,
+                marginX: 2,
+                borderRadius: 1,
+                // "&::before": {
+                //   content: '""',
+                //   position: "absolute",
+                //   top: 0,
+                //   left: 0,
+                //   right: 0,
+                //   bottom: 0,
+                //   background: "rgba(255, 255, 255, 0.3)",
+                //   borderRadius: "inherit",
+                //   zIndex: -1,
+                // },
+              }}
+            >
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={() => setSelectedPlans([])}
+                disabled={selectedPlans.length === 0 || isCreating}
+                size="large"
+                startIcon={<ClearIcon />}
+                sx={{
+                  minWidth: 180,
+                  borderRadius: 2,
+                  textTransform: "none",
+                  fontWeight: "medium",
+                  borderWidth: 2,
+                  "&:hover": {
+                    borderWidth: 2,
+                  },
+                }}
+              >
+                Bỏ chọn tất cả
+              </Button>
               <Button
                 variant="contained"
                 color="primary"
@@ -697,8 +749,8 @@ const CreatePhasePage = () => {
                 }}
               >
                 {isCreating
-                  ? "Đang tạo..."
-                  : `Tạo ${selectedPlans.length} Kế Hoạch`}
+                  ? "Đang cập nhật..."
+                  : `Cập Nhật ${selectedPlans.length} Kế Hoạch`}
               </Button>
             </Box>
           </Box>
@@ -727,7 +779,7 @@ const CreatePhasePage = () => {
           }}
         >
           <Typography variant="h5" fontWeight="bold">
-            DANH SÁCH CÁC KẾ HOẠCH ĐÃ TẠO
+            DANH SÁCH CÁC KẾ HOẠCH
           </Typography>
         </Box>
         <Box sx={{ overflow: "auto", padding: 2 }}>
