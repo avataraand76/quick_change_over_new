@@ -692,7 +692,6 @@ app.get("/api/plans-for-calendar", authenticateToken, (req, res) => {
     ORDER BY plan_date DESC
   `;
 
-  // Function to determine workshop based on line number
   const getWorkshop = (line) => {
     const lineNum = parseInt(line);
     if ((lineNum >= 1 && lineNum <= 10) || lineNum === 1001) return 1;
@@ -710,57 +709,40 @@ app.get("/api/plans-for-calendar", authenticateToken, (req, res) => {
         .json({ error: "Database error", details: err.message });
     }
 
-    // Format the data for calendar events
-    const events = results.map((plan) => {
-      // Calculate start date (plan_date - 5 days)
+    const events = results.map((plan, index) => {
       const endDate = new Date(plan.plan_date);
       const startDate = new Date(endDate);
       startDate.setDate(startDate.getDate() - 5);
 
-      // Calculate how close we are to the deadline
       const now = new Date();
       const daysUntilDeadline = Math.floor(
         (endDate - now) / (1000 * 60 * 60 * 24)
       );
 
-      // Determine color based on urgency
-      let backgroundColor, borderColor;
+      let backgroundColor, borderColor, textColor;
+
       if (daysUntilDeadline < 0) {
-        // Past deadline
-        backgroundColor = "#e57373"; // light red
-        borderColor = "#d32f2f";
+        // Past deadline: yellow background, red text
+        backgroundColor = "#ffff00"; // Yellow
+        borderColor = "#ff0000";
+        textColor = "#ff0000"; // Red
       } else if (daysUntilDeadline <= 3) {
-        // Very urgent (3 days or less)
+        // Very urgent: keep original colors
         backgroundColor = "#ff7043"; // Coral
         borderColor = "#f4511e";
+        textColor = undefined; // Default text color
       } else {
-        // Generate consistent color based on line and style
-        const colors = [
-          "#2196F3", // Blue
-          "#9C27B0", // Purple
-          "#FF9800", // Orange
-          "#00BCD4", // Cyan
-          "#795548", // Brown
-          "#009688", // Teal
-          "#673AB7", // Deep Purple
-          "#3F51B5", // Indigo
-        ];
-
-        // Create a simple hash from line and style
-        const hashString = `${plan.line}-${plan.style}`;
-        let hash = 0;
-        for (let i = 0; i < hashString.length; i++) {
-          hash = (hash << 5) - hash + hashString.charCodeAt(i);
-          hash = hash & hash; // Convert to 32-bit integer
+        // Other events: apply HSL color rotation
+        let hue = (index * 137.5) % 360;
+        if (hue >= 40 && hue <= 70) {
+          hue += 50; // Avoid yellow range
+          hue %= 360;
         }
-
-        // Use absolute value of hash to get consistent index
-        const colorIndex = Math.abs(hash) % colors.length;
-        backgroundColor = colors[colorIndex];
-        borderColor = colors[colorIndex];
+        backgroundColor = `hsl(${hue}, 90%, 45%)`;
+        borderColor = `hsl(${hue}, 90%, 20%)`;
+        textColor = undefined; // Default text color
       }
 
-      // Add workshop information
       const workshop = getWorkshop(plan.line);
 
       return {
@@ -775,10 +757,11 @@ app.get("/api/plans-for-calendar", authenticateToken, (req, res) => {
           plan_date: plan.plan_date,
           actual_date: plan.actual_date,
           total_percent_rate: plan.total_percent_rate || 0,
-          workshop: workshop, // Add workshop number to extendedProps
+          workshop: workshop,
         },
         backgroundColor,
         borderColor,
+        textColor, // Add textColor property
       };
     });
 

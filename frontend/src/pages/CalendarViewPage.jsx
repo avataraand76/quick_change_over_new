@@ -80,7 +80,7 @@ const CalendarViewPage = () => {
 
   // Workshop selection buttons
   const WorkshopButtons = () => (
-    <Box sx={{ mb: 2, display: "flex", gap: 1 }}>
+    <Box sx={{ mb: 2, display: "flex", gap: 1, justifyContent: "right" }}>
       <Button
         variant={selectedWorkshop === null ? "contained" : "outlined"}
         onClick={() => setSelectedWorkshop(null)}
@@ -225,13 +225,18 @@ const CalendarViewPage = () => {
       >
         <Box
           sx={{
-            p: 2,
-            backgroundColor: theme.palette.primary.main,
+            bgcolor: "#1976d2",
+            padding: 2,
             color: "white",
+            borderTopLeftRadius: 8,
+            borderTopRightRadius: 8,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
           }}
         >
-          <Typography variant="h5" component="h1">
-            Lịch kế hoạch sản xuất
+          <Typography variant="h5" fontWeight="bold">
+            LỊCH KẾ HOẠCH SẢN XUẤT
           </Typography>
         </Box>
 

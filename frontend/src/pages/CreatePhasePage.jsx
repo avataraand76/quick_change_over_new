@@ -720,7 +720,7 @@ const CreatePhasePage = () => {
                   },
                 }}
               >
-                Bỏ chọn tất cả
+                Bỏ Chọn {selectedPlans.length} Kế Hoạch
               </Button>
               <Button
                 variant="contained"
