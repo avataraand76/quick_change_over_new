@@ -93,7 +93,61 @@ const CalendarViewPage = () => {
           key={workshop}
           variant={selectedWorkshop === workshop ? "contained" : "outlined"}
           onClick={() => setSelectedWorkshop(workshop)}
-          sx={{ borderRadius: 2 }}
+          sx={{
+            borderRadius: 2,
+            // Màu nền khi button được chọn (variant="contained")
+            backgroundColor:
+              selectedWorkshop === workshop
+                ? workshop === 1
+                  ? "#0373d9"
+                  : workshop === 2
+                  ? "#00da8c"
+                  : workshop === 3
+                  ? "#180cda"
+                  : "#3ada14"
+                : "transparent",
+            // Màu viền khi button không được chọn (variant="outlined")
+            borderColor:
+              workshop === 1
+                ? "#0373d9"
+                : workshop === 2
+                ? "#00da8c"
+                : workshop === 3
+                ? "#180cda"
+                : "#3ada14",
+            // Màu chữ (để đảm bảo chữ có thể đọc được trên nền màu)
+            color:
+              selectedWorkshop === workshop
+                ? "#fff"
+                : workshop === 1
+                ? "#0373d9"
+                : workshop === 2
+                ? "#00da8c"
+                : workshop === 3
+                ? "#180cda"
+                : "#3ada14",
+            "&:hover": {
+              // Tùy chỉnh màu khi hover (nếu cần)
+              backgroundColor:
+                selectedWorkshop === workshop
+                  ? workshop === 1
+                    ? "#025bb5"
+                    : workshop === 2
+                    ? "#00b374"
+                    : workshop === 3
+                    ? "#1309b5"
+                    : "#2fb310"
+                  : "rgba(0, 0, 0, 0.04)",
+              borderColor:
+                workshop === 1
+                  ? "#0373d9"
+                  : workshop === 2
+                  ? "#00da8c"
+                  : workshop === 3
+                  ? "#180cda"
+                  : "#3ada14",
+            },
+          }}
         >
           Xưởng {workshop}
         </Button>
@@ -125,13 +179,49 @@ const CalendarViewPage = () => {
   };
 
   const renderEventContent = (eventInfo) => {
+    // Lấy backgroundColor và textColor từ sự kiện
+    const backgroundColor = eventInfo.event.backgroundColor || "#808080"; // Mặc định là xám nếu không có màu
+    const textColor = eventInfo.event.textColor || "white"; // Mặc định là trắng nếu không có textColor
+
     return (
-      <>
-        <div className="fc-event-title">
-          Chuyền: {eventInfo.event.extendedProps.line} - Mã hàng:{" "}
-          {eventInfo.event.extendedProps.style}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          overflow: "hidden",
+          backgroundColor: backgroundColor, // Áp dụng backgroundColor cho sự kiện
+          borderRadius: "4px", // Bo góc cho sự kiện
+          padding: "2px 4px", // Thêm padding để sự kiện trông đẹp hơn
+          width: "100%", // Đảm bảo sự kiện chiếm toàn bộ chiều rộng trong listDay
+        }}
+      >
+        {/* Hiển thị chấm trắng trong tất cả các chế độ */}
+        <Box
+          sx={{
+            width: 10,
+            height: 10,
+            borderRadius: "50%",
+            backgroundColor: "white", // Chấm màu trắng để nổi bật trên nền màu
+            flexShrink: 0,
+          }}
+        />
+        <div
+          className="fc-event-title"
+          style={{
+            fontFamily: "Arial, sans-serif",
+            fontSize: "0.9rem",
+            lineHeight: "1.2",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            maxWidth: "100%",
+            color: textColor, // Áp dụng textColor
+          }}
+        >
+          {eventInfo.event.title}
         </div>
-      </>
+      </Box>
     );
   };
 
@@ -173,22 +263,32 @@ const CalendarViewPage = () => {
     ".fc .fc-toolbar-title": {
       fontSize: theme.typography.h5.fontSize,
       fontWeight: theme.typography.fontWeightBold,
+      fontFamily: "Arial, sans-serif",
     },
     ".fc .fc-button": {
       textTransform: "capitalize",
+      fontFamily: "Arial, sans-serif",
     },
     ".fc .fc-event": {
       cursor: "pointer",
-      fontSize: "1.2rem",
+      fontFamily: "Arial, sans-serif",
+      fontSize: "0.9rem",
+      border: "none",
+      padding: "3px 5px",
+      overflow: "hidden",
+      lineHeight: "1.2",
+      borderRadius: "4px",
     },
     ".fc .fc-event:hover": {
       opacity: 0.9,
     },
     ".fc .fc-daygrid-day-number": {
       fontSize: "1.2rem",
+      fontFamily: "Arial, sans-serif",
     },
     ".fc th": {
       fontSize: "1.2rem",
+      fontFamily: "Arial, sans-serif",
     },
     ".fc .fc-day-today": {
       backgroundColor: "#ACFFFC !important",
@@ -196,6 +296,68 @@ const CalendarViewPage = () => {
     ".fc-theme-standard .fc-list-day-cushion": {
       backgroundColor: theme.palette.grey[100],
       fontSize: "1.2rem",
+      fontFamily: "Arial, sans-serif",
+    },
+    // Style cho sự kiện trong chế độ listDay
+    ".fc .fc-list-event": {
+      fontFamily: "Arial, sans-serif",
+      fontSize: "0.9rem",
+      lineHeight: "1.2",
+      padding: "3px 5px",
+      border: "none",
+    },
+    ".fc .fc-list-event-dot": {
+      display: "none", // Ẩn chấm màu mặc định
+    },
+    // Style cho tiêu đề sự kiện trong chế độ listDay
+    ".fc .fc-list-event .fc-event-title": {
+      fontFamily: "Arial, sans-serif",
+      fontSize: "0.9rem",
+      lineHeight: "1.2",
+      width: "100%",
+    },
+    // Đảm bảo sự kiện trong dayGridMonth hiển thị dạng thanh
+    ".fc .fc-daygrid-day-events .fc-daygrid-event": {
+      fontFamily: "Arial, sans-serif",
+      fontSize: "0.9rem",
+      lineHeight: "1.2",
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      maxWidth: "100%",
+      padding: "2px 4px",
+      borderRadius: "4px",
+    },
+    ".fc .fc-daygrid-day-events": {
+      position: "relative !important",
+      minHeight: "auto !important",
+      height: "auto !important",
+      display: "flex !important",
+      flexDirection: "column !important",
+      gap: "2px !important",
+    },
+    ".fc .fc-daygrid-more-link": {
+      display: "none !important",
+    },
+    ".fc .fc-daygrid-day-frame": {
+      height: "auto !important",
+      minHeight: "auto !important",
+      overflow: "visible !important",
+    },
+    ".fc .fc-daygrid-body": {
+      height: "auto !important",
+    },
+    ".fc .fc-daygrid-body-balanced": {
+      height: "auto !important",
+    },
+    ".fc .fc-scrollgrid-sync-table": {
+      height: "auto !important",
+    },
+    ".fc-view-harness": {
+      height: "auto !important",
+    },
+    ".fc-daygrid-event-harness": {
+      position: "relative !important",
     },
     "@media (max-width: 600px)": {
       ".fc .fc-toolbar": {
@@ -283,15 +445,18 @@ const CalendarViewPage = () => {
                     dayGridWeek: {
                       buttonText: "Week",
                       hiddenDays: [0],
+                      dayMaxEvents: false,
                     },
                     dayGridMonth: {
                       buttonText: "Month",
                       hiddenDays: [0],
+                      dayMaxEvents: false,
                     },
                     multiMonthYear: {
                       buttonText: "Year",
                       hiddenDays: [0],
                       multiMonthMaxColumns: 2,
+                      dayMaxEvents: false,
                     },
                   }}
                   hiddenDays={[0]}
@@ -300,10 +465,13 @@ const CalendarViewPage = () => {
                   eventContent={renderEventContent}
                   height="auto"
                   // locale={viLocale}
+                  contentHeight="auto"
                   timeZone="local"
                   firstDay={1}
                   nowIndicator={true}
                   displayEventTime={false}
+                  dayMaxEvents={false}
+                  eventDisplay="block"
                 />
               </Box>
             </>

@@ -309,7 +309,7 @@ app.get("/api/higmf-lines-styles", authenticateToken, async (req, res) => {
         WHERE
           cc.CumId IS NOT NULL
           AND kht.NgayVaoChuyenKeHoachBatDau IS NOT NULL
-          AND kht.NgayVaoChuyenKeHoachBatDau BETWEEN DATEADD(MONTH, -2, GETDATE()) AND DATEADD(MONTH, 2, GETDATE())
+          AND kht.NgayVaoChuyenKeHoachBatDau BETWEEN DATEADD(WEEK, -1, GETDATE()) AND DATEADD(MONTH, 1, GETDATE())
       ),
       FilteredData AS (
         SELECT
@@ -709,51 +709,46 @@ app.get("/api/plans-for-calendar", authenticateToken, (req, res) => {
         .json({ error: "Database error", details: err.message });
     }
 
-    const events = results.map((plan, index) => {
-      const endDate = new Date(plan.plan_date);
-      const startDate = new Date(endDate);
-      startDate.setDate(startDate.getDate() - 5);
-
-      const now = new Date();
-      const daysUntilDeadline = Math.floor(
-        (endDate - now) / (1000 * 60 * 60 * 24)
-      );
-
+    const events = results.map((plan) => {
+      const startDate = new Date(plan.plan_date);
+      const workshop = getWorkshop(plan.line);
       let backgroundColor, borderColor, textColor;
 
-      if (daysUntilDeadline < 0) {
-        // Past deadline: yellow background, red text
-        backgroundColor = "#ffff00"; // Yellow
-        borderColor = "#ff0000";
-        textColor = "#ff0000"; // Red
-      } else if (daysUntilDeadline <= 3) {
-        // Very urgent: keep original colors
-        backgroundColor = "#ff7043"; // Coral
-        borderColor = "#f4511e";
-        textColor = undefined; // Default text color
-      } else {
-        // Other events: apply HSL color rotation
-        let hue = (index * 137.5) % 360;
-        if (hue >= 40 && hue <= 70) {
-          hue += 50; // Avoid yellow range
-          hue %= 360;
-        }
-        backgroundColor = `hsl(${hue}, 90%, 45%)`;
-        borderColor = `hsl(${hue}, 90%, 20%)`;
-        textColor = undefined; // Default text color
+      // Assign colors based on workshop
+      switch (workshop) {
+        case 1:
+          backgroundColor = "#0373d9"; // Workshop 1
+          borderColor = "#025aa6"; // Darker shade for border
+          textColor = "white";
+          break;
+        case 2:
+          backgroundColor = "#00da8c"; // Workshop 2
+          borderColor = "#00b374"; // Darker shade for border
+          textColor = "black";
+          break;
+        case 3:
+          backgroundColor = "#180cda"; // Workshop 3
+          borderColor = "#130aa3"; // Darker shade for border
+          textColor = "white";
+          break;
+        case 4:
+          backgroundColor = "#3ada14"; // Workshop 4
+          borderColor = "#2fb310"; // Darker shade for border
+          textColor = "black";
+          break;
+        default:
+          backgroundColor = "#808080"; // Grey for undefined workshop
+          borderColor = "#666666";
+          textColor = "white";
       }
-
-      const workshop = getWorkshop(plan.line);
 
       return {
         id: plan.id_plan,
-        title: `Chuyền: ${plan.line} - Mã hàng: ${plan.style}`,
+        title: `C${plan.line}_${plan.style}`,
         start: startDate,
-        end: endDate,
         extendedProps: {
           line: plan.line,
           style: plan.style,
-          daysUntilDeadline,
           plan_date: plan.plan_date,
           actual_date: plan.actual_date,
           total_percent_rate: plan.total_percent_rate || 0,
@@ -761,7 +756,7 @@ app.get("/api/plans-for-calendar", authenticateToken, (req, res) => {
         },
         backgroundColor,
         borderColor,
-        textColor, // Add textColor property
+        textColor,
       };
     });
 
