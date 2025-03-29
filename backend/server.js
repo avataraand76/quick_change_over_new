@@ -3321,6 +3321,526 @@ const processNames = {
   handleProcessDocumentationGet(processNum, true);
 });
 
+// User permission management endpoints
+app.get("/api/users/search", authenticateToken, async (req, res) => {
+  // Split search terms by comma and trim whitespace
+  const searchTerms = req.query.terms
+    ? req.query.terms.split(" ").map((term) => term.trim())
+    : [];
+
+  try {
+    // Get users from HiTimesheet database
+    const users = await new Promise((resolve, reject) => {
+      // Build WHERE conditions for each search term
+      const whereConditions = searchTerms
+        .filter((term) => term) // Filter out empty terms
+        .map((term) => `(nv.ten_nv LIKE ? OR nv.ma_nv LIKE ?)`)
+        .join(" OR ");
+
+      // If no valid search terms, return empty result
+      if (whereConditions.length === 0) {
+        return resolve([]);
+      }
+
+      // Double the search terms as we need two parameters for each term
+      const searchParams = searchTerms
+        .filter((term) => term)
+        .reduce((acc, term) => [...acc, `%${term}%`, `%${term}%`], []);
+
+      const query = `
+        SELECT 
+          nv.id AS id_nhan_vien, 
+          nv.ma_nv, 
+          nv.ten_nv, 
+          nv.cong_viec_phu_trach, 
+          bp.ten_bo_phan
+        FROM sync_nhan_vien nv
+        LEFT JOIN sync_bo_phan bp ON nv.id_bo_phan = bp.id
+        WHERE (${whereConditions})
+        AND bp.ten_bo_phan NOT LIKE '%NGHI VIEC%'
+        AND bp.ten_bo_phan NOT LIKE '%NGHI DAI HAN%'
+        AND bp.ten_bo_phan NOT LIKE '%NV%'
+        AND bp.id_bo_phan NOT LIKE '%NV%'
+      `;
+
+      dataHiTimesheetConnection.query(query, searchParams, (err, results) => {
+        if (err) reject(err);
+        else resolve(results);
+      });
+    });
+
+    // Get permissions for each user
+    const userPromises = users.map(async (user) => {
+      try {
+        // Get direct permissions
+        const directPermissions = await new Promise((resolve, reject) => {
+          mysqlConnection.query(
+            `
+            SELECT DISTINCT p.id_permission, p.name_permission
+            FROM tb_user_permission up
+            JOIN tb_permission p ON up.id_permission = p.id_permission
+            WHERE up.id_sync_nhan_vien = ?
+            `,
+            [user.id_nhan_vien],
+            (err, results) => {
+              if (err) reject(err);
+              else resolve(results);
+            }
+          );
+        });
+
+        // Get role-based permissions
+        const rolePermissions = await new Promise((resolve, reject) => {
+          mysqlConnection.query(
+            `
+            SELECT DISTINCT r.id_role, r.name_role
+            FROM tb_user_role ur
+            JOIN tb_role r ON ur.id_role = r.id_role
+            WHERE ur.id_sync_nhan_vien = ?
+            `,
+            [user.id_nhan_vien],
+            (err, results) => {
+              if (err) reject(err);
+              else resolve(results);
+            }
+          );
+        });
+
+        // Get workshop-based permissions
+        const workshopPermissions = await new Promise((resolve, reject) => {
+          mysqlConnection.query(
+            `
+            SELECT DISTINCT w.id_workshop, w.name_workshop
+            FROM tb_user_workshop uw
+            JOIN tb_workshop w ON uw.id_workshop = w.id_workshop
+            WHERE uw.id_sync_nhan_vien = ?
+            `,
+            [user.id_nhan_vien],
+            (err, results) => {
+              if (err) reject(err);
+              else resolve(results);
+            }
+          );
+        });
+
+        // Combine all permissions
+        user.permissions = {
+          direct: directPermissions,
+          byRole: rolePermissions,
+          byWorkshop: workshopPermissions,
+        };
+
+        return user;
+      } catch (error) {
+        console.error(
+          `Error fetching permissions for user ${user.id_nhan_vien}:`,
+          error
+        );
+        user.permissions = { direct: [], byRole: [], byWorkshop: [] };
+        return user;
+      }
+    });
+
+    const usersWithPermissions = await Promise.all(userPromises);
+    res.json(usersWithPermissions);
+  } catch (error) {
+    console.error("Error in user search:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Get all permissions
+app.get("/api/tb_permission", authenticateToken, async (req, res) => {
+  try {
+    const permissions = await new Promise((resolve, reject) => {
+      mysqlConnection.query(
+        "SELECT id_permission, name_permission FROM tb_permission",
+        (err, results) => {
+          if (err) reject(err);
+          else resolve(results);
+        }
+      );
+    });
+    res.json(permissions);
+  } catch (error) {
+    console.error("Error fetching permissions:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Get all roles
+app.get("/api/tb_role", authenticateToken, async (req, res) => {
+  try {
+    const roles = await new Promise((resolve, reject) => {
+      mysqlConnection.query(
+        "SELECT id_role, name_role FROM tb_role",
+        (err, results) => {
+          if (err) reject(err);
+          else resolve(results);
+        }
+      );
+    });
+    res.json(roles);
+  } catch (error) {
+    console.error("Error fetching roles:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Get all workshops
+app.get("/api/tb_workshop", authenticateToken, async (req, res) => {
+  try {
+    const workshops = await new Promise((resolve, reject) => {
+      mysqlConnection.query(
+        "SELECT id_workshop, name_workshop FROM tb_workshop",
+        (err, results) => {
+          if (err) reject(err);
+          else resolve(results);
+        }
+      );
+    });
+    res.json(workshops);
+  } catch (error) {
+    console.error("Error fetching workshops:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Get all permissions for a specific user
+app.get(
+  "/api/users/:userId/all-permissions",
+  authenticateToken,
+  async (req, res) => {
+    const userId = req.params.userId;
+
+    try {
+      // Get direct permissions
+      const directPermissions = await new Promise((resolve, reject) => {
+        mysqlConnection.query(
+          `SELECT id_permission FROM tb_user_permission WHERE id_sync_nhan_vien = ?`,
+          [userId],
+          (err, results) => {
+            if (err) reject(err);
+            else resolve(results.map((r) => r.id_permission));
+          }
+        );
+      });
+
+      // Get role permissions
+      const rolePermissions = await new Promise((resolve, reject) => {
+        mysqlConnection.query(
+          `SELECT id_role FROM tb_user_role WHERE id_sync_nhan_vien = ?`,
+          [userId],
+          (err, results) => {
+            if (err) reject(err);
+            else resolve(results.map((r) => r.id_role));
+          }
+        );
+      });
+
+      // Get workshop permissions
+      const workshopPermissions = await new Promise((resolve, reject) => {
+        mysqlConnection.query(
+          `SELECT id_workshop FROM tb_user_workshop WHERE id_sync_nhan_vien = ?`,
+          [userId],
+          (err, results) => {
+            if (err) reject(err);
+            else resolve(results.map((r) => r.id_workshop));
+          }
+        );
+      });
+
+      res.json({
+        direct: directPermissions,
+        roles: rolePermissions,
+        workshops: workshopPermissions,
+      });
+    } catch (error) {
+      console.error("Error fetching user permissions:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+app.post(
+  "/api/users/:userId/permissions",
+  authenticateToken,
+  async (req, res) => {
+    const userId = req.params.userId;
+    const { permissions, roles, workshops } = req.body;
+    let connection = null;
+
+    try {
+      // Get connection
+      connection = await new Promise((resolve, reject) => {
+        mysqlConnection.getConnection((err, conn) => {
+          if (err) reject(err);
+          else resolve(conn);
+        });
+      });
+
+      // Begin transaction
+      await new Promise((resolve, reject) => {
+        connection.beginTransaction((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+
+      // Update permissions
+      await Promise.all(
+        [
+          // Delete and insert direct permissions
+          new Promise((resolve, reject) => {
+            connection.query(
+              "DELETE FROM tb_user_permission WHERE id_sync_nhan_vien = ?",
+              [userId],
+              (err) => {
+                if (err) reject(err);
+                else resolve();
+              }
+            );
+          }),
+          permissions.length > 0 &&
+            new Promise((resolve, reject) => {
+              const values = permissions.map((permissionId) => [
+                userId,
+                permissionId,
+              ]);
+              connection.query(
+                "INSERT INTO tb_user_permission (id_sync_nhan_vien, id_permission) VALUES ?",
+                [values],
+                (err) => {
+                  if (err) reject(err);
+                  else resolve();
+                }
+              );
+            }),
+
+          // Delete and insert roles
+          new Promise((resolve, reject) => {
+            connection.query(
+              "DELETE FROM tb_user_role WHERE id_sync_nhan_vien = ?",
+              [userId],
+              (err) => {
+                if (err) reject(err);
+                else resolve();
+              }
+            );
+          }),
+          roles.length > 0 &&
+            new Promise((resolve, reject) => {
+              const values = roles.map((roleId) => [userId, roleId]);
+              connection.query(
+                "INSERT INTO tb_user_role (id_sync_nhan_vien, id_role) VALUES ?",
+                [values],
+                (err) => {
+                  if (err) reject(err);
+                  else resolve();
+                }
+              );
+            }),
+
+          // Delete and insert workshops
+          new Promise((resolve, reject) => {
+            connection.query(
+              "DELETE FROM tb_user_workshop WHERE id_sync_nhan_vien = ?",
+              [userId],
+              (err) => {
+                if (err) reject(err);
+                else resolve();
+              }
+            );
+          }),
+          workshops.length > 0 &&
+            new Promise((resolve, reject) => {
+              const values = workshops.map((workshopId) => [
+                userId,
+                workshopId,
+              ]);
+              connection.query(
+                "INSERT INTO tb_user_workshop (id_sync_nhan_vien, id_workshop) VALUES ?",
+                [values],
+                (err) => {
+                  if (err) reject(err);
+                  else resolve();
+                }
+              );
+            }),
+        ].filter(Boolean)
+      );
+
+      // Commit transaction
+      await new Promise((resolve, reject) => {
+        connection.commit((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating user permissions:", error);
+      if (connection) {
+        try {
+          await new Promise((resolve, reject) => {
+            connection.rollback((err) => {
+              if (err) reject(err);
+              else resolve();
+            });
+          });
+        } catch (rollbackError) {
+          console.error("Error rolling back transaction:", rollbackError);
+        }
+      }
+      res.status(500).json({ error: "Internal server error" });
+    } finally {
+      if (connection) {
+        connection.release();
+      }
+    }
+  }
+);
+
+// Get all users
+app.get("/api/users", authenticateToken, async (req, res) => {
+  try {
+    // First get list of users who have any permissions from main database
+    const usersWithPermissions = await new Promise((resolve, reject) => {
+      mysqlConnection.query(
+        `
+        SELECT DISTINCT id_sync_nhan_vien 
+        FROM (
+          SELECT id_sync_nhan_vien FROM tb_user_permission
+          UNION
+          SELECT id_sync_nhan_vien FROM tb_user_role
+          UNION
+          SELECT id_sync_nhan_vien FROM tb_user_workshop
+        ) AS users_with_permissions
+        WHERE id_sync_nhan_vien IS NOT NULL
+        `,
+        (err, results) => {
+          if (err) reject(err);
+          else resolve(results);
+        }
+      );
+    });
+
+    if (usersWithPermissions.length === 0) {
+      return res.json([]);
+    }
+
+    // Get user details for users who have permissions
+    const userDetailsPromises = usersWithPermissions.map(async (permUser) => {
+      try {
+        // Get user details from HiTimesheet
+        const [userDetails] = await new Promise((resolve, reject) => {
+          dataHiTimesheetConnection.query(
+            `
+            SELECT 
+              nv.id AS id_nhan_vien,
+              nv.ma_nv,
+              nv.ten_nv,
+              nv.cong_viec_phu_trach,
+              bp.ten_bo_phan
+            FROM sync_nhan_vien nv
+            LEFT JOIN sync_bo_phan bp ON nv.id_bo_phan = bp.id
+            WHERE nv.id = ?
+            AND bp.ten_bo_phan NOT LIKE '%NGHI VIEC%'
+            AND bp.ten_bo_phan NOT LIKE '%NGHI DAI HAN%'
+            AND bp.ten_bo_phan NOT LIKE '%NV%'
+            AND bp.id_bo_phan NOT LIKE '%NV%'
+            `,
+            [permUser.id_sync_nhan_vien],
+            (err, results) => {
+              if (err) reject(err);
+              else resolve(results);
+            }
+          );
+        });
+
+        if (!userDetails) {
+          return null;
+        }
+
+        // Get direct permissions
+        const directPermissions = await new Promise((resolve, reject) => {
+          mysqlConnection.query(
+            `
+            SELECT DISTINCT p.id_permission, p.name_permission
+            FROM tb_user_permission up
+            JOIN tb_permission p ON up.id_permission = p.id_permission
+            WHERE up.id_sync_nhan_vien = ?
+            `,
+            [permUser.id_sync_nhan_vien],
+            (err, results) => {
+              if (err) reject(err);
+              else resolve(results);
+            }
+          );
+        });
+
+        // Get role-based permissions
+        const rolePermissions = await new Promise((resolve, reject) => {
+          mysqlConnection.query(
+            `
+            SELECT DISTINCT r.id_role, r.name_role
+            FROM tb_user_role ur
+            JOIN tb_role r ON ur.id_role = r.id_role
+            WHERE ur.id_sync_nhan_vien = ?
+            `,
+            [permUser.id_sync_nhan_vien],
+            (err, results) => {
+              if (err) reject(err);
+              else resolve(results);
+            }
+          );
+        });
+
+        // Get workshop-based permissions
+        const workshopPermissions = await new Promise((resolve, reject) => {
+          mysqlConnection.query(
+            `
+            SELECT DISTINCT w.id_workshop, w.name_workshop
+            FROM tb_user_workshop uw
+            JOIN tb_workshop w ON uw.id_workshop = w.id_workshop
+            WHERE uw.id_sync_nhan_vien = ?
+            `,
+            [permUser.id_sync_nhan_vien],
+            (err, results) => {
+              if (err) reject(err);
+              else resolve(results);
+            }
+          );
+        });
+
+        return {
+          ...userDetails,
+          permissions: {
+            direct: directPermissions,
+            byRole: rolePermissions,
+            byWorkshop: workshopPermissions,
+          },
+        };
+      } catch (error) {
+        console.error(
+          `Error fetching details for user ${permUser.id_sync_nhan_vien}:`,
+          error
+        );
+        return null;
+      }
+    });
+
+    const finalUsers = (await Promise.all(userDetailsPromises)).filter(
+      (user) => user !== null
+    ); // Remove any failed user fetches
+
+    res.json(finalUsers);
+  } catch (error) {
+    console.error("Error fetching all users:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 const PORT = process.env.MYSQL_PORT;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

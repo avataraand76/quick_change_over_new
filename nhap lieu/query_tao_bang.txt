@@ -277,15 +277,29 @@ CREATE TABLE tb_workshop
     PRIMARY KEY (id_workshop)
 );
 
-CREATE TABLE tb_workshop_role_permission
+CREATE TABLE tb_user_permission (
+    id_sync_nhan_vien BIGINT NOT NULL,
+    id_permission BIGINT NOT NULL,
+    UNIQUE (id_sync_nhan_vien, id_permission)
+);
+
+CREATE TABLE tb_user_role (
+    id_sync_nhan_vien BIGINT NOT NULL,
+    id_role BIGINT NOT NULL,
+    UNIQUE (id_sync_nhan_vien, id_role)
+);
+
+CREATE TABLE tb_user_workshop (
+    id_sync_nhan_vien BIGINT NOT NULL,
+    id_workshop BIGINT NOT NULL,
+    UNIQUE (id_sync_nhan_vien, id_workshop)
+);
+
+CREATE TABLE tb_process_role
 (
-	id_sync_nhan_vien BIGINT, -- hi time sheet
-	id_permission BIGINT,
-    id_role BIGINT,
-    id_workshop BIGINT,
-	
-    PRIMARY KEY (id_sync_nhan_vien),
-    UNIQUE (id_sync_nhan_vien, id_permission, id_role, id_workshop)
+	id_process BIGINT,
+	id_role BIGINT,
+	UNIQUE (id_process, id_role)
 );
 
 CREATE TABLE tb_work_steps_role

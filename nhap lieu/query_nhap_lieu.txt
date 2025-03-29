@@ -54,13 +54,27 @@ INSERT INTO tb_permission (name_permission) VALUES
 
 INSERT INTO tb_role (name_role) VALUES
 ('SƠ ĐỒ CHUYỀN'),
+('CÁN BỘ MẶT HÀNG'),
+('CHUẨN BỊ SẢN XUẤT'),
 ('CƠ ĐIỆN XƯỞNG'),
-('KỸ THUẬT'),
-('XƯỞNG');
+('KỸ THUẬT XƯỞNG'),
+('QUẢN LÝ XƯỞNG');
 
 INSERT INTO tb_workshop (name_workshop) VALUES
 ('XƯỞNG 1'),
 ('XƯỞNG 2'),
 ('XƯỞNG 3'),
 ('XƯỞNG 4'),
-('PHÒNG KỸ THUẬT');
+('PHÒNG KỸ THUẬT'),
+('PHÒNG KẾ HOẠCH');
+
+INSERT INTO tb_process_role (id_process, id_role) VALUES
+('1','2'), -- quy trình 1 cho phòng kỹ thuật cán bộ sx
+('2','2'), -- quy trình 2 cho phòng kỹ thuật cán bộ sx
+('3','5'), -- quy trình 3 cho giám đốc xưởng
+('4','1'), -- quy trình 4 cho sơ đồ chuyền
+('5','3'), -- quy trình 5 cho cơ điện xưởng
+('5','4'), -- quy trình 5 cho kỹ thuật xưởng
+('6','5'), -- quy trình 6 cho giám đốc xưởng
+('7','5'), -- quy trình 7 cho giám đốc xưởng
+('8','5'); -- quy trình 8 cho giám đốc xưởng

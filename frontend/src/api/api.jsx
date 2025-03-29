@@ -428,6 +428,92 @@ let API = {
       throw error;
     }
   },
+
+  // User permission management APIs
+  searchUsers: async (searchTerms) => {
+    try {
+      const response = await httpConnect.get(
+        `/api/users/search?terms=${encodeURIComponent(searchTerms)}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error searching users:", error);
+      throw error;
+    }
+  },
+
+  getPermissions: async () => {
+    try {
+      const response = await httpConnect.get("/api/tb_permission");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching permissions:", error);
+      throw error;
+    }
+  },
+
+  getRoles: async () => {
+    try {
+      const response = await httpConnect.get("/api/tb_role");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching roles:", error);
+      throw error;
+    }
+  },
+
+  getWorkshops: async () => {
+    try {
+      const response = await httpConnect.get("/api/tb_workshop");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching workshops:", error);
+      throw error;
+    }
+  },
+
+  getUserPermissions: async (userId) => {
+    try {
+      const response = await httpConnect.get(
+        `/api/users/${userId}/all-permissions`
+      );
+      return {
+        direct: response.data.direct || [],
+        roles: response.data.roles || [],
+        workshops: response.data.workshops || [],
+      };
+    } catch (error) {
+      console.error("Error fetching user permissions:", error);
+      throw error;
+    }
+  },
+
+  saveUserPermissions: async (userId, { direct, roles, workshops }) => {
+    try {
+      const response = await httpConnect.post(
+        `/api/users/${userId}/permissions`,
+        {
+          permissions: direct || [],
+          roles: roles || [],
+          workshops: workshops || [],
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error saving user permissions:", error);
+      throw error;
+    }
+  },
+
+  getAllUsers: async () => {
+    try {
+      const response = await httpConnect.get("/api/users");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching all users:", error);
+      throw error;
+    }
+  },
 };
 
 // Tự động tạo phương thức API cho tất cả các quy trình (1, 2, 3, 4, 6, 7, 8)

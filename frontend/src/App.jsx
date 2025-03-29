@@ -26,6 +26,7 @@ import Process5Page from "./pages/Process5Page";
 import Process6Page from "./pages/Process6Page";
 import Process7Page from "./pages/Process7Page";
 import Process8Page from "./pages/Process8Page";
+import AdminPage from "./pages/AdminPage";
 
 // ScrollToTop component to ensure all page navigations scroll to the top
 function ScrollToTop() {
@@ -77,7 +78,10 @@ function App() {
           element={<PrivateRoute element={<DetailedPhasePage />} />}
         />
         <Route path="/co/:id" element={<PrivateRoute element={<CoPage />} />} />
-
+        <Route
+          path="/admin"
+          element={<PrivateRoute element={<AdminPage />} />}
+        />
         {/* Process Routes */}
         <Route
           path="/process1/:id"

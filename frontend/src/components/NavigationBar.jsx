@@ -94,6 +94,8 @@ const Navbar = () => {
           {token && (
             <Button
               color="inherit"
+              component={Link}
+              to="/admin"
               startIcon={<AccountCircle />}
               sx={{
                 borderRadius: "15px",
