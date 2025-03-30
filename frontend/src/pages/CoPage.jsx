@@ -34,29 +34,6 @@ import {
 import API from "../api/api";
 import NotificationDialog from "../components/NotificationDialog";
 
-// Danh sách khách hàng
-const BUYERS = [
-  "SIV-NIKE",
-  "ASC-DRI DUCK",
-  "ASC-LE COQ",
-  "TAHSHIN",
-  "TIEN TIEN",
-  "MITSU",
-  "NAM YANG",
-  "VIETTIEN",
-  "THIENTHANH",
-  "VIETTHINH",
-  "TEXGIANG",
-  "VANS",
-  "SKECHERS",
-  "ORVIS-TASHIN",
-  "RUSSELL",
-  "DESCENTE",
-];
-
-// Danh sách loại sản xuất
-const PRODUCTION_STYLES = ["JACKET", "VEST", "PANTS", "SHORTS"];
-
 // Helper function to format dates for datetime-local input
 const formatDateForInput = (dateString) => {
   if (!dateString) return "";
@@ -136,9 +113,20 @@ const CoPage = () => {
 
   const calculateTargetOfCOT = (productionStyle) => {
     if (!productionStyle) return "";
-    if (["JACKET", "VEST"].includes(productionStyle)) return "30";
-    if (["PANTS", "SHORTS"].includes(productionStyle)) return "20";
-    return "";
+    switch (productionStyle.toUpperCase()) {
+      case "JACKET":
+        return "30";
+      case "VEST":
+        return "30";
+      case "PANTS":
+        return "20";
+      case "SHORTS":
+        return "20";
+      case "SKIRT":
+        return "20";
+      default:
+        return "0"; // Giá trị mặc định cho các loại khác
+    }
   };
 
   const calculateTimeDifference = (endDate, startDate) => {
@@ -238,6 +226,8 @@ const CoPage = () => {
           setCoData((prev) => ({
             ...prev,
             CO_begin_date: planData.actual_date || "",
+            buyer: planData.buyer || "",
+            production_style: planData.production_style || "",
           }));
         }
 
@@ -544,6 +534,30 @@ const CoPage = () => {
                   sx={{ mb: 2, backgroundColor: "#ffffcc" }}
                 />
               </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Loại"
+                  value={coData.production_style || ""}
+                  fullWidth
+                  InputProps={{
+                    readOnly: true,
+                  }}
+                  variant="outlined"
+                  sx={{ mb: 2, backgroundColor: "#ffffcc" }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Khách Hàng"
+                  value={coData.buyer || ""}
+                  fullWidth
+                  InputProps={{
+                    readOnly: true,
+                  }}
+                  variant="outlined"
+                  sx={{ mb: 2, backgroundColor: "#ffffcc" }}
+                />
+              </Grid>
             </Grid>
           </Box>
 
@@ -601,48 +615,6 @@ const CoPage = () => {
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
                 <TextField
-                  select
-                  label="Khách hàng"
-                  name="buyer"
-                  value={coData.buyer}
-                  onChange={handleChange}
-                  fullWidth
-                  variant="outlined"
-                  sx={{ mb: 2 }}
-                >
-                  <MenuItem value="">
-                    <em>Chọn khách hàng</em>
-                  </MenuItem>
-                  {BUYERS.map((buyer) => (
-                    <MenuItem key={buyer} value={buyer}>
-                      {buyer}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  select
-                  label="Loại"
-                  name="production_style"
-                  value={coData.production_style}
-                  onChange={handleChange}
-                  fullWidth
-                  variant="outlined"
-                  sx={{ mb: 2 }}
-                >
-                  <MenuItem value="">
-                    <em>Chọn loại</em>
-                  </MenuItem>
-                  {PRODUCTION_STYLES.map((style) => (
-                    <MenuItem key={style} value={style}>
-                      {style}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
                   label="SAM"
                   name="SAM"
                   value={coData.SAM}
@@ -656,7 +628,7 @@ const CoPage = () => {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
-                  label="Sơ đồ chuyền"
+                  label="Nhân Viên Sơ đồ chuyền"
                   name="staff"
                   value={coData.staff}
                   onChange={handleChange}

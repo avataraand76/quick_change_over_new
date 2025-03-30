@@ -80,7 +80,7 @@ const Navbar = () => {
               },
             }}
           >
-            Quick Change Over
+            CHANGEOVER
           </Typography>
         </Box>
 
@@ -152,7 +152,7 @@ const Navbar = () => {
           >
             Kế hoạch
           </Button> */}
-          <Button
+          {/* <Button
             color="inherit"
             component={Link}
             to="/report"
@@ -165,7 +165,7 @@ const Navbar = () => {
             }}
           >
             Báo cáo
-          </Button>
+          </Button> */}
           <Button
             color="inherit"
             component="a"

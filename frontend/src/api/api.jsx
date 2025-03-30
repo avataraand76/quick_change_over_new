@@ -13,11 +13,11 @@ if (window.location.hostname === "localhost") {
 //////local host//////
 
 //////VLH//////
-// let API_URL = "https://serverksnb.vietlonghung.com.vn";
+// let API_URL = "https://svqco.vietlonghung.com.vn";
 //////VLH//////
 
 //////CT//////
-// let API_URL = "https://serverksnb.congtien.com.vn";
+// let API_URL = "https://svqco.congtien.com.vn";
 //////CT//////
 
 // Tạo một instance của axios

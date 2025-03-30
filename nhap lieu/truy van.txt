@@ -19,6 +19,7 @@ TRUNCATE TABLE tb_user_permission;
 TRUNCATE TABLE tb_user_role;
 TRUNCATE TABLE tb_user_workshop;
 TRUNCATE TABLE tb_work_steps;
+TRUNCATE TABLE tb_work_steps_role;
 TRUNCATE TABLE tb_workshop;
 SET FOREIGN_KEY_CHECKS=1;
 
@@ -43,5 +44,6 @@ DROP TABLE tb_user_permission;
 DROP TABLE tb_user_role;
 DROP TABLE tb_user_workshop;
 DROP TABLE tb_work_steps;
+DROP TABLE tb_work_steps_role;
 DROP TABLE tb_workshop;
 SET FOREIGN_KEY_CHECKS=1;

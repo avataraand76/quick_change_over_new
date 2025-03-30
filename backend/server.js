@@ -291,63 +291,83 @@ app.get("/api/higmf-lines-styles", authenticateToken, async (req, res) => {
     const pool = await sql.connect(mssqlHigmfConfig);
     const result = await pool.request().query(`
       WITH GetData AS (
-        SELECT
-          kht.KHTId,
-          dh.MaHang,
-          cc.MaCum,
-          kht.SoLuong,
-          kht.NgayVaoChuyenKeHoachBatDau,
-          kht.NgayVaoChuyenKeHoachKetThuc,
-          ROW_NUMBER() OVER (PARTITION BY dh.MaHang, cc.MaCum
-                            ORDER BY kht.NgayVaoChuyenKeHoachBatDau ASC,
-                                    DATEDIFF(HOUR, kht.NgayVaoChuyenKeHoachBatDau, kht.NgayVaoChuyenKeHoachKetThuc) DESC) AS RowNum
-        FROM [eGMF].[dbo].[OMM_DonHang] dh
-        LEFT JOIN [eGMF].[dbo].[OMM_PO] po ON dh.DHId = po.DHId
-        LEFT JOIN [eGMF].[dbo].[OMM_PO_ChiTiet] poct ON poct.POId = po.POId
-        LEFT JOIN [eGMF].[dbo].[OMM_KeHoachThang] kht ON kht.CTPOId = poct.POCTId
-        LEFT JOIN [eGMF].[dbo].[Lib_CumChuyen] cc ON kht.ChuyenId = cc.CumId
-        WHERE
-          cc.CumId IS NOT NULL
-          AND kht.NgayVaoChuyenKeHoachBatDau IS NOT NULL
-          AND kht.NgayVaoChuyenKeHoachBatDau BETWEEN DATEADD(WEEK, -1, GETDATE()) AND DATEADD(MONTH, 1, GETDATE())
+          SELECT
+              kht.KHTId,
+              dh.MaHang,
+              po.PONo,
+              cc.MaCum,
+              kht.SoLuong,
+              kht.NgayVaoChuyenKeHoachBatDau,
+              kht.NgayVaoChuyenKeHoachKetThuc,
+              dh.MaChungLoai,
+              kh.TenNgan,
+              ROW_NUMBER() OVER (PARTITION BY dh.MaHang, cc.MaCum
+                                ORDER BY kht.NgayVaoChuyenKeHoachBatDau ASC,
+                                        DATEDIFF(HOUR, kht.NgayVaoChuyenKeHoachBatDau, kht.NgayVaoChuyenKeHoachKetThuc) DESC) AS RowNum
+          FROM [eGMF].[dbo].[OMM_DonHang] dh
+          LEFT JOIN [eGMF].[dbo].[OMM_PO] po ON dh.DHId = po.DHId
+          LEFT JOIN [eGMF].[dbo].[OMM_PO_ChiTiet] poct ON poct.POId = po.POId
+          LEFT JOIN [eGMF].[dbo].[OMM_KeHoachThang] kht ON kht.CTPOId = poct.POCTId
+          LEFT JOIN [eGMF].[dbo].[Lib_CumChuyen] cc ON kht.ChuyenId = cc.CumId
+          LEFT JOIN [eGMF].[dbo].[Lib_KhachHang] kh ON dh.KHId = kh.KHId
+          WHERE
+              cc.CumId IS NOT NULL
+              AND kht.NgayVaoChuyenKeHoachBatDau IS NOT NULL
+              AND kht.NgayVaoChuyenKeHoachBatDau BETWEEN DATEADD(WEEK, -1, GETDATE()) AND DATEADD(MONTH, 4, GETDATE())
       ),
       FilteredData AS (
-        SELECT
-          KHTId,
-          MaHang,
-          MaCum,
-          SoLuong,
-          NgayVaoChuyenKeHoachBatDau,
-          NgayVaoChuyenKeHoachKetThuc,
-          RowNum,
-          LAG(NgayVaoChuyenKeHoachBatDau) OVER (PARTITION BY MaHang, MaCum
-                                                ORDER BY NgayVaoChuyenKeHoachBatDau ASC) AS Prev_NgayBatDau,
-          LAG(NgayVaoChuyenKeHoachKetThuc) OVER (PARTITION BY MaHang, MaCum
-                                                ORDER BY NgayVaoChuyenKeHoachBatDau ASC) AS Prev_NgayKetThuc
-        FROM GetData
+          SELECT
+              KHTId,
+              MaHang,
+              PONo,
+              MaCum,
+              SoLuong,
+              NgayVaoChuyenKeHoachBatDau,
+              NgayVaoChuyenKeHoachKetThuc,
+              MaChungLoai,
+              TenNgan,
+              RowNum,
+              LAG(NgayVaoChuyenKeHoachBatDau) OVER (PARTITION BY MaHang, MaCum
+                                                    ORDER BY NgayVaoChuyenKeHoachBatDau ASC) AS Prev_NgayBatDau,
+              LAG(NgayVaoChuyenKeHoachKetThuc) OVER (PARTITION BY MaHang, MaCum
+                                                    ORDER BY NgayVaoChuyenKeHoachBatDau ASC) AS Prev_NgayKetThuc
+          FROM GetData
       ),
       FinalFiltered AS (
-        SELECT
-          KHTId,
-          MaHang,
-          MaCum,
-          SoLuong,
-          NgayVaoChuyenKeHoachBatDau,
-          NgayVaoChuyenKeHoachKetThuc
-        FROM FilteredData
-        WHERE
-          RowNum = 1
-          OR (
-            NgayVaoChuyenKeHoachBatDau <> Prev_NgayBatDau
-            AND NgayVaoChuyenKeHoachBatDau <> Prev_NgayKetThuc
-          )
+          SELECT
+              KHTId,
+              MaHang,
+              PONo,
+              MaCum,
+              SoLuong,
+              NgayVaoChuyenKeHoachBatDau,
+              NgayVaoChuyenKeHoachKetThuc,
+              CASE RIGHT(MaChungLoai, 1)
+                  WHEN 'J' THEN 'JACKET'
+                  WHEN 'V' THEN 'VEST'
+                  WHEN 'P' THEN 'PANTS'
+                  WHEN 'S' THEN 'SHORTS'
+                  WHEN 'K' THEN 'SKIRT'
+                  ELSE 'undefined'
+              END AS MaChungLoai,
+              TenNgan
+          FROM FilteredData
+          WHERE
+              RowNum = 1
+              OR (
+                  NgayVaoChuyenKeHoachBatDau <> Prev_NgayBatDau
+                  AND NgayVaoChuyenKeHoachBatDau <> Prev_NgayKetThuc
+              )
       )
       SELECT
-        KHTId,
-        MaHang as style,
-        MaCum as line,
-        SoLuong as quantity,
-        NgayVaoChuyenKeHoachBatDau as plan_date
+          KHTId,
+          MaHang as style,
+          PONo as PO,
+          MaCum as line,
+          SoLuong as quantity,
+          NgayVaoChuyenKeHoachBatDau as plan_date,
+          MaChungLoai as production_style,
+          TenNgan as buyer
       FROM FinalFiltered
       ORDER BY MaCum, NgayVaoChuyenKeHoachBatDau ASC
     `);
@@ -544,7 +564,16 @@ app.get("/api/higmf-lines-styles", authenticateToken, async (req, res) => {
 
 // API tạo kế hoạch để sử dụng middleware trong MAIN mysql
 app.post("/api/create-plan", authenticateToken, async (req, res) => {
-  const { KHTId, line, style, quantity, plan_date, actual_date } = req.body;
+  const {
+    KHTId,
+    line,
+    style,
+    quantity,
+    plan_date,
+    actual_date,
+    production_style,
+    buyer,
+  } = req.body;
   const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
 
   let connection;
@@ -581,13 +610,15 @@ app.post("/api/create-plan", authenticateToken, async (req, res) => {
     // Insert or update tb_co
     await connection.query(
       `
-      INSERT INTO tb_co (id_plan, updated_by, CO_begin_date) 
-      VALUES (?, ?, ?) 
+      INSERT INTO tb_co (id_plan, updated_by, CO_begin_date, production_style, buyer) 
+      VALUES (?, ?, ?, ?, ?) 
       ON DUPLICATE KEY UPDATE 
         updated_by = VALUES(updated_by), 
-        CO_begin_date = VALUES(CO_begin_date)
+        CO_begin_date = VALUES(CO_begin_date),
+        production_style = VALUES(production_style),
+        buyer = VALUES(buyer)
       `,
-      [id_plan, updated_by, formatDate(actual_date)]
+      [id_plan, updated_by, formatDate(actual_date), production_style, buyer]
     );
 
     // Get all process IDs
@@ -3320,7 +3351,7 @@ const processNames = {
 app.get("/api/users/search", authenticateToken, async (req, res) => {
   // Split search terms by comma and trim whitespace
   const searchTerms = req.query.terms
-    ? req.query.terms.split(" ").map((term) => term.trim())
+    ? req.query.terms.split(",").map((term) => term.trim())
     : [];
 
   try {

@@ -137,6 +137,8 @@ const CreatePhasePage = () => {
           KHTId: plan.KHTId,
           line: plan.line,
           style: plan.style,
+          production_style: plan.production_style,
+          buyer: plan.buyer,
           quantity: plan.quantity,
           plan_date: plan.plan_date,
           actual_date: plan.plan_date,
@@ -535,7 +537,7 @@ const CreatePhasePage = () => {
                         }}
                         onClick={() => toggleLineCollapse(line)}
                       >
-                        <TableCell colSpan={5}>
+                        <TableCell colSpan={6}>
                           <Box
                             sx={{
                               display: "flex",
@@ -576,10 +578,18 @@ const CreatePhasePage = () => {
                             <TableCell
                               sx={{
                                 fontWeight: "bold",
-                                width: "20%",
+                                width: "15%",
                               }}
                             >
                               Mã Hàng
+                            </TableCell>
+                            <TableCell
+                              sx={{
+                                fontWeight: "bold",
+                                width: "15%",
+                              }}
+                            >
+                              PO
                             </TableCell>
                             <TableCell
                               sx={{
@@ -593,7 +603,7 @@ const CreatePhasePage = () => {
                             <TableCell
                               sx={{
                                 fontWeight: "bold",
-                                width: "30%",
+                                width: "25%",
                               }}
                             >
                               Thời Gian CĐ Dự Kiến
@@ -601,7 +611,7 @@ const CreatePhasePage = () => {
                             <TableCell
                               sx={{
                                 fontWeight: "bold",
-                                width: "20%",
+                                width: "15%",
                                 textAlign: "left",
                               }}
                             >
@@ -631,6 +641,7 @@ const CreatePhasePage = () => {
                                 Chuyền {item.line}
                               </TableCell>
                               <TableCell>{item.style}</TableCell>
+                              <TableCell>{item.PO}</TableCell>
                               <TableCell align="center">
                                 {item.quantity}
                               </TableCell>

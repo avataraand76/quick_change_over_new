@@ -48,7 +48,7 @@ CREATE TABLE tb_co
 	updated_by TEXT,
 	
     PRIMARY KEY (id_co),
-    UNIQUE (id_plan, id_co)
+    UNIQUE (id_plan)
 );
 
 CREATE TABLE tb_process
@@ -83,7 +83,7 @@ CREATE TABLE tb_process_1
 	updated_by TEXT,
 
     PRIMARY KEY (id_process_1),
-    UNIQUE (id_process_1, id_process, id_plan)	
+    UNIQUE (id_process, id_plan)	
 );
 
 CREATE TABLE tb_process_2
@@ -101,7 +101,7 @@ CREATE TABLE tb_process_2
 	updated_by TEXT,
 
     PRIMARY KEY (id_process_2),
-    UNIQUE (id_process_2, id_process, id_plan)
+    UNIQUE (id_process, id_plan)
 	
 );
 
@@ -120,7 +120,7 @@ CREATE TABLE tb_process_3
 	updated_by TEXT,
 
     PRIMARY KEY (id_process_3),
-    UNIQUE (id_process_3, id_process, id_plan)	
+    UNIQUE (id_process, id_plan)
 );
 
 CREATE TABLE tb_process_4
@@ -138,7 +138,7 @@ CREATE TABLE tb_process_4
 	updated_by TEXT,
 
     PRIMARY KEY (id_process_4),
-    UNIQUE (id_process_4, id_process, id_plan)
+    UNIQUE (id_process, id_plan)
 );
 
 CREATE TABLE tb_process_5_preparing_machine
@@ -217,7 +217,7 @@ CREATE TABLE tb_process_6
 	updated_by TEXT,
 
     PRIMARY KEY (id_process_6),
-    UNIQUE (id_process_6, id_process, id_plan)	
+    UNIQUE (id_process, id_plan)
 );
 
 CREATE TABLE tb_process_7
@@ -235,7 +235,7 @@ CREATE TABLE tb_process_7
 	updated_by TEXT,
 
     PRIMARY KEY (id_process_7),
-    UNIQUE (id_process_7, id_process, id_plan)	
+    UNIQUE (id_process, id_plan)
 );
 
 CREATE TABLE tb_process_8
@@ -253,7 +253,7 @@ CREATE TABLE tb_process_8
 	updated_by TEXT,
 
     PRIMARY KEY (id_process_8),
-    UNIQUE (id_process_8, id_process, id_plan)	
+   	UNIQUE (id_process, id_plan)
 );
 
 CREATE TABLE tb_permission
