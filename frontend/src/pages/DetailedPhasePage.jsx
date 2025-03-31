@@ -50,6 +50,7 @@ const DetailedPhasePage = () => {
   const [expandedProcess, setExpandedProcess] = useState(null);
   const [workSteps, setWorkSteps] = useState({});
   const [loadingWorkSteps, setLoadingWorkSteps] = useState({});
+  const [processRoles, setProcessRoles] = useState({});
   const navigate = useNavigate();
   const [notification, setNotification] = useState({
     open: false,
@@ -92,6 +93,17 @@ const DetailedPhasePage = () => {
         setPlanDate(formatDate(planResponse.plan_date));
         setActualDate(formatDate(planResponse.actual_date));
         setPercentRate(planResponse.total_percent_rate || 0);
+
+        // Fetch roles for each process
+        const rolesPromises = processesResponse.map((process) =>
+          API.getProcessRoles(process.id_process)
+        );
+        const rolesResults = await Promise.all(rolesPromises);
+        const rolesMap = {};
+        processesResponse.forEach((process, index) => {
+          rolesMap[process.id_process] = rolesResults[index];
+        });
+        setProcessRoles(rolesMap);
       } catch (error) {
         console.error("Error fetching data:", error);
         showNotification("Lỗi", "Không thể tải thông tin chi tiết", "error");
@@ -111,23 +123,23 @@ const DetailedPhasePage = () => {
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
-  // Calculate deadline date based on plan_date and deadline days
-  const calculateDeadlineDate = (planDateString, deadlineDays) => {
+  // Calculate deadline date based on actual_date and deadline days
+  const calculateDeadlineDate = (actualDateString, deadlineDays) => {
     if (
-      !planDateString ||
+      !actualDateString ||
       deadlineDays === null ||
       deadlineDays === undefined ||
       deadlineDays === ""
     )
       return "-";
 
-    // Parse the plan date
-    const planDate = new Date(planDateString);
+    // Parse the actual date
+    const actualDate = new Date(actualDateString);
     // Only use the date part (ignore time)
     const dateOnly = new Date(
-      planDate.getFullYear(),
-      planDate.getMonth(),
-      planDate.getDate()
+      actualDate.getFullYear(),
+      actualDate.getMonth(),
+      actualDate.getDate()
     );
 
     // Subtract the deadline days
@@ -430,12 +442,17 @@ const DetailedPhasePage = () => {
                   STT
                 </TableCell>
                 <TableCell
-                  sx={{ color: "white", fontWeight: "bold", width: "42%" }}
+                  sx={{ color: "white", fontWeight: "bold", width: "32%" }}
                 >
                   Tên Quy Trình
                 </TableCell>
                 <TableCell
-                  sx={{ color: "white", fontWeight: "bold", width: "20%" }}
+                  sx={{ color: "white", fontWeight: "bold", width: "15%" }}
+                >
+                  Người Đảm Nhận
+                </TableCell>
+                <TableCell
+                  sx={{ color: "white", fontWeight: "bold", width: "15%" }}
                 >
                   Thời Hạn (ngày)
                 </TableCell>
@@ -445,7 +462,7 @@ const DetailedPhasePage = () => {
                   Tỉ Lệ Hoàn Thành
                 </TableCell>
                 <TableCell
-                  sx={{ color: "white", fontWeight: "bold", width: "15%" }}
+                  sx={{ color: "white", fontWeight: "bold", width: "13%" }}
                 >
                   {/* Thao Tác */}
                 </TableCell>
@@ -486,12 +503,45 @@ const DetailedPhasePage = () => {
                         </Box>
                       </TableCell>
                       <TableCell>
+                        <Box
+                          sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}
+                        >
+                          {processRoles[process.id_process]?.map((role) => (
+                            <Typography
+                              key={role.id_role}
+                              variant="body2"
+                              sx={{
+                                backgroundColor: "#e3f2fd",
+                                color: "#1976d2",
+                                padding: "2px 8px",
+                                borderRadius: "12px",
+                                fontSize: "0.8rem",
+                                fontWeight: "medium",
+                                display: "inline-block",
+                              }}
+                            >
+                              {role.name_role}
+                            </Typography>
+                          ))}
+                          {(!processRoles[process.id_process] ||
+                            processRoles[process.id_process].length === 0) && (
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{ fontStyle: "italic" }}
+                            >
+                              Chưa phân công
+                            </Typography>
+                          )}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
                         {process.deadline ? (
                           <>
                             <Typography variant="body2" fontWeight="medium">
                               {process.deadline > 0
-                                ? `${process.deadline} ngày trước thời gian dự kiến`
-                                : "Cùng ngày với thời gian dự kiến"}
+                                ? `${process.deadline} ngày trước thời gian thực tế`
+                                : "Cùng ngày với thời gian thực tế"}
                             </Typography>
                             {process.deadline > 0 && (
                               <Typography
@@ -500,7 +550,7 @@ const DetailedPhasePage = () => {
                               >
                                 Hạn chót:{" "}
                                 {calculateDeadlineDate(
-                                  plan.plan_date,
+                                  plan.actual_date,
                                   process.deadline
                                 )}
                               </Typography>

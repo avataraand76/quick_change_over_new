@@ -526,6 +526,18 @@ let API = {
       throw error;
     }
   },
+
+  getProcessRoles: async (id_process) => {
+    try {
+      const response = await httpConnect.get(
+        `/api/processes/${id_process}/roles`
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching process roles:", error);
+      throw error;
+    }
+  },
 };
 
 // Tự động tạo phương thức API cho tất cả các quy trình (1, 2, 3, 4, 6, 7, 8)

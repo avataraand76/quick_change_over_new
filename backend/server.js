@@ -4193,6 +4193,29 @@ app.get("/api/users", authenticateToken, async (req, res) => {
   }
 });
 
+// Add this endpoint after other process-related endpoints
+app.get("/api/processes/:id_process/roles", authenticateToken, (req, res) => {
+  const { id_process } = req.params;
+
+  mysqlConnection.query(
+    `SELECT r.id_role, r.name_role 
+     FROM tb_process_role pr
+     JOIN tb_role r ON pr.id_role = r.id_role
+     WHERE pr.id_process = ?
+     ORDER BY r.name_role ASC`,
+    [id_process],
+    (err, results) => {
+      if (err) {
+        console.error("Error fetching process roles:", err);
+        return res
+          .status(500)
+          .json({ success: false, message: "Database error" });
+      }
+      res.json(results);
+    }
+  );
+});
+
 const PORT = process.env.MYSQL_PORT;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

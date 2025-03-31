@@ -69,12 +69,12 @@ INSERT INTO tb_workshop (name_workshop) VALUES
 ('PHÒNG KẾ HOẠCH');
 
 INSERT INTO tb_process_role (id_process, id_role) VALUES
-('1','2'), -- quy trình 1 cho phòng kỹ thuật cán bộ sx
-('2','2'), -- quy trình 2 cho phòng kỹ thuật cán bộ sx
-('3','5'), -- quy trình 3 cho giám đốc xưởng
+('1','3'), -- quy trình 1 cho phòng kỹ thuật cán bộ sx
+('2','3'), -- quy trình 2 cho phòng kỹ thuật cán bộ sx
+('3','6'), -- quy trình 3 cho giám đốc xưởng
 ('4','1'), -- quy trình 4 cho sơ đồ chuyền
-('5','3'), -- quy trình 5 cho cơ điện xưởng
-('5','4'), -- quy trình 5 cho kỹ thuật xưởng
-('6','5'), -- quy trình 6 cho giám đốc xưởng
-('7','5'), -- quy trình 7 cho giám đốc xưởng
-('8','5'); -- quy trình 8 cho giám đốc xưởng
+('5','4'), -- quy trình 5 cho cơ điện xưởng
+('5','5'), -- quy trình 5 cho kỹ thuật xưởng
+('6','6'), -- quy trình 6 cho giám đốc xưởng
+('7','6'), -- quy trình 7 cho giám đốc xưởng
+('8','6'); -- quy trình 8 cho giám đốc xưởng
