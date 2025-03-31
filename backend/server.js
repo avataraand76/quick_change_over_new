@@ -884,6 +884,120 @@ app.post("/api/create-plan", authenticateToken, async (req, res) => {
   }
 });
 
+// API to toggle plan inactive status
+app.put("/api/plans/:id/toggle-inactive", authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
+
+  mysqlConnection.getConnection((err, connection) => {
+    if (err) {
+      console.error("Error getting connection:", err);
+      return res
+        .status(500)
+        .json({ success: false, message: "Database connection error" });
+    }
+
+    connection.beginTransaction((err) => {
+      if (err) {
+        connection.release();
+        console.error("Error starting transaction:", err);
+        return res
+          .status(500)
+          .json({ success: false, message: "Transaction error" });
+      }
+
+      // First get current plan details for logging
+      connection.query(
+        "SELECT line, style, inactive FROM tb_plan WHERE id_plan = ?",
+        [id],
+        (err, results) => {
+          if (err) {
+            return connection.rollback(() => {
+              connection.release();
+              console.error("Error fetching plan:", err);
+              res
+                .status(500)
+                .json({ success: false, message: "Database error" });
+            });
+          }
+
+          if (results.length === 0) {
+            return connection.rollback(() => {
+              connection.release();
+              res
+                .status(404)
+                .json({ success: false, message: "Plan not found" });
+            });
+          }
+
+          const { line, style, inactive } = results[0];
+          const newInactiveStatus = inactive === 1 ? 0 : 1;
+
+          // Update the inactive status
+          connection.query(
+            "UPDATE tb_plan SET inactive = ?, updated_by = ? WHERE id_plan = ?",
+            [newInactiveStatus, updated_by, id],
+            (err) => {
+              if (err) {
+                return connection.rollback(() => {
+                  connection.release();
+                  console.error("Error updating inactive status:", err);
+                  res
+                    .status(500)
+                    .json({ success: false, message: "Database error" });
+                });
+              }
+
+              // Create log entry
+              const action = newInactiveStatus === 1 ? "KHÓA" : "MỞ KHÓA";
+              const history_log = `${updated_by} vừa ${action} kế hoạch chuyền [${line}], mã hàng [${style}]`;
+
+              connection.query(
+                "INSERT INTO tb_log (history_log) VALUES (?)",
+                [history_log],
+                (err) => {
+                  if (err) {
+                    return connection.rollback(() => {
+                      connection.release();
+                      console.error("Error creating log entry:", err);
+                      res
+                        .status(500)
+                        .json({ success: false, message: "Database error" });
+                    });
+                  }
+
+                  // Commit the transaction
+                  connection.commit((err) => {
+                    if (err) {
+                      return connection.rollback(() => {
+                        connection.release();
+                        console.error("Error committing transaction:", err);
+                        res.status(500).json({
+                          success: false,
+                          message: "Transaction commit error",
+                        });
+                      });
+                    }
+
+                    connection.release();
+                    res.json({
+                      success: true,
+                      message: `Plan ${
+                        newInactiveStatus === 1 ? "locked" : "unlocked"
+                      } successfully`,
+                      inactive: newInactiveStatus,
+                    });
+                  });
+                }
+              );
+            }
+          );
+        }
+      );
+    });
+  });
+});
+
 // API lấy danh sách kế hoạch trong MAIN mysql
 app.get("/api/plans", authenticateToken, (req, res) => {
   mysqlConnection.query(
@@ -928,6 +1042,8 @@ app.get("/api/plans-for-calendar", authenticateToken, (req, res) => {
   const query = `
     SELECT id_plan, line, style, plan_date, actual_date, total_percent_rate
     FROM tb_plan
+    WHERE inactive = 0
+    OR inactive IS NULL
     ORDER BY plan_date DESC
   `;
 

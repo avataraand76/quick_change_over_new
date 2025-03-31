@@ -73,6 +73,18 @@ let API = {
     return response.data;
   },
 
+  togglePlanInactive: async (id_plan) => {
+    try {
+      const response = await httpConnect.put(
+        `/api/plans/${id_plan}/toggle-inactive`
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error toggling plan inactive status:", error);
+      throw error;
+    }
+  },
+
   getPlans: async () => {
     const response = await httpConnect.get("/api/plans");
     return response.data;

@@ -40,6 +40,8 @@ import {
   ArrowBack as ArrowBackIcon,
   ExpandMore,
   ChevronRight,
+  LockOpen as LockOpenIcon,
+  Lock as LockIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import NotificationDialog from "../components/NotificationDialog";
@@ -432,6 +434,33 @@ const CreatePhasePage = () => {
     return orderedLines.map((line) => [line, grouped[line]]);
   }, [filteredHigmfData]);
 
+  const handleToggleInactive = async (id_plan) => {
+    try {
+      const response = await API.togglePlanInactive(id_plan);
+      if (response.success) {
+        // Update the plans list
+        const updatedPlans = plans.map((plan) =>
+          plan.id_plan === id_plan
+            ? { ...plan, inactive: response.inactive }
+            : plan
+        );
+        setPlans(updatedPlans);
+        showNotification(
+          "Thành công",
+          `Đã ${response.inactive === 1 ? "khóa" : "mở khóa"} kế hoạch`,
+          "success"
+        );
+      }
+    } catch (error) {
+      console.error("Error toggling plan inactive status:", error);
+      showNotification(
+        "Lỗi",
+        "Không thể thay đổi trạng thái kế hoạch",
+        "error"
+      );
+    }
+  };
+
   return (
     <Container component="main" maxWidth="xl">
       <Box sx={{ display: "flex", alignItems: "center", mt: 2 }}>
@@ -823,6 +852,11 @@ const CreatePhasePage = () => {
                   Người Tạo
                 </TableCell>
                 <TableCell
+                  sx={{ color: "white", fontWeight: "bold", width: "10%" }}
+                >
+                  Trạng Thái
+                </TableCell>
+                <TableCell
                   sx={{ color: "white", fontWeight: "bold", width: "5%" }}
                 >
                   {/* Thao Tác */}
@@ -1071,6 +1105,7 @@ const CreatePhasePage = () => {
                     key={plan.id_plan || `plan-${index}`}
                     sx={{
                       "&:nth-of-type(odd)": { backgroundColor: "#fafafa" },
+                      opacity: plan.inactive === 1 ? 0.5 : 1,
                     }}
                   >
                     <TableCell>Chuyền {plan.line || ""}</TableCell>
@@ -1080,12 +1115,32 @@ const CreatePhasePage = () => {
                     <TableCell>{plan.updated_by || ""}</TableCell>
                     <TableCell>
                       <Button
+                        variant="outlined"
+                        size="small"
+                        color={plan.inactive === 1 ? "error" : "success"}
+                        onClick={() => handleToggleInactive(plan.id_plan)}
+                        startIcon={
+                          plan.inactive === 1 ? <LockIcon /> : <LockOpenIcon />
+                        }
+                        sx={{
+                          fontSize: "0.75rem",
+                          whiteSpace: "nowrap",
+                          textTransform: "none",
+                          mr: 1,
+                        }}
+                      >
+                        {plan.inactive === 1 ? "Đã khóa" : "Đang mở"}
+                      </Button>
+                    </TableCell>
+                    <TableCell>
+                      <Button
                         variant="contained"
                         size="small"
                         color="primary"
                         onClick={() =>
                           navigate(`/detailed-phase/${plan.id_plan}`)
                         }
+                        disabled={plan.inactive === 1}
                         sx={{
                           fontSize: "0.75rem",
                           whiteSpace: "nowrap",
