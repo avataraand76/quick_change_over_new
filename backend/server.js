@@ -750,73 +750,112 @@ app.post("/api/create-plan", authenticateToken, async (req, res) => {
     connection = await mysqlConnection.promise().getConnection();
     await connection.beginTransaction();
 
-    // Insert or update tb_plan
-    const [planResult] = await connection.query(
-      `
-      INSERT INTO tb_plan (KHTId, line, style, quantity, plan_date, actual_date, updated_by) 
-      VALUES (?, ?, ?, ?, ?, ?, ?) 
-      ON DUPLICATE KEY UPDATE 
-        line = VALUES(line), 
-        style = VALUES(style), 
-        quantity = VALUES(quantity), 
-        plan_date = VALUES(plan_date), 
-        updated_by = VALUES(updated_by)
-      `,
-      [KHTId, line, style, quantity, plan_date, actual_date, updated_by]
+    // Check if plan exists
+    const [existingPlans] = await connection.query(
+      "SELECT id_plan FROM tb_plan WHERE KHTId = ?",
+      [KHTId]
     );
 
-    // Get id_plan (insertId if new, or fetch if updated)
-    let id_plan = planResult.insertId;
-    if (!id_plan) {
-      const [existingPlan] = await connection.query(
-        "SELECT id_plan FROM tb_plan WHERE KHTId = ?",
-        [KHTId]
+    let id_plan;
+
+    if (existingPlans.length > 0) {
+      // Plan exists - update
+      id_plan = existingPlans[0].id_plan;
+      await connection.query(
+        `
+        UPDATE tb_plan 
+        SET line = ?, 
+            style = ?, 
+            quantity = ?, 
+            plan_date = ?, 
+            updated_by = ?
+        WHERE KHTId = ?
+        `,
+        [line, style, quantity, plan_date, updated_by, KHTId]
       );
-      id_plan = existingPlan[0].id_plan;
+    } else {
+      // Plan doesn't exist - insert
+      const [insertResult] = await connection.query(
+        `
+        INSERT INTO tb_plan (KHTId, line, style, quantity, plan_date, actual_date, updated_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        `,
+        [KHTId, line, style, quantity, plan_date, actual_date, updated_by]
+      );
+      id_plan = insertResult.insertId;
     }
 
-    // Insert or update tb_co
-    await connection.query(
-      `
-      INSERT INTO tb_co (id_plan, updated_by, CO_begin_date, production_style, buyer) 
-      VALUES (?, ?, ?, ?, ?) 
-      ON DUPLICATE KEY UPDATE 
-        updated_by = VALUES(updated_by), 
-        CO_begin_date = VALUES(CO_begin_date),
-        production_style = VALUES(production_style),
-        buyer = VALUES(buyer)
-      `,
-      [id_plan, updated_by, formatDate(actual_date), production_style, buyer]
+    // Check if CO exists
+    const [existingCO] = await connection.query(
+      "SELECT id_plan FROM tb_co WHERE id_plan = ?",
+      [id_plan]
     );
+
+    if (existingCO.length > 0) {
+      // CO exists - update
+      await connection.query(
+        `
+        UPDATE tb_co 
+        SET updated_by = ?,
+            production_style = ?,
+            buyer = ?
+        WHERE id_plan = ?
+        `,
+        [updated_by, production_style, buyer, id_plan]
+      );
+    } else {
+      // CO doesn't exist - insert
+      await connection.query(
+        `
+        INSERT INTO tb_co (id_plan, updated_by, CO_begin_date, production_style, buyer)
+        VALUES (?, ?, ?, ?, ?)
+        `,
+        [id_plan, updated_by, formatDate(actual_date), production_style, buyer]
+      );
+    }
 
     // Get all process IDs
     const [processResults] = await connection.query(
       "SELECT id_process FROM tb_process ORDER BY id_process ASC"
     );
 
-    // Insert or update process tables
-    const processQueries = processResults.map((process) => {
+    // Handle each process
+    for (const process of processResults) {
       const id_process = process.id_process;
 
       if ([1, 2, 3, 4, 6, 7, 8].includes(id_process)) {
-        return connection.query(
-          `
-          INSERT INTO tb_process_${id_process} (id_process, id_plan, updated_by) 
-          VALUES (?, ?, ?) 
-          ON DUPLICATE KEY UPDATE 
-            updated_by = VALUES(updated_by)
-          `,
-          [id_process, id_plan, updated_by]
+        // Check if process exists
+        const [existingProcess] = await connection.query(
+          `SELECT id_plan FROM tb_process_${id_process} WHERE id_plan = ?`,
+          [id_plan]
         );
-      }
-      // Process 5: No insertions (as per original logic)
-      return Promise.resolve();
-    });
 
-    await Promise.all(processQueries);
+        if (existingProcess.length > 0) {
+          // Process exists - update
+          await connection.query(
+            `
+            UPDATE tb_process_${id_process}
+            SET updated_by = ?
+            WHERE id_plan = ?
+            `,
+            [updated_by, id_plan]
+          );
+        } else {
+          // Process doesn't exist - insert
+          await connection.query(
+            `
+            INSERT INTO tb_process_${id_process} (id_process, id_plan, updated_by)
+            VALUES (?, ?, ?)
+            `,
+            [id_process, id_plan, updated_by]
+          );
+        }
+      }
+    }
 
     // Create log entry
-    const history_log = `${updated_by} vừa TẠO KẾ HOẠCH chuyền: [${line}], mã hàng: [${style}], thời gian dự kiến: [${plan_date}], thời gian thực tế: [${actual_date}]`;
+    const action = existingPlans.length > 0 ? "CẬP NHẬT" : "TẠO";
+    const history_log = `${updated_by} vừa ${action} KẾ HOẠCH chuyền: [${line}], mã hàng: [${style}], thời gian dự kiến: [${plan_date}], thời gian thực tế: [${actual_date}]`;
 
     await connection.query("INSERT INTO tb_log (history_log) VALUES (?)", [
       history_log,
@@ -827,8 +866,9 @@ app.post("/api/create-plan", authenticateToken, async (req, res) => {
 
     res.json({
       success: true,
-      message:
-        "Plan created/updated successfully with all related process records",
+      message: `Plan ${
+        existingPlans.length > 0 ? "updated" : "created"
+      } successfully with all related process records`,
       id_plan,
     });
   } catch (err) {
@@ -1390,9 +1430,8 @@ app.get("/api/process-rates/:id_plan", authenticateToken, (req, res) => {
                         ? backupResults[0].avg_rate || 0
                         : 0;
 
-                    // Calculate the average of both rates
-                    const avgRate =
-                      (parseFloat(preparingRate) + parseFloat(backupRate)) / 2;
+                    // Calculate weighted average: 80% preparing + 20% backup
+                    const avgRate = preparingRate * 0.8 + backupRate * 0.2;
 
                     resolve({
                       id_process: 5,
@@ -1585,7 +1624,7 @@ const updateTotalPercentRate = (id_plan, connection, callback) => {
     );
   });
 
-  // For process 5, calculate average of prepare_rate from both tables
+  // For process 5, calculate weighted average of prepare_rate from both tables
   queryPromises.push(
     new Promise((resolve, reject) => {
       connection.query(
@@ -1612,11 +1651,12 @@ const updateTotalPercentRate = (id_plan, connection, callback) => {
                       ? backupResults[0].avg_rate || 0
                       : 0;
 
-                  // Calculate the average of both rates
-                  const avgRate =
-                    (parseFloat(preparingRate) + parseFloat(backupRate)) / 2;
+                  // Calculate weighted average: 80% preparing + 20% backup
+                  const avgRate = Math.round(
+                    preparingRate * 0.8 + backupRate * 0.2
+                  );
 
-                  resolve(Math.round(avgRate));
+                  resolve(avgRate);
                 }
               }
             );
@@ -1629,9 +1669,11 @@ const updateTotalPercentRate = (id_plan, connection, callback) => {
   // Execute all queries and calculate the average
   Promise.all(queryPromises)
     .then((rates) => {
-      // Calculate average of all process rates
-      const totalRates = rates.reduce((sum, rate) => sum + rate, 0);
-      const avgRate = Math.round(totalRates / rates.length);
+      // Filter out any NaN values and calculate average
+      const validRates = rates.filter((rate) => !isNaN(rate));
+      const totalRates = validRates.reduce((sum, rate) => sum + (rate || 0), 0);
+      const avgRate =
+        validRates.length > 0 ? Math.round(totalRates / validRates.length) : 0;
 
       // Update the total_percent_rate in tb_plan
       connection.query(
