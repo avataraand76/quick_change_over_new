@@ -28,15 +28,15 @@ const LoginPage = () => {
 
   useEffect(() => {
     const handleCapsLock = (e) => {
-      setCapsLock(e.getModifierState('CapsLock'));
+      setCapsLock(e.getModifierState("CapsLock"));
     };
 
-    window.addEventListener('keydown', handleCapsLock);
-    window.addEventListener('keyup', handleCapsLock);
+    window.addEventListener("keydown", handleCapsLock);
+    window.addEventListener("keyup", handleCapsLock);
 
     return () => {
-      window.removeEventListener('keydown', handleCapsLock);
-      window.removeEventListener('keyup', handleCapsLock);
+      window.removeEventListener("keydown", handleCapsLock);
+      window.removeEventListener("keyup", handleCapsLock);
     };
   }, []);
 
@@ -89,11 +89,7 @@ const LoginPage = () => {
         >
           Quick Change Over
         </Typography>
-        <Box
-          component="form"
-          onSubmit={handleLogin}
-          sx={{ width: "100%" }}
-        >
+        <Box component="form" onSubmit={handleLogin} sx={{ width: "100%" }}>
           <TextField
             margin="normal"
             required
@@ -104,9 +100,9 @@ const LoginPage = () => {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             sx={{
-              '& .MuiOutlinedInput-root': {
-                '&:hover fieldset': {
-                  borderColor: '#1976d2',
+              "& .MuiOutlinedInput-root": {
+                "&:hover fieldset": {
+                  borderColor: "#1976d2",
                 },
               },
             }}
@@ -134,22 +130,22 @@ const LoginPage = () => {
               ),
             }}
             sx={{
-              '& .MuiOutlinedInput-root': {
-                '&:hover fieldset': {
-                  borderColor: '#1976d2',
+              "& .MuiOutlinedInput-root": {
+                "&:hover fieldset": {
+                  borderColor: "#1976d2",
                 },
               },
             }}
           />
           {capsLock && (
-            <Alert 
-              severity="warning" 
-              sx={{ 
+            <Alert
+              severity="warning"
+              sx={{
                 mt: 2,
-                '& .MuiAlert-message': {
-                  fontWeight: 'bold',
-                  fontSize: '0.95rem'
-                }
+                "& .MuiAlert-message": {
+                  fontWeight: "bold",
+                  fontSize: "0.95rem",
+                },
               }}
             >
               CAPSLOCK ĐANG BẬT
@@ -167,12 +163,12 @@ const LoginPage = () => {
             sx={{
               mt: 3,
               mb: 2,
-              backgroundColor: '#1976d2',
-              '&:hover': {
-                backgroundColor: '#115293',
+              backgroundColor: "#1976d2",
+              "&:hover": {
+                backgroundColor: "#115293",
               },
-              height: '48px',
-              fontSize: '1.1rem',
+              height: "48px",
+              fontSize: "1.1rem",
             }}
           >
             Sign In

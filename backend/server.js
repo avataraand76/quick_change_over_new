@@ -232,22 +232,190 @@ app.post("/login", (req, res) => {
             .status(401)
             .json({ success: false, message: "Invalid credentials" });
         }
-        const token = jwt.sign(
-          {
-            id: user.id,
-            ma_nv: user.ma_nv,
-            ten_nv: user.ten_nv,
-          },
-          process.env.JWT_SECRET
+
+        // Check if user has permissions in tb_user_permission
+        mysqlConnection.query(
+          "SELECT up.id_permission, p.name_permission FROM tb_user_permission up JOIN tb_permission p ON up.id_permission = p.id_permission WHERE up.id_sync_nhan_vien = ?",
+          [user.id],
+          (err, permissionResults) => {
+            if (err) {
+              return res.status(500).json({
+                success: false,
+                message: "Error checking permissions",
+              });
+            }
+
+            if (permissionResults.length === 0) {
+              return res.status(403).json({
+                success: false,
+                message: "User does not have required permissions",
+              });
+            }
+
+            // Check if user is ADMIN (id_permission = 1)
+            const isAdmin = permissionResults.some(
+              (p) => p.id_permission === 1
+            );
+
+            // If user is admin, get all permissions, roles, workshops, processes and worksteps
+            if (isAdmin) {
+              Promise.all([
+                mysqlConnection
+                  .promise()
+                  .query(
+                    "SELECT id_permission, name_permission FROM tb_permission"
+                  ),
+                mysqlConnection
+                  .promise()
+                  .query("SELECT id_role, name_role FROM tb_role"),
+                mysqlConnection
+                  .promise()
+                  .query("SELECT id_workshop, name_workshop FROM tb_workshop"),
+                mysqlConnection
+                  .promise()
+                  .query("SELECT id_process, name_process FROM tb_process"),
+                mysqlConnection
+                  .promise()
+                  .query(
+                    "SELECT id_work_steps, name_work_steps, id_process FROM tb_work_steps"
+                  ),
+              ])
+                .then(
+                  ([
+                    [permissionDetails],
+                    [roleDetails],
+                    [workshopDetails],
+                    [processDetails],
+                    [workstepDetails],
+                  ]) => {
+                    const token = jwt.sign(
+                      {
+                        id: user.id,
+                        ma_nv: user.ma_nv,
+                        ten_nv: user.ten_nv,
+                        isAdmin: true,
+                        permissions: permissionDetails,
+                        roles: roleDetails,
+                        workshops: workshopDetails,
+                        processes: processDetails,
+                        worksteps: workstepDetails,
+                      },
+                      process.env.JWT_SECRET
+                    );
+
+                    res.json({
+                      success: true,
+                      token,
+                      user: {
+                        ma_nv: user.ma_nv,
+                        ten_nv: user.ten_nv,
+                        isAdmin: true,
+                        permissions: permissionDetails,
+                        roles: roleDetails,
+                        workshops: workshopDetails,
+                        processes: processDetails,
+                        worksteps: workstepDetails,
+                      },
+                    });
+                  }
+                )
+                .catch((error) => {
+                  return res.status(500).json({
+                    success: false,
+                    message: "Error fetching user details",
+                    error: error.message,
+                  });
+                });
+            } else {
+              // For non-admin users, get their specific permissions, roles, workshops, processes and worksteps
+              Promise.all([
+                mysqlConnection.promise().query(
+                  `SELECT DISTINCT p.id_permission, p.name_permission
+                   FROM tb_user_permission up 
+                   JOIN tb_permission p ON up.id_permission = p.id_permission 
+                   WHERE up.id_sync_nhan_vien = ?`,
+                  [user.id]
+                ),
+                mysqlConnection.promise().query(
+                  `SELECT DISTINCT r.id_role, r.name_role
+                   FROM tb_user_role ur 
+                   JOIN tb_role r ON ur.id_role = r.id_role 
+                   WHERE ur.id_sync_nhan_vien = ?`,
+                  [user.id]
+                ),
+                mysqlConnection.promise().query(
+                  `SELECT DISTINCT w.id_workshop, w.name_workshop
+                   FROM tb_user_workshop uw 
+                   JOIN tb_workshop w ON uw.id_workshop = w.id_workshop 
+                   WHERE uw.id_sync_nhan_vien = ?`,
+                  [user.id]
+                ),
+                mysqlConnection.promise().query(
+                  `SELECT DISTINCT p.id_process, p.name_process
+                   FROM tb_user_role ur
+                   JOIN tb_process_role pr ON ur.id_role = pr.id_role
+                   JOIN tb_process p ON pr.id_process = p.id_process
+                   WHERE ur.id_sync_nhan_vien = ?`,
+                  [user.id]
+                ),
+                mysqlConnection.promise().query(
+                  `SELECT DISTINCT ws.id_work_steps, ws.name_work_steps, ws.id_process
+                   FROM tb_user_role ur
+                   JOIN tb_work_steps_role wsr ON ur.id_role = wsr.id_role
+                   JOIN tb_work_steps ws ON wsr.id_work_steps = ws.id_work_steps
+                   WHERE ur.id_sync_nhan_vien = ?`,
+                  [user.id]
+                ),
+              ])
+                .then(
+                  ([
+                    [permissionDetails],
+                    [roleDetails],
+                    [workshopDetails],
+                    [processDetails],
+                    [workstepDetails],
+                  ]) => {
+                    const token = jwt.sign(
+                      {
+                        id: user.id,
+                        ma_nv: user.ma_nv,
+                        ten_nv: user.ten_nv,
+                        isAdmin: false,
+                        permissions: permissionDetails,
+                        roles: roleDetails,
+                        workshops: workshopDetails,
+                        processes: processDetails,
+                        worksteps: workstepDetails,
+                      },
+                      process.env.JWT_SECRET
+                    );
+
+                    res.json({
+                      success: true,
+                      token,
+                      user: {
+                        ma_nv: user.ma_nv,
+                        ten_nv: user.ten_nv,
+                        isAdmin: false,
+                        permissions: permissionDetails,
+                        roles: roleDetails,
+                        workshops: workshopDetails,
+                        processes: processDetails,
+                        worksteps: workstepDetails,
+                      },
+                    });
+                  }
+                )
+                .catch((error) => {
+                  return res.status(500).json({
+                    success: false,
+                    message: "Error fetching user details",
+                    error: error.message,
+                  });
+                });
+            }
+          }
         );
-        res.json({
-          success: true,
-          token,
-          user: {
-            ma_nv: user.ma_nv,
-            ten_nv: user.ten_nv,
-          },
-        });
       });
     }
   );
