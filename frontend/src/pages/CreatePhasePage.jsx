@@ -29,6 +29,8 @@ import {
   Collapse,
   TableContainer,
   CircularProgress,
+  Pagination,
+  TableFooter,
 } from "@mui/material";
 import API from "../api/api";
 import {
@@ -42,6 +44,8 @@ import {
   ChevronRight,
   LockOpen as LockOpenIcon,
   Lock as LockIcon,
+  KeyboardDoubleArrowUp as KeyboardDoubleArrowUpIcon,
+  KeyboardDoubleArrowDown as KeyboardDoubleArrowDownIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import NotificationDialog from "../components/NotificationDialog";
@@ -55,8 +59,13 @@ const CreatePhasePage = () => {
   const [userFilter, setUserFilter] = useState([]);
   const [higmfData, setHigmfData] = useState([]);
 
+  const updatePlanCardRef = React.useRef(null);
+  const planListCardRef = React.useRef(null);
+
   const [searchLine, setSearchLine] = useState("");
   const [searchStyle, setSearchStyle] = useState("");
+  const [page, setPage] = useState(0);
+  const [rowsPerPage] = useState(10);
 
   const [selectedPlans, setSelectedPlans] = useState([]);
 
@@ -84,6 +93,13 @@ const CreatePhasePage = () => {
       message,
       severity,
     });
+  };
+
+  // Hàm xử lý scroll đến các card
+  const scrollToCard = (ref) => {
+    if (ref && ref.current) {
+      ref.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   };
 
   useEffect(() => {
@@ -144,6 +160,8 @@ const CreatePhasePage = () => {
           quantity: plan.quantity,
           plan_date: plan.plan_date,
           actual_date: plan.plan_date,
+          SAM: plan.SAM,
+          DinhMuc: plan.DinhMuc,
         };
         return API.createPlan(newPlan);
       });
@@ -231,7 +249,7 @@ const CreatePhasePage = () => {
     }
   };
 
-  // Modify the filteredPlans function to use the new filter inputs with multi-select
+  // Modify the filteredPlans function to use pagination
   const filteredPlans = plans.filter((plan) => {
     return (
       (lineFilter.length === 0 || lineFilter.includes(plan.line.toString())) &&
@@ -248,6 +266,18 @@ const CreatePhasePage = () => {
       (userFilter.length === 0 || userFilter.includes(plan.updated_by))
     );
   });
+
+  // Tính toán số trang và dữ liệu cho trang hiện tại
+  const totalPages = Math.ceil(filteredPlans.length / rowsPerPage);
+  const currentPageData = filteredPlans.slice(
+    page * rowsPerPage,
+    (page + 1) * rowsPerPage
+  );
+
+  // Xử lý thay đổi trang
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
 
   // Get filtered unique values for dropdown options based on current filtered results
   const getFilteredOptions = () => {
@@ -479,7 +509,52 @@ const CreatePhasePage = () => {
         </Button>
       </Box>
 
+      {/* Nút nổi */}
+      <Box
+        sx={{
+          position: "fixed",
+          bottom: 20,
+          right: 20,
+          zIndex: 1000,
+          display: "flex",
+          flexDirection: "column",
+          gap: 1,
+        }}
+      >
+        <Tooltip title="Lướt đến Cập nhật kế hoạch" placement="left">
+          <IconButton
+            onClick={() => scrollToCard(updatePlanCardRef)}
+            sx={{
+              bgcolor: "primary.main",
+              color: "white",
+              "&:hover": {
+                bgcolor: "primary.dark",
+              },
+              boxShadow: 3,
+            }}
+          >
+            <KeyboardDoubleArrowUpIcon />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Lướt đến Danh sách kế hoạch" placement="left">
+          <IconButton
+            onClick={() => scrollToCard(planListCardRef)}
+            sx={{
+              bgcolor: "secondary.main",
+              color: "white",
+              "&:hover": {
+                bgcolor: "secondary.dark",
+              },
+              boxShadow: 3,
+            }}
+          >
+            <KeyboardDoubleArrowDownIcon />
+          </IconButton>
+        </Tooltip>
+      </Box>
+
       <Card
+        ref={updatePlanCardRef}
         elevation={4}
         sx={{
           marginTop: 2,
@@ -798,6 +873,7 @@ const CreatePhasePage = () => {
       </Card>
 
       <Card
+        ref={planListCardRef}
         elevation={4}
         sx={{
           mt: 4,
@@ -1100,8 +1176,8 @@ const CreatePhasePage = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredPlans.length > 0 ? (
-                filteredPlans.map((plan, index) => (
+              {currentPageData.length > 0 ? (
+                currentPageData.map((plan, index) => (
                   <TableRow
                     key={plan.id_plan || `plan-${index}`}
                     sx={{
@@ -1155,12 +1231,42 @@ const CreatePhasePage = () => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} align="center">
+                  <TableCell colSpan={7} align="center">
                     Không có dữ liệu
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell colSpan={7}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      padding: 2,
+                      gap: 2,
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Tổng số: {filteredPlans.length} kế hoạch
+                    </Typography>
+                    <Pagination
+                      count={totalPages}
+                      page={page + 1}
+                      onChange={(e, newPage) =>
+                        handleChangePage(e, newPage - 1)
+                      }
+                      color="primary"
+                      showFirstButton
+                      showLastButton
+                      size="large"
+                    />
+                  </Box>
+                </TableCell>
+              </TableRow>
+            </TableFooter>
           </Table>
         </Box>
       </Card>

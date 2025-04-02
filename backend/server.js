@@ -456,6 +456,7 @@ app.get("/api/higmf-lines-styles", authenticateToken, async (req, res) => {
   };
 
   try {
+    // First get data from HiGMF
     const pool = await sql.connect(mssqlHigmfConfig);
     const result = await pool.request().query(`
       WITH GetData AS (
@@ -540,17 +541,43 @@ app.get("/api/higmf-lines-styles", authenticateToken, async (req, res) => {
       ORDER BY MaCum, NgayVaoChuyenKeHoachBatDau ASC
     `);
 
-    // Format dates in the response
-    const formattedResults = result.recordset.map((record) => ({
-      ...record,
-      KHTId: record.KHTId.toString(),
-      plan_date: record.plan_date ? formatDate(record.plan_date) : null,
-    }));
+    // Get SAM and DinhMuc from Hipro for each record
+    const hiproPool = await sql.connect(mssqlHiproConfig);
+    const formattedResults = await Promise.all(
+      result.recordset.map(async (record) => {
+        const hiproResult = await hiproPool.request().query(`
+            SELECT 
+              TenChuyen as line,
+              MaHang as style,
+              SAM,
+              DinhMuc
+            FROM [HiPro].[dbo].[NV_SoDoChuyen_KhaiBaoDinhMuc]
+            WHERE TenChuyen = ${record.line}
+            AND MaHang LIKE '%${record.style}%'
+          `);
+
+        return {
+          ...record,
+          KHTId: record.KHTId.toString(),
+          plan_date: record.plan_date ? formatDate(record.plan_date) : null,
+          SAM:
+            hiproResult.recordset.length > 0
+              ? parseInt(hiproResult.recordset[0].SAM) || 0
+              : 0,
+          DinhMuc:
+            hiproResult.recordset.length > 0
+              ? parseInt(hiproResult.recordset[0].DinhMuc) || 0
+              : 0,
+        };
+      })
+    );
 
     res.json(formattedResults);
   } catch (err) {
     console.error("Error fetching HiGMF lines and styles:", err);
     res.status(500).json({ success: false, message: "Database error" });
+  } finally {
+    sql.close();
   }
 });
 
@@ -741,6 +768,8 @@ app.post("/api/create-plan", authenticateToken, async (req, res) => {
     actual_date,
     production_style,
     buyer,
+    SAM,
+    DinhMuc,
   } = req.body;
   const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
 
@@ -798,19 +827,29 @@ app.post("/api/create-plan", authenticateToken, async (req, res) => {
         UPDATE tb_co 
         SET updated_by = ?,
             production_style = ?,
-            buyer = ?
+            buyer = ?,
+            SAM = ?,
+            quota = ?
         WHERE id_plan = ?
         `,
-        [updated_by, production_style, buyer, id_plan]
+        [updated_by, production_style, buyer, SAM, DinhMuc, id_plan]
       );
     } else {
       // CO doesn't exist - insert
       await connection.query(
         `
-        INSERT INTO tb_co (id_plan, updated_by, CO_begin_date, production_style, buyer)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO tb_co (id_plan, updated_by, CO_begin_date, production_style, buyer, SAM, quota)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         `,
-        [id_plan, updated_by, formatDate(actual_date), production_style, buyer]
+        [
+          id_plan,
+          updated_by,
+          formatDate(actual_date),
+          production_style,
+          buyer,
+          SAM,
+          DinhMuc,
+        ]
       );
     }
 

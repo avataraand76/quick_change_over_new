@@ -617,13 +617,17 @@ const CoPage = () => {
                 <TextField
                   label="SAM"
                   name="SAM"
-                  value={coData.SAM}
+                  value={coData.SAM || ""}
                   onChange={handleChange}
                   fullWidth
                   variant="outlined"
                   type="text"
                   inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
                   sx={{ mb: 2 }}
+                  InputProps={{
+                    readOnly: true,
+                    sx: { backgroundColor: "#ffffcc" },
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -641,13 +645,17 @@ const CoPage = () => {
                 <TextField
                   label="Định mức"
                   name="quota"
-                  value={coData.quota}
+                  value={coData.quota || ""}
                   onChange={handleChange}
                   fullWidth
                   variant="outlined"
                   type="text"
                   inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
                   sx={{ mb: 2 }}
+                  InputProps={{
+                    readOnly: true,
+                    sx: { backgroundColor: "#ffffcc" },
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={4}>
