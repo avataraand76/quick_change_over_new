@@ -1,6 +1,6 @@
 // frontend/src/pages/Process5Page.jsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Container,
@@ -41,6 +41,7 @@ import {
   Edit as EditIcon,
   Clear as ClearIcon,
   Sync as SyncIcon,
+  Warning as WarningIcon,
 } from "@mui/icons-material";
 import API from "../api/api";
 
@@ -96,6 +97,20 @@ const Process5Page = () => {
   const [syncResult, setSyncResult] = useState(null);
   const [syncLoading, setSyncLoading] = useState(false);
 
+  // Add state for overdue check
+  const [isOverdue, setIsOverdue] = useState(false);
+
+  // Add useCallback for checkIsOverdue
+  const checkIsOverdue = useCallback((actualDate, deadline) => {
+    if (!actualDate || !deadline) return false;
+
+    const actualDateTime = new Date(actualDate);
+    const deadlineDate = new Date(actualDateTime);
+    deadlineDate.setDate(deadlineDate.getDate() - deadline);
+
+    return new Date() > deadlineDate;
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -107,6 +122,16 @@ const Process5Page = () => {
         // Fetch all processes to get deadline information
         const processesResponse = await API.getProcesses();
         setProcesses(processesResponse);
+
+        // Check if Process 5 is overdue
+        const process5 = processesResponse.find((p) => p.id_process === 5);
+        if (process5 && planResponse.actual_date) {
+          const overdue = checkIsOverdue(
+            planResponse.actual_date,
+            process5.deadline
+          );
+          setIsOverdue(overdue);
+        }
 
         // Fetch process rates to get the completion percentage
         const processRatesResponse = await API.getProcessRates(id);
@@ -138,25 +163,25 @@ const Process5Page = () => {
     };
 
     fetchData();
-  }, [id]);
+  }, [id, checkIsOverdue]);
 
-  // Calculate deadline date based on plan_date and deadline days
-  const calculateDeadlineDate = (planDateString, deadlineDays) => {
+  // Calculate deadline date based on actual_date and deadline days
+  const calculateDeadlineDate = (actualDateString, deadlineDays) => {
     if (
-      !planDateString ||
+      !actualDateString ||
       deadlineDays === null ||
       deadlineDays === undefined ||
       deadlineDays === ""
     )
       return "-";
 
-    // Parse the plan date
-    const planDate = new Date(planDateString);
+    // Parse the actual date
+    const actualDate = new Date(actualDateString);
     // Only use the date part (ignore time)
     const dateOnly = new Date(
-      planDate.getFullYear(),
-      planDate.getMonth(),
-      planDate.getDate()
+      actualDate.getFullYear(),
+      actualDate.getMonth(),
+      actualDate.getDate()
     );
 
     // Subtract the deadline days
@@ -183,12 +208,12 @@ const Process5Page = () => {
     if (!process5) return { text: "Đang tải...", date: null };
 
     if (!process5.deadline || process5.deadline === 0) {
-      return { text: "Cùng ngày với thời gian dự kiến", date: null };
+      return { text: "Cùng ngày với thời gian thực tế", date: null };
     }
 
     return {
-      text: `${process5.deadline} ngày trước thời gian dự kiến`,
-      date: calculateDeadlineDate(plan?.plan_date, process5.deadline),
+      text: `${process5.deadline} ngày trước thời gian thực tế`,
+      date: calculateDeadlineDate(plan?.actual_date, process5.deadline),
     };
   };
 
@@ -891,11 +916,12 @@ const Process5Page = () => {
               variant="contained"
               startIcon={<SyncIcon />}
               onClick={handleSyncWithHiLine}
-              disabled={syncLoading}
+              disabled={syncLoading || isOverdue}
               sx={{
                 bgcolor: "#4caf50",
                 color: "#ffffff",
                 "&:hover": { bgcolor: "#388e3c" },
+                opacity: isOverdue ? 0.5 : 1,
               }}
             >
               {syncLoading ? "Đang đồng bộ..." : "Đồng bộ Hi-Line"}
@@ -904,16 +930,33 @@ const Process5Page = () => {
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => handleOpenPreparingMachineDialog()}
+              disabled={isOverdue}
               sx={{
                 bgcolor: "#ffffff",
                 color: "#1976d2",
                 "&:hover": { bgcolor: "#f5f5f5" },
+                opacity: isOverdue ? 0.5 : 1,
               }}
             >
               Thêm máy
             </Button>
           </Box>
         </Box>
+        {isOverdue && (
+          <Typography
+            variant="body2"
+            color="error"
+            sx={{
+              mt: 1,
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+            }}
+          >
+            <WarningIcon fontSize="small" />
+            Đã quá hạn chỉnh sửa thông tin cho quy trình này
+          </Typography>
+        )}
 
         <CardContent sx={{ padding: 3 }}>
           {preparingMachines.length > 0 ? (
@@ -963,6 +1006,8 @@ const Process5Page = () => {
                             onClick={() =>
                               handleOpenPreparingMachineDialog(machine)
                             }
+                            disabled={isOverdue}
+                            sx={{ opacity: isOverdue ? 0.5 : 1 }}
                           >
                             <EditIcon fontSize="small" />
                           </IconButton>
@@ -972,6 +1017,8 @@ const Process5Page = () => {
                             onClick={() =>
                               handleDeletePreparingMachine(machine)
                             }
+                            disabled={isOverdue}
+                            sx={{ opacity: isOverdue ? 0.5 : 1 }}
                           >
                             <DeleteIcon fontSize="small" />
                           </IconButton>
@@ -1020,15 +1067,32 @@ const Process5Page = () => {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => handleOpenBackupMachineDialog()}
+            disabled={isOverdue}
             sx={{
               bgcolor: "#ffffff",
               color: "#1976d2",
               "&:hover": { bgcolor: "#f5f5f5" },
+              opacity: isOverdue ? 0.5 : 1,
             }}
           >
             Thêm máy
           </Button>
         </Box>
+        {isOverdue && (
+          <Typography
+            variant="body2"
+            color="error"
+            sx={{
+              mt: 1,
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+            }}
+          >
+            <WarningIcon fontSize="small" />
+            Đã quá hạn chỉnh sửa thông tin cho quy trình này
+          </Typography>
+        )}
 
         <CardContent sx={{ padding: 3 }}>
           {backupMachines.length > 0 ? (
@@ -1078,6 +1142,8 @@ const Process5Page = () => {
                             onClick={() =>
                               handleOpenBackupMachineDialog(machine)
                             }
+                            disabled={isOverdue}
+                            sx={{ opacity: isOverdue ? 0.5 : 1 }}
                           >
                             <EditIcon fontSize="small" />
                           </IconButton>
@@ -1085,6 +1151,8 @@ const Process5Page = () => {
                             size="small"
                             color="error"
                             onClick={() => handleDeleteBackupMachine(machine)}
+                            disabled={isOverdue}
+                            sx={{ opacity: isOverdue ? 0.5 : 1 }}
                           >
                             <DeleteIcon fontSize="small" />
                           </IconButton>

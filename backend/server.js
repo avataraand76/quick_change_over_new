@@ -1001,7 +1001,7 @@ app.put("/api/plans/:id/toggle-inactive", authenticateToken, (req, res) => {
 // API lấy danh sách kế hoạch trong MAIN mysql
 app.get("/api/plans", authenticateToken, (req, res) => {
   mysqlConnection.query(
-    `SELECT * FROM tb_plan ORDER BY created_at DESC`,
+    `SELECT * FROM tb_plan ORDER BY id_plan DESC`,
     (err, results) => {
       if (err) {
         console.error("Error fetching plans:", err);
@@ -3111,7 +3111,7 @@ let drive = getDriveClient();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit
+    fileSize: 100 * 1024 * 1024, // 100MB limit
   },
   fileFilter: (req, file, cb) => {
     // Convert Buffer to string with UTF-8 encoding

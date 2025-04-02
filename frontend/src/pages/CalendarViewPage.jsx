@@ -335,29 +335,32 @@ const CalendarViewPage = () => {
       display: "flex !important",
       flexDirection: "column !important",
       gap: "2px !important",
+      margin: "0 !important",
+      padding: "2px !important",
     },
-    ".fc .fc-daygrid-more-link": {
-      display: "none !important",
+    ".fc .fc-daygrid-event-harness": {
+      position: "relative !important",
+      margin: "0 !important",
+      top: "0 !important",
+      left: "0 !important",
+      right: "0 !important",
     },
-    ".fc .fc-daygrid-day-frame": {
-      height: "auto !important",
-      minHeight: "auto !important",
-      overflow: "visible !important",
+    ".fc .fc-daygrid-day-bottom": {
+      margin: "0 !important",
+      padding: "2px 0 !important",
     },
     ".fc .fc-daygrid-body": {
-      height: "auto !important",
+      width: "100% !important",
     },
-    ".fc .fc-daygrid-body-balanced": {
-      height: "auto !important",
+    ".fc .fc-daygrid-body table": {
+      width: "100% !important",
     },
     ".fc .fc-scrollgrid-sync-table": {
       height: "auto !important",
+      width: "100% !important",
     },
     ".fc-view-harness": {
       height: "auto !important",
-    },
-    ".fc-daygrid-event-harness": {
-      position: "relative !important",
     },
     "@media (max-width: 600px)": {
       ".fc .fc-toolbar": {

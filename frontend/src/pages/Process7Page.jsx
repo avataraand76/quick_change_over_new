@@ -41,6 +41,7 @@ import {
   Delete as DeleteIcon,
   Visibility as VisibilityIcon,
   Close as CloseIcon,
+  Warning as WarningIcon,
 } from "@mui/icons-material";
 import API from "../api/api";
 
@@ -66,6 +67,24 @@ const Process7Page = () => {
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // New state for overdue check
+  const [isOverdue, setIsOverdue] = useState(false);
+
+  // New state for dialog
+  const [openErrorDialog, setOpenErrorDialog] = useState(false);
+  const [dialogMessage, setDialogMessage] = useState("");
+
+  // New function to check if a process is overdue
+  const checkIsOverdue = useCallback((actualDate, deadline) => {
+    if (!actualDate || !deadline) return false;
+
+    const actualDateTime = new Date(actualDate);
+    const deadlineDate = new Date(actualDateTime);
+    deadlineDate.setDate(deadlineDate.getDate() - deadline);
+
+    return new Date() > deadlineDate;
+  }, []);
 
   // Fetch documentation files
   const fetchDocumentationFiles = useCallback(async () => {
@@ -116,6 +135,16 @@ const Process7Page = () => {
         await fetchDocumentationFiles();
         await fetchA3DocumentationFiles();
 
+        // Check if Process 1 is overdue
+        const process1 = processesResponse.find((p) => p.id_process === 1);
+        if (process1 && planResponse.actual_date) {
+          const overdue = checkIsOverdue(
+            planResponse.actual_date,
+            process1.deadline
+          );
+          setIsOverdue(overdue);
+        }
+
         setLoading(false);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -124,25 +153,25 @@ const Process7Page = () => {
     };
 
     fetchData();
-  }, [id, fetchDocumentationFiles, fetchA3DocumentationFiles]);
+  }, [id, fetchDocumentationFiles, fetchA3DocumentationFiles, checkIsOverdue]);
 
-  // Calculate deadline date based on plan_date and deadline days
-  const calculateDeadlineDate = (planDateString, deadlineDays) => {
+  // Calculate deadline date based on actual_date and deadline days
+  const calculateDeadlineDate = (actualDateString, deadlineDays) => {
     if (
-      !planDateString ||
+      !actualDateString ||
       deadlineDays === null ||
       deadlineDays === undefined ||
       deadlineDays === ""
     )
       return "-";
 
-    // Parse the plan date
-    const planDate = new Date(planDateString);
+    // Parse the actual date
+    const actualDate = new Date(actualDateString);
     // Only use the date part (ignore time)
     const dateOnly = new Date(
-      planDate.getFullYear(),
-      planDate.getMonth(),
-      planDate.getDate()
+      actualDate.getFullYear(),
+      actualDate.getMonth(),
+      actualDate.getDate()
     );
 
     // Subtract the deadline days
@@ -169,12 +198,12 @@ const Process7Page = () => {
     if (!process7) return { text: "Đang tải...", date: null };
 
     if (!process7.deadline || process7.deadline === 0) {
-      return { text: "Cùng ngày với thời gian dự kiến", date: null };
+      return { text: "Cùng ngày với thời gian thực tế", date: null };
     }
 
     return {
-      text: `${process7.deadline} ngày trước thời gian dự kiến`,
-      date: calculateDeadlineDate(plan?.plan_date, process7.deadline),
+      text: `${process7.deadline} ngày trước thời gian thực tế`,
+      date: calculateDeadlineDate(plan?.actual_date, process7.deadline),
     };
   };
 
@@ -198,17 +227,139 @@ const Process7Page = () => {
     return `${day}/${month}/${year}, ${hours}:${minutes} ${ampm}`;
   };
 
+  const MAX_FILES = 10;
+  const MAX_SIZE = 100;
+  const MAX_SIZE_MB = 100 * 1024 * 1024; // 100MB in bytes
+
   // Handle documentation file selection
   const handleDocumentationFileSelect = (e) => {
-    if (e.target.files.length > 0) {
-      setDocumentationFiles(Array.from(e.target.files));
+    if (!e.target.files) {
+      return;
+    }
+
+    const newSelectedFiles = Array.from(e.target.files);
+
+    // Phân loại file theo kích thước
+    const validFiles = [];
+    const oversizedFiles = [];
+
+    newSelectedFiles.forEach((file) => {
+      if (file.size > MAX_SIZE_MB) {
+        oversizedFiles.push(file.name);
+      } else {
+        validFiles.push(file);
+      }
+    });
+
+    // Kiểm tra tổng số file hợp lệ
+    const totalValidFiles = documentationFiles.length + validFiles.length;
+
+    if (totalValidFiles > MAX_FILES) {
+      // Tính số file có thể thêm
+      const remainingSlots = MAX_FILES - documentationFiles.length;
+
+      if (remainingSlots > 0) {
+        // Chỉ lấy số file còn có thể thêm
+        validFiles.splice(remainingSlots);
+
+        setDialogMessage(
+          `Bạn chỉ có thể chọn thêm ${remainingSlots} file. ` +
+            `Đã chọn ${validFiles.length} file đầu tiên trong số các file hợp lệ.` +
+            (oversizedFiles.length > 0
+              ? `\n\nFile ${oversizedFiles.join(
+                  ", "
+                )} vượt quá giới hạn ${MAX_SIZE}MB.`
+              : "")
+        );
+      } else {
+        setDialogMessage(
+          `Không thể thêm file mới. Đã đạt giới hạn tối đa ${MAX_FILES} file.` +
+            (oversizedFiles.length > 0
+              ? `\n\nFile ${oversizedFiles.join(
+                  ", "
+                )} vượt quá giới hạn ${MAX_SIZE}MB.`
+              : "")
+        );
+      }
+      setOpenErrorDialog(true);
+    } else if (oversizedFiles.length > 0) {
+      // Chỉ thông báo về file vượt kích thước
+      setDialogMessage(
+        `File ${oversizedFiles.join(", ")} vượt quá giới hạn ${MAX_SIZE}MB. ` +
+          (validFiles.length > 0 ? "\n\nCác file còn lại sẽ được chọn." : "")
+      );
+      setOpenErrorDialog(true);
+    }
+
+    // Nếu có file hợp lệ và còn slot trống, cập nhật state
+    if (validFiles.length > 0 && totalValidFiles <= MAX_FILES) {
+      setDocumentationFiles((prevFiles) => [...prevFiles, ...validFiles]);
     }
   };
 
   // Handle A3 documentation file selection
   const handleA3DocumentationFileSelect = (e) => {
-    if (e.target.files.length > 0) {
-      setA3DocumentationFiles(Array.from(e.target.files));
+    if (!e.target.files) {
+      return;
+    }
+
+    const newSelectedFiles = Array.from(e.target.files);
+
+    // Phân loại file theo kích thước
+    const validFiles = [];
+    const oversizedFiles = [];
+
+    newSelectedFiles.forEach((file) => {
+      if (file.size > MAX_SIZE_MB) {
+        oversizedFiles.push(file.name);
+      } else {
+        validFiles.push(file);
+      }
+    });
+
+    // Kiểm tra tổng số file hợp lệ
+    const totalValidFiles = a3DocumentationFiles.length + validFiles.length;
+
+    if (totalValidFiles > MAX_FILES) {
+      // Tính số file có thể thêm
+      const remainingSlots = MAX_FILES - a3DocumentationFiles.length;
+
+      if (remainingSlots > 0) {
+        // Chỉ lấy số file còn có thể thêm
+        validFiles.splice(remainingSlots);
+
+        setDialogMessage(
+          `Bạn chỉ có thể chọn thêm ${remainingSlots} file. ` +
+            `Đã chọn ${validFiles.length} file đầu tiên trong số các file hợp lệ.` +
+            (oversizedFiles.length > 0
+              ? `\n\nFile ${oversizedFiles.join(
+                  ", "
+                )} vượt quá giới hạn ${MAX_SIZE}MB.`
+              : "")
+        );
+      } else {
+        setDialogMessage(
+          `Không thể thêm file mới. Đã đạt giới hạn tối đa ${MAX_FILES} file.` +
+            (oversizedFiles.length > 0
+              ? `\n\nFile ${oversizedFiles.join(
+                  ", "
+                )} vượt quá giới hạn ${MAX_SIZE}MB.`
+              : "")
+        );
+      }
+      setOpenErrorDialog(true);
+    } else if (oversizedFiles.length > 0) {
+      // Chỉ thông báo về file vượt kích thước
+      setDialogMessage(
+        `File ${oversizedFiles.join(", ")} vượt quá giới hạn ${MAX_SIZE}MB. ` +
+          (validFiles.length > 0 ? "\n\nCác file còn lại sẽ được chọn." : "")
+      );
+      setOpenErrorDialog(true);
+    }
+
+    // Nếu có file hợp lệ và còn slot trống, cập nhật state
+    if (validFiles.length > 0 && totalValidFiles <= MAX_FILES) {
+      setA3DocumentationFiles((prevFiles) => [...prevFiles, ...validFiles]);
     }
   };
 
@@ -320,6 +471,26 @@ const Process7Page = () => {
     setOpenFilePreview(false);
     setPreviewFileName("");
     setPreviewDirectUrl("");
+  };
+
+  // Hàm xử lý đóng dialog
+  const handleCloseErrorDialog = () => {
+    setOpenErrorDialog(false);
+    setDialogMessage("");
+  };
+
+  // Thêm hàm xử lý xóa file đã chọn
+  const handleRemoveSelectedFile = (indexToRemove) => {
+    setDocumentationFiles((prevFiles) =>
+      prevFiles.filter((_, index) => index !== indexToRemove)
+    );
+  };
+
+  // Thêm hàm xử lý xóa file A3 đã chọn
+  const handleRemoveSelectedA3File = (indexToRemove) => {
+    setA3DocumentationFiles((prevFiles) =>
+      prevFiles.filter((_, index) => index !== indexToRemove)
+    );
   };
 
   if (loading) {
@@ -659,6 +830,10 @@ const Process7Page = () => {
                         variant="outlined"
                         component="label"
                         startIcon={<InsertDriveFileIcon />}
+                        disabled={isOverdue}
+                        sx={{
+                          opacity: isOverdue ? 0.5 : 1,
+                        }}
                       >
                         Chọn tập tin
                         <input
@@ -666,7 +841,11 @@ const Process7Page = () => {
                           hidden
                           multiple
                           onChange={handleDocumentationFileSelect}
-                          accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                          disabled={isOverdue}
+                          onClick={(e) => {
+                            // Reset value để có thể chọn lại cùng file
+                            e.target.value = null;
+                          }}
                         />
                       </Button>
                       <Button
@@ -684,16 +863,37 @@ const Process7Page = () => {
                         onClick={uploadDocumentationFiles}
                         disabled={
                           documentationFiles.length === 0 ||
-                          uploadingDocumentation
+                          uploadingDocumentation ||
+                          isOverdue
                         }
+                        sx={{
+                          opacity: isOverdue ? 0.5 : 1,
+                        }}
                       >
                         {uploadingDocumentation
                           ? "Đang tải lên..."
                           : documentationFiles.length > 0
-                          ? "Tải lên Google Drive"
+                          ? "Tải lên"
                           : "Chọn tập tin để tải lên"}
                       </Button>
                     </Stack>
+
+                    {/* Thêm thông báo nếu quá hạn */}
+                    {isOverdue && (
+                      <Typography
+                        variant="body2"
+                        color="error"
+                        sx={{
+                          mt: 1,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 1,
+                        }}
+                      >
+                        <WarningIcon fontSize="small" />
+                        Đã quá hạn nộp tài liệu minh chứng cho quy trình này
+                      </Typography>
+                    )}
 
                     {/* Selected Files List */}
                     {documentationFiles.length > 0 && (
@@ -708,18 +908,59 @@ const Process7Page = () => {
                           Tập tin đã chọn ({documentationFiles.length}):
                         </Typography>
                         <List dense>
-                          {documentationFiles.map((file, index) => (
-                            <ListItem key={index}>
+                          {Array.from(documentationFiles).map((file, index) => (
+                            <ListItem
+                              key={index}
+                              secondaryAction={
+                                <IconButton
+                                  edge="end"
+                                  aria-label="delete"
+                                  onClick={() =>
+                                    handleRemoveSelectedFile(index)
+                                  }
+                                  size="small"
+                                  sx={{
+                                    color: "error.main",
+                                    "&:hover": {
+                                      backgroundColor: "error.lighter",
+                                    },
+                                  }}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              }
+                            >
                               <ListItemText
                                 primary={file.name}
-                                secondary={`${(file.size / 1024).toFixed(
-                                  2
-                                )} KB`}
+                                secondary={`${(
+                                  file.size /
+                                  (1024 * 1024)
+                                ).toFixed(2)} MB`}
+                                sx={{
+                                  pr: 2,
+                                  "& .MuiListItemText-primary": {
+                                    fontSize: "0.9rem",
+                                  },
+                                  "& .MuiListItemText-secondary": {
+                                    fontSize: "0.8rem",
+                                  },
+                                }}
                               />
                             </ListItem>
                           ))}
                         </List>
                       </Paper>
+                    )}
+
+                    {!isOverdue && (
+                      <Typography
+                        variant="caption"
+                        color="textSecondary"
+                        sx={{ display: "block", mt: 1 }}
+                      >
+                        Giới hạn: Tối đa {MAX_FILES} tập tin, mỗi tập tin không
+                        quá {MAX_SIZE}MB
+                      </Typography>
                     )}
                   </Box>
 
@@ -763,6 +1004,7 @@ const Process7Page = () => {
                                 <IconButton
                                   edge="end"
                                   onClick={() => deleteDocumentationFile(index)}
+                                  disabled={isOverdue}
                                 >
                                   <DeleteIcon fontSize="small" />
                                 </IconButton>
@@ -811,7 +1053,10 @@ const Process7Page = () => {
                           hidden
                           multiple
                           onChange={handleA3DocumentationFileSelect}
-                          accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                          onClick={(e) => {
+                            // Reset value để có thể chọn lại cùng file
+                            e.target.value = null;
+                          }}
                         />
                       </Button>
                       <Button
@@ -834,7 +1079,7 @@ const Process7Page = () => {
                         {uploadingA3
                           ? "Đang tải lên..."
                           : a3DocumentationFiles.length > 0
-                          ? "Tải lên Google Drive"
+                          ? "Tải lên"
                           : "Chọn tập tin để tải lên"}
                       </Button>
                     </Stack>
@@ -853,7 +1098,27 @@ const Process7Page = () => {
                         </Typography>
                         <List dense>
                           {a3DocumentationFiles.map((file, index) => (
-                            <ListItem key={index}>
+                            <ListItem
+                              key={index}
+                              secondaryAction={
+                                <IconButton
+                                  edge="end"
+                                  aria-label="delete"
+                                  onClick={() =>
+                                    handleRemoveSelectedA3File(index)
+                                  }
+                                  size="small"
+                                  sx={{
+                                    color: "error.main",
+                                    "&:hover": {
+                                      backgroundColor: "error.lighter",
+                                    },
+                                  }}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              }
+                            >
                               <ListItemText
                                 primary={file.name}
                                 secondary={`${(file.size / 1024).toFixed(
@@ -865,6 +1130,15 @@ const Process7Page = () => {
                         </List>
                       </Paper>
                     )}
+
+                    <Typography
+                      variant="caption"
+                      color="textSecondary"
+                      sx={{ display: "block", mt: 1 }}
+                    >
+                      Giới hạn: Tối đa {MAX_FILES} tập tin, mỗi tập tin không
+                      quá {MAX_SIZE}MB
+                    </Typography>
                   </Box>
 
                   {/* Uploaded Files List */}
@@ -892,7 +1166,7 @@ const Process7Page = () => {
                               sx={{ mr: 2 }}
                             />
                             <ListItemSecondaryAction>
-                              <Tooltip title="Xem tài liệu">
+                              <Tooltip title="Xem tài liệu A3">
                                 <IconButton
                                   edge="end"
                                   onClick={() =>
@@ -903,7 +1177,7 @@ const Process7Page = () => {
                                   <VisibilityIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
-                              <Tooltip title="Xóa tài liệu">
+                              <Tooltip title="Xóa tài liệu A3">
                                 <IconButton
                                   edge="end"
                                   onClick={() =>
@@ -984,6 +1258,59 @@ const Process7Page = () => {
             style={{ border: "none" }}
           />
         </DialogContent>
+      </Dialog>
+
+      {/* Error Dialog */}
+      <Dialog
+        open={openErrorDialog}
+        onClose={handleCloseErrorDialog}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+        PaperProps={{
+          sx: {
+            width: "100%",
+            maxWidth: "500px",
+            borderRadius: 2,
+          },
+        }}
+      >
+        <DialogTitle
+          id="alert-dialog-title"
+          sx={{
+            bgcolor: "#f5f5f5",
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
+          <WarningIcon color="warning" />
+          Thông báo
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          <Typography>
+            {dialogMessage.split("\n").map((line, i) => (
+              <React.Fragment key={i}>
+                {line}
+                {i < dialogMessage.split("\n").length - 1 && <br />}
+              </React.Fragment>
+            ))}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, pt: 0 }}>
+          <Button
+            onClick={handleCloseErrorDialog}
+            variant="contained"
+            autoFocus
+            sx={{
+              bgcolor: "#1976d2",
+              "&:hover": {
+                bgcolor: "#115293",
+              },
+            }}
+          >
+            Đóng
+          </Button>
+        </DialogActions>
       </Dialog>
     </Container>
   );

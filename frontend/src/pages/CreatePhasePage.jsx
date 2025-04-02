@@ -849,7 +849,7 @@ const CreatePhasePage = () => {
                 <TableCell
                   sx={{ color: "white", fontWeight: "bold", width: "20%" }}
                 >
-                  Người Tạo
+                  Người Cập Nhật
                 </TableCell>
                 <TableCell
                   sx={{ color: "white", fontWeight: "bold", width: "10%" }}
@@ -1079,7 +1079,7 @@ const CreatePhasePage = () => {
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        placeholder="Lọc người tạo..."
+                        placeholder="Lọc người cập nhật..."
                         InputProps={{
                           ...params.InputProps,
                           startAdornment: (
@@ -1095,6 +1095,7 @@ const CreatePhasePage = () => {
                     )}
                   />
                 </TableCell>
+                <TableCell sx={{ backgroundColor: "#f5f5f5" }}></TableCell>
                 <TableCell sx={{ backgroundColor: "#f5f5f5" }}></TableCell>
               </TableRow>
             </TableHead>
