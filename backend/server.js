@@ -806,10 +806,10 @@ app.post("/api/create-plan", authenticateToken, async (req, res) => {
       // Plan doesn't exist - insert
       const [insertResult] = await connection.query(
         `
-        INSERT INTO tb_plan (KHTId, line, style, quantity, plan_date, actual_date, updated_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO tb_plan (KHTId, line, style, quantity, plan_date, updated_by)
+        VALUES (?, ?, ?, ?, ?, ?)
         `,
-        [KHTId, line, style, quantity, plan_date, actual_date, updated_by]
+        [KHTId, line, style, quantity, plan_date, updated_by]
       );
       id_plan = insertResult.insertId;
     }
@@ -838,18 +838,10 @@ app.post("/api/create-plan", authenticateToken, async (req, res) => {
       // CO doesn't exist - insert
       await connection.query(
         `
-        INSERT INTO tb_co (id_plan, updated_by, CO_begin_date, production_style, buyer, SAM, quota)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO tb_co (id_plan, updated_by, production_style, buyer, SAM, quota)
+        VALUES (?, ?, ?, ?, ?, ?)
         `,
-        [
-          id_plan,
-          updated_by,
-          formatDate(actual_date),
-          production_style,
-          buyer,
-          SAM,
-          DinhMuc,
-        ]
+        [id_plan, updated_by, production_style, buyer, SAM, DinhMuc]
       );
     }
 

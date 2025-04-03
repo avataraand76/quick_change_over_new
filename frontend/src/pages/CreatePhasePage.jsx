@@ -159,7 +159,6 @@ const CreatePhasePage = () => {
           buyer: plan.buyer,
           quantity: plan.quantity,
           plan_date: plan.plan_date,
-          actual_date: plan.plan_date,
           SAM: plan.SAM,
           DinhMuc: plan.DinhMuc,
         };

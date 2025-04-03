@@ -49,7 +49,7 @@ const CalendarViewPage = () => {
   const [error, setError] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [selectedWorkshop, setSelectedWorkshop] = useState(null);
+  const [selectedWorkshops, setSelectedWorkshops] = useState([]);
   const theme = useTheme();
   const navigate = useNavigate();
 
@@ -72,18 +72,19 @@ const CalendarViewPage = () => {
   }, []);
 
   // Filter events based on selected workshop
-  const filteredEvents = selectedWorkshop
-    ? events.filter(
-        (event) => event.extendedProps.workshop === selectedWorkshop
-      )
-    : events;
+  const filteredEvents =
+    selectedWorkshops.length > 0
+      ? events.filter((event) =>
+          selectedWorkshops.includes(event.extendedProps.workshop)
+        )
+      : events;
 
   // Workshop selection buttons
   const WorkshopButtons = () => (
     <Box sx={{ mb: 2, display: "flex", gap: 1, justifyContent: "right" }}>
       <Button
-        variant={selectedWorkshop === null ? "contained" : "outlined"}
-        onClick={() => setSelectedWorkshop(null)}
+        variant={selectedWorkshops.length === 0 ? "contained" : "outlined"}
+        onClick={() => setSelectedWorkshops([])}
         sx={{ borderRadius: 2 }}
       >
         Tất cả
@@ -91,21 +92,32 @@ const CalendarViewPage = () => {
       {[1, 2, 3, 4].map((workshop) => (
         <Button
           key={workshop}
-          variant={selectedWorkshop === workshop ? "contained" : "outlined"}
-          onClick={() => setSelectedWorkshop(workshop)}
+          variant={
+            selectedWorkshops.includes(workshop) ? "contained" : "outlined"
+          }
+          onClick={() => {
+            setSelectedWorkshops((prev) => {
+              if (prev.includes(workshop)) {
+                // Nếu xưởng đã được chọn, loại bỏ khỏi mảng
+                return prev.filter((w) => w !== workshop);
+              } else {
+                // Nếu xưởng chưa được chọn, thêm vào mảng
+                return [...prev, workshop];
+              }
+            });
+          }}
           sx={{
             borderRadius: 2,
             // Màu nền khi button được chọn (variant="contained")
-            backgroundColor:
-              selectedWorkshop === workshop
-                ? workshop === 1
-                  ? "#0373d9"
-                  : workshop === 2
-                  ? "#00da8c"
-                  : workshop === 3
-                  ? "#180cda"
-                  : "#3ada14"
-                : "transparent",
+            backgroundColor: selectedWorkshops.includes(workshop)
+              ? workshop === 1
+                ? "#0373d9"
+                : workshop === 2
+                ? "#00da8c"
+                : workshop === 3
+                ? "#180cda"
+                : "#3ada14"
+              : "transparent",
             // Màu viền khi button không được chọn (variant="outlined")
             borderColor:
               workshop === 1
@@ -115,29 +127,26 @@ const CalendarViewPage = () => {
                 : workshop === 3
                 ? "#180cda"
                 : "#3ada14",
-            // Màu chữ (để đảm bảo chữ có thể đọc được trên nền màu)
-            color:
-              selectedWorkshop === workshop
-                ? "#fff"
-                : workshop === 1
-                ? "#0373d9"
-                : workshop === 2
-                ? "#00da8c"
-                : workshop === 3
-                ? "#180cda"
-                : "#3ada14",
+            // Màu chữ
+            color: selectedWorkshops.includes(workshop)
+              ? "#fff"
+              : workshop === 1
+              ? "#0373d9"
+              : workshop === 2
+              ? "#00da8c"
+              : workshop === 3
+              ? "#180cda"
+              : "#3ada14",
             "&:hover": {
-              // Tùy chỉnh màu khi hover (nếu cần)
-              backgroundColor:
-                selectedWorkshop === workshop
-                  ? workshop === 1
-                    ? "#025bb5"
-                    : workshop === 2
-                    ? "#00b374"
-                    : workshop === 3
-                    ? "#1309b5"
-                    : "#2fb310"
-                  : "rgba(0, 0, 0, 0.04)",
+              backgroundColor: selectedWorkshops.includes(workshop)
+                ? workshop === 1
+                  ? "#025bb5"
+                  : workshop === 2
+                  ? "#00b374"
+                  : workshop === 3
+                  ? "#1309b5"
+                  : "#2fb310"
+                : "rgba(0, 0, 0, 0.04)",
               borderColor:
                 workshop === 1
                   ? "#0373d9"

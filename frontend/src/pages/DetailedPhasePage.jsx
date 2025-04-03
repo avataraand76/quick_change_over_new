@@ -114,6 +114,7 @@ const DetailedPhasePage = () => {
   }, [id, navigate]);
 
   const formatDate = (dateString) => {
+    if (!dateString) return "";
     const date = new Date(dateString);
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -374,12 +375,13 @@ const DetailedPhasePage = () => {
                       <TextField
                         label="Thời Gian Chuyển Đổi Thực Tế"
                         type="datetime-local"
-                        value={actualDate}
+                        value={actualDate || ""}
                         onChange={(e) => setActualDate(e.target.value)}
                         fullWidth
                         required
                         InputLabelProps={{ shrink: true }}
                         variant="outlined"
+                        placeholder="dd/mm/yyyy --:-- --"
                       />
                     </Grid>
                   </Grid>
