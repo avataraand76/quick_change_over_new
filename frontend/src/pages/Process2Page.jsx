@@ -76,12 +76,18 @@ const Process2Page = () => {
   const [dialogMessage, setDialogMessage] = useState("");
 
   // New function to check if a process is overdue
-  const checkIsOverdue = useCallback((actualDate, deadline) => {
-    if (!actualDate || !deadline) return false;
+  const checkIsOverdue = useCallback((actualDate, planDate, deadline) => {
+    if (!deadline) return false;
+    if (!actualDate && !planDate) return false;
 
-    const actualDateTime = new Date(actualDate);
-    const deadlineDate = new Date(actualDateTime);
+    // Sử dụng actual_date nếu có, nếu không thì dùng plan_date
+    const dateToUse = actualDate || planDate;
+    const baseDateTime = new Date(dateToUse);
+    const deadlineDate = new Date(baseDateTime);
     deadlineDate.setDate(deadlineDate.getDate() - deadline);
+
+    // Đặt thời gian của deadlineDate thành 23:59:59
+    deadlineDate.setHours(23, 59, 59, 999);
 
     return new Date() > deadlineDate;
   }, []);
@@ -137,9 +143,10 @@ const Process2Page = () => {
 
         // Check if Process 2 is overdue
         const process2 = processesResponse.find((p) => p.id_process === 2);
-        if (process2 && planResponse.actual_date) {
+        if (process2) {
           const overdue = checkIsOverdue(
             planResponse.actual_date,
+            planResponse.plan_date,
             process2.deadline
           );
           setIsOverdue(overdue);
@@ -156,22 +163,30 @@ const Process2Page = () => {
   }, [id, fetchDocumentationFiles, fetchA3DocumentationFiles, checkIsOverdue]);
 
   // Calculate deadline date based on actual_date and deadline days
-  const calculateDeadlineDate = (actualDateString, deadlineDays) => {
+  const calculateDeadlineDate = (
+    actualDateString,
+    planDateString,
+    deadlineDays
+  ) => {
     if (
-      !actualDateString ||
       deadlineDays === null ||
       deadlineDays === undefined ||
       deadlineDays === ""
-    )
+    ) {
       return "-";
+    }
 
-    // Parse the actual date
-    const actualDate = new Date(actualDateString);
+    // Sử dụng actual_date nếu có, nếu không thì dùng plan_date
+    const dateToUse = actualDateString || planDateString;
+    if (!dateToUse) return "-";
+
+    // Parse the date
+    const baseDate = new Date(dateToUse);
     // Only use the date part (ignore time)
     const dateOnly = new Date(
-      actualDate.getFullYear(),
-      actualDate.getMonth(),
-      actualDate.getDate()
+      baseDate.getFullYear(),
+      baseDate.getMonth(),
+      baseDate.getDate()
     );
 
     // Subtract the deadline days
@@ -198,12 +213,23 @@ const Process2Page = () => {
     if (!process2) return { text: "Đang tải...", date: null };
 
     if (!process2.deadline || process2.deadline === 0) {
-      return { text: "Cùng ngày với thời gian thực tế", date: null };
+      return {
+        text: `Cùng ngày với ${
+          plan?.actual_date ? "thời gian thực tế" : "thời gian dự kiến"
+        }`,
+        date: null,
+      };
     }
 
     return {
-      text: `${process2.deadline} ngày trước thời gian thực tế`,
-      date: calculateDeadlineDate(plan?.actual_date, process2.deadline),
+      text: `${process2.deadline} ngày trước ${
+        plan?.actual_date ? "thời gian thực tế" : "thời gian dự kiến"
+      }`,
+      date: calculateDeadlineDate(
+        plan?.actual_date,
+        plan?.plan_date,
+        process2.deadline
+      ),
     };
   };
 
@@ -219,10 +245,11 @@ const Process2Page = () => {
     const year = date.getFullYear();
 
     let hours = date.getHours();
-    hours = hours % 12 || 12; // Convert to 12-hour format, making 0 => 12
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12;
+    hours = hours ? hours : 12; // Chuyển 0 thành 12
     hours = String(hours).padStart(2, "0");
     const minutes = String(date.getMinutes()).padStart(2, "0");
-    const ampm = hours >= 12 ? "PM" : "AM";
 
     return `${day}/${month}/${year}, ${hours}:${minutes} ${ampm}`;
   };

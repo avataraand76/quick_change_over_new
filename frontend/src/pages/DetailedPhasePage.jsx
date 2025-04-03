@@ -125,22 +125,30 @@ const DetailedPhasePage = () => {
   };
 
   // Calculate deadline date based on actual_date and deadline days
-  const calculateDeadlineDate = (actualDateString, deadlineDays) => {
+  const calculateDeadlineDate = (
+    actualDateString,
+    planDateString,
+    deadlineDays
+  ) => {
     if (
-      !actualDateString ||
       deadlineDays === null ||
       deadlineDays === undefined ||
       deadlineDays === ""
-    )
+    ) {
       return "-";
+    }
 
-    // Parse the actual date
-    const actualDate = new Date(actualDateString);
+    // Sử dụng actual_date nếu có, nếu không thì dùng plan_date
+    const dateToUse = actualDateString || planDateString;
+    if (!dateToUse) return "-";
+
+    // Parse the date
+    const baseDate = new Date(dateToUse);
     // Only use the date part (ignore time)
     const dateOnly = new Date(
-      actualDate.getFullYear(),
-      actualDate.getMonth(),
-      actualDate.getDate()
+      baseDate.getFullYear(),
+      baseDate.getMonth(),
+      baseDate.getDate()
     );
 
     // Subtract the deadline days
@@ -542,8 +550,16 @@ const DetailedPhasePage = () => {
                           <>
                             <Typography variant="body2" fontWeight="medium">
                               {process.deadline > 0
-                                ? `${process.deadline} ngày trước thời gian thực tế`
-                                : "Cùng ngày với thời gian thực tế"}
+                                ? `${process.deadline} ngày trước ${
+                                    plan.actual_date
+                                      ? "thời gian thực tế"
+                                      : "thời gian dự kiến"
+                                  }`
+                                : `Cùng ngày với ${
+                                    plan.actual_date
+                                      ? "thời gian thực tế"
+                                      : "thời gian dự kiến"
+                                  }`}
                             </Typography>
                             {process.deadline > 0 && (
                               <Typography
@@ -553,6 +569,7 @@ const DetailedPhasePage = () => {
                                 Hạn chót:{" "}
                                 {calculateDeadlineDate(
                                   plan.actual_date,
+                                  plan.plan_date,
                                   process.deadline
                                 )}
                               </Typography>
