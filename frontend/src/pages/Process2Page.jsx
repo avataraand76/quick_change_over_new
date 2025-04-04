@@ -75,6 +75,14 @@ const Process2Page = () => {
   const [openErrorDialog, setOpenErrorDialog] = useState(false);
   const [dialogMessage, setDialogMessage] = useState("");
 
+  // New state for delete confirmation
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState(false);
+  const [deletingFileIndex, setDeletingFileIndex] = useState(null);
+
+  // New state for A3 delete confirmation
+  const [deleteA3ConfirmDialog, setDeleteA3ConfirmDialog] = useState(false);
+  const [deletingA3FileIndex, setDeletingA3FileIndex] = useState(null);
+
   // New function to check if a process is overdue
   const checkIsOverdue = useCallback((actualDate, planDate, deadline) => {
     if (!deadline) return false;
@@ -432,12 +440,17 @@ const Process2Page = () => {
 
   // Delete documentation file
   const deleteDocumentationFile = async (index) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa tài liệu này không?")) {
-      return;
-    }
+    setDeletingFileIndex(index);
+    setDeleteConfirmDialog(true);
+  };
 
+  // Handle confirm delete
+  const handleConfirmDelete = async () => {
     try {
-      const response = await API.deleteProcess2Documentation(id, index);
+      const response = await API.deleteProcess2Documentation(
+        id,
+        deletingFileIndex
+      );
       if (response.success) {
         setSuccess("Xóa tài liệu thành công");
         fetchDocumentationFiles(); // Refresh the list
@@ -455,17 +468,25 @@ const Process2Page = () => {
       console.error("Error deleting documentation file:", error);
       setError(error.message || "Không thể xóa tài liệu");
       setTimeout(() => setError(""), 3000); // Clear error message after 3s
+    } finally {
+      setDeleteConfirmDialog(false);
+      setDeletingFileIndex(null);
     }
   };
 
   // Delete A3 documentation file
   const deleteA3DocumentationFile = async (index) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa tài liệu A3 này không?")) {
-      return;
-    }
+    setDeletingA3FileIndex(index);
+    setDeleteA3ConfirmDialog(true);
+  };
 
+  // Handle confirm A3 delete
+  const handleConfirmA3Delete = async () => {
     try {
-      const response = await API.deleteProcess2A3Documentation(id, index);
+      const response = await API.deleteProcess2A3Documentation(
+        id,
+        deletingA3FileIndex
+      );
       if (response.success) {
         setSuccess("Xóa tài liệu A3 thành công");
         fetchA3DocumentationFiles(); // Refresh the list
@@ -475,6 +496,9 @@ const Process2Page = () => {
       console.error("Error deleting A3 documentation file:", error);
       setError(error.message || "Không thể xóa tài liệu A3");
       setTimeout(() => setError(""), 3000); // Clear error message after 3s
+    } finally {
+      setDeleteA3ConfirmDialog(false);
+      setDeletingA3FileIndex(null);
     }
   };
 
@@ -857,10 +881,10 @@ const Process2Page = () => {
                         variant="outlined"
                         component="label"
                         startIcon={<InsertDriveFileIcon />}
-                        disabled={isOverdue}
-                        sx={{
-                          opacity: isOverdue ? 0.5 : 1,
-                        }}
+                        // disabled={isOverdue}
+                        // sx={{
+                        //   opacity: isOverdue ? 0.5 : 1,
+                        // }}
                       >
                         Chọn tập tin
                         <input
@@ -868,7 +892,7 @@ const Process2Page = () => {
                           hidden
                           multiple
                           onChange={handleDocumentationFileSelect}
-                          disabled={isOverdue}
+                          // disabled={isOverdue}
                           onClick={(e) => {
                             // Reset value để có thể chọn lại cùng file
                             e.target.value = null;
@@ -890,12 +914,12 @@ const Process2Page = () => {
                         onClick={uploadDocumentationFiles}
                         disabled={
                           documentationFiles.length === 0 ||
-                          uploadingDocumentation ||
-                          isOverdue
+                          uploadingDocumentation
+                          // || isOverdue
                         }
-                        sx={{
-                          opacity: isOverdue ? 0.5 : 1,
-                        }}
+                        // sx={{
+                        //   opacity: isOverdue ? 0.5 : 1,
+                        // }}
                       >
                         {uploadingDocumentation
                           ? "Đang tải lên..."
@@ -1031,7 +1055,7 @@ const Process2Page = () => {
                                 <IconButton
                                   edge="end"
                                   onClick={() => deleteDocumentationFile(index)}
-                                  disabled={isOverdue}
+                                  // // disabled={isOverdue}
                                 >
                                   <DeleteIcon fontSize="small" />
                                 </IconButton>
@@ -1336,6 +1360,108 @@ const Process2Page = () => {
             }}
           >
             Đóng
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteConfirmDialog}
+        onClose={() => setDeleteConfirmDialog(false)}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+        PaperProps={{
+          sx: {
+            width: "100%",
+            maxWidth: "500px",
+            borderRadius: 2,
+          },
+        }}
+      >
+        <DialogTitle
+          id="alert-dialog-title"
+          sx={{
+            bgcolor: "#f5f5f5",
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
+          <WarningIcon color="warning" />
+          Xác nhận xóa
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          <Typography>
+            Bạn có chắc chắn muốn xóa tài liệu "
+            {uploadedDocumentations[deletingFileIndex]?.filename}" không?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, pt: 0 }}>
+          <Button
+            onClick={() => setDeleteConfirmDialog(false)}
+            variant="outlined"
+            color="inherit"
+          >
+            Hủy
+          </Button>
+          <Button
+            onClick={handleConfirmDelete}
+            variant="contained"
+            color="error"
+            autoFocus
+          >
+            Xóa
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete A3 Documentation Confirmation Dialog */}
+      <Dialog
+        open={deleteA3ConfirmDialog}
+        onClose={() => setDeleteA3ConfirmDialog(false)}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+        PaperProps={{
+          sx: {
+            width: "100%",
+            maxWidth: "500px",
+            borderRadius: 2,
+          },
+        }}
+      >
+        <DialogTitle
+          id="alert-dialog-title"
+          sx={{
+            bgcolor: "#f5f5f5",
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
+          <WarningIcon color="warning" />
+          Xác nhận xóa
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          <Typography>
+            Bạn có chắc chắn muốn xóa tài liệu A3 "
+            {uploadedA3Documentations[deletingA3FileIndex]?.filename}" không?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, pt: 0 }}>
+          <Button
+            onClick={() => setDeleteA3ConfirmDialog(false)}
+            variant="outlined"
+            color="inherit"
+          >
+            Hủy
+          </Button>
+          <Button
+            onClick={handleConfirmA3Delete}
+            variant="contained"
+            color="error"
+            autoFocus
+          >
+            Xóa
           </Button>
         </DialogActions>
       </Dialog>
