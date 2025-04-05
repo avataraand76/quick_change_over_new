@@ -27,6 +27,7 @@ import Process6Page from "./pages/Process6Page";
 import Process7Page from "./pages/Process7Page";
 import Process8Page from "./pages/Process8Page";
 import AdminPage from "./pages/AdminPage";
+import PermissionCheck from "./components/PermissionCheck";
 
 // ScrollToTop component to ensure all page navigations scroll to the top
 function ScrollToTop() {
@@ -48,9 +49,36 @@ function ScrollToTop() {
   return null;
 }
 
-const PrivateRoute = ({ element }) => {
+const PrivateRoute = ({ element, requiredPermission, requiredRole }) => {
   const token = localStorage.getItem("token");
-  return token ? element : <Navigate to="/login" />;
+
+  if (!token) {
+    return <Navigate to="/login" />;
+  }
+
+  if (requiredPermission) {
+    return (
+      <PermissionCheck
+        requiredPermission={requiredPermission}
+        renderContent={(hasPermission) =>
+          hasPermission ? element : <Navigate to="/" />
+        }
+      />
+    );
+  }
+
+  if (requiredRole) {
+    return (
+      <PermissionCheck
+        requiredRole={requiredRole}
+        renderContent={(hasPermission) =>
+          hasPermission ? element : <Navigate to="/" />
+        }
+      />
+    );
+  }
+
+  return element;
 };
 
 function App() {
@@ -65,7 +93,9 @@ function App() {
         />
         <Route
           path="/create-phase"
-          element={<PrivateRoute element={<CreatePhasePage />} />}
+          element={
+            <PrivateRoute element={<CreatePhasePage />} requiredRole={2} />
+          }
         />
         <Route path="/login" element={<LoginPage />} />
         <Route
@@ -80,7 +110,9 @@ function App() {
         <Route path="/co/:id" element={<PrivateRoute element={<CoPage />} />} />
         <Route
           path="/admin"
-          element={<PrivateRoute element={<AdminPage />} />}
+          element={
+            <PrivateRoute element={<AdminPage />} requiredPermission={1} />
+          }
         />
         {/* Process Routes */}
         <Route

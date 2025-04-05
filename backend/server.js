@@ -1048,6 +1048,26 @@ app.get("/api/plans", authenticateToken, (req, res) => {
 // API lấy chi tiết kế hoạch theo id trong MAIN mysql
 app.get("/api/plans/:id", authenticateToken, (req, res) => {
   const { id } = req.params;
+
+  // Function to determine the workshop based on line number
+  const determineWorkshop = (line) => {
+    // Parse the line value to an integer
+    const lineNum = parseInt(line);
+
+    // Check if lineNum is a valid number
+    if (isNaN(lineNum)) {
+      return null; // Return null if line is not a valid number
+    }
+
+    // Workshop determination logic
+    if ((lineNum >= 1 && lineNum <= 10) || lineNum === 1001) return 1;
+    if ((lineNum >= 11 && lineNum <= 20) || lineNum === 2001) return 2;
+    if (lineNum >= 21 && lineNum <= 30) return 3;
+    if (lineNum >= 31 && lineNum <= 40) return 4;
+    return null; // Return null for any line number outside the defined ranges
+  };
+
+  // Query the database for the plan
   mysqlConnection.query(
     "SELECT * FROM tb_plan WHERE id_plan = ?",
     [id],
@@ -1063,7 +1083,23 @@ app.get("/api/plans/:id", authenticateToken, (req, res) => {
           .status(404)
           .json({ success: false, message: "Plan not found" });
       }
-      res.json(results[0]);
+
+      // Get the plan data
+      const plan = results[0];
+
+      // Determine the workshop based on the line value
+      const workshop = determineWorkshop(plan.line);
+
+      // Add the workshop to the plan data
+      plan.workshop = workshop;
+
+      // If workshop is null, you might want to handle this case
+      if (workshop === null) {
+        console.warn(`Invalid or unmapped line value: ${plan.line}`);
+      }
+
+      // Return the plan with the workshop included
+      res.json(plan);
     }
   );
 });
@@ -1096,7 +1132,10 @@ app.get("/api/plans-for-calendar", authenticateToken, (req, res) => {
     }
 
     const events = results.map((plan) => {
-      const startDate = new Date(plan.plan_date);
+      // const endDate = new Date(plan.plan_date);
+      // const startDate = new Date(endDate);
+      // startDate.setDate(startDate.getDate() - 8);
+
       const workshop = getWorkshop(plan.line);
       let backgroundColor, borderColor, textColor;
 
@@ -1131,7 +1170,9 @@ app.get("/api/plans-for-calendar", authenticateToken, (req, res) => {
       return {
         id: plan.id_plan,
         title: `C${plan.line}_${plan.style}`,
-        start: startDate,
+        // start: startDate,
+        // end: endDate,
+        start: plan.plan_date,
         extendedProps: {
           line: plan.line,
           style: plan.style,

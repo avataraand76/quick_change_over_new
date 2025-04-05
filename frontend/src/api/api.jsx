@@ -42,6 +42,25 @@ httpConnect.interceptors.request.use(
   }
 );
 
+// Response interceptor để xử lý lỗi từ server
+httpConnect.interceptors.response.use(
+  (response) => response, // Trả về response bình thường nếu không có lỗi
+  (error) => {
+    // Kiểm tra nếu lỗi là 401 (Unauthorized) hoặc 403 (Forbidden)
+    if (
+      error.response &&
+      (error.response.status === 401 || error.response.status === 403)
+    ) {
+      // Xóa token khỏi localStorage
+      localStorage.removeItem("token");
+      // Chuyển hướng về trang login
+      window.location.href = "/login";
+    }
+    // Trả về lỗi để các hàm gọi API có thể xử lý tiếp nếu cần
+    return Promise.reject(error);
+  }
+);
+
 let API = {
   login: async (username, password) => {
     const response = await httpConnect.post("/login", { username, password });

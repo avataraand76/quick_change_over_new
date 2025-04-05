@@ -33,6 +33,7 @@ import {
 } from "@mui/icons-material";
 import API from "../api/api";
 import NotificationDialog from "../components/NotificationDialog";
+import PermissionCheck from "../components/PermissionCheck";
 
 // Helper function to format dates for datetime-local input
 const formatDateForInput = (dateString) => {
@@ -77,6 +78,7 @@ const CoPage = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const [plan, setPlan] = useState(null);
+  const [staffOptions, setStaffOptions] = useState([]);
   const [coData, setCoData] = useState({
     id_plan: id,
     CO_begin_date: "",
@@ -200,6 +202,24 @@ const CoPage = () => {
         // Fetch plan details
         const planData = await API.getPlanById(id);
         setPlan(planData);
+
+        // Fetch staff options if workshop is determined
+        if (planData.workshop) {
+          try {
+            const allUsers = await API.getAllUsers();
+            // Filter users who have role_id=1 and matching workshop_id
+            const filteredUsers = allUsers.filter(
+              (user) =>
+                user.permissions.byRole.some((role) => role.id_role === 1) &&
+                user.permissions.byWorkshop.some(
+                  (workshop) => workshop.id_workshop === planData.workshop
+                )
+            );
+            setStaffOptions(filteredUsers);
+          } catch (error) {
+            console.error("Error fetching staff options:", error);
+          }
+        }
 
         // Fetch CO data
         try {
@@ -567,42 +587,83 @@ const CoPage = () => {
             </Typography>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={4}>
-                <TextField
-                  label="Thời gian bắt đầu chuyển đổi"
-                  type="datetime-local"
-                  name="CO_begin_date"
-                  value={formatDateForInput(coData.CO_begin_date)}
-                  onChange={handleDateChange}
-                  fullWidth
-                  InputLabelProps={{ shrink: true }}
-                  variant="outlined"
-                  sx={{ mb: 2 }}
+                <PermissionCheck
+                  requiredRole={[1]}
+                  renderContent={(hasPermission) => (
+                    <TextField
+                      label="Thời gian bắt đầu chuyển đổi"
+                      type="datetime-local"
+                      name="CO_begin_date"
+                      value={formatDateForInput(coData.CO_begin_date)}
+                      onChange={handleDateChange}
+                      fullWidth
+                      InputLabelProps={{ shrink: true }}
+                      variant="outlined"
+                      sx={{ mb: 2 }}
+                      InputProps={{
+                        readOnly: !hasPermission,
+                        sx: {
+                          backgroundColor: !hasPermission
+                            ? "#ffffcc"
+                            : "inherit",
+                        },
+                      }}
+                    />
+                  )}
                 />
               </Grid>
               <Grid item xs={12} sm={4}>
-                <TextField
-                  label="Thời gian hoàn thành chuyển đổi"
-                  type="datetime-local"
-                  name="CO_end_date"
-                  value={formatDateForInput(coData.CO_end_date)}
-                  onChange={handleDateChange}
-                  fullWidth
-                  InputLabelProps={{ shrink: true }}
-                  variant="outlined"
-                  sx={{ mb: 2 }}
+                <PermissionCheck
+                  requiredRole={[1]}
+                  renderContent={(hasPermission) => (
+                    <TextField
+                      label="Thời gian hoàn thành chuyển đổi"
+                      type="datetime-local"
+                      name="CO_end_date"
+                      value={formatDateForInput(coData.CO_end_date)}
+                      onChange={handleDateChange}
+                      fullWidth
+                      InputLabelProps={{ shrink: true }}
+                      variant="outlined"
+                      sx={{ mb: 2 }}
+                      InputProps={{
+                        readOnly: !hasPermission,
+                        sx: {
+                          backgroundColor: !hasPermission
+                            ? "#ffffcc"
+                            : "inherit",
+                        },
+                      }}
+                    />
+                  )}
                 />
               </Grid>
               <Grid item xs={12} sm={4}>
-                <TextField
-                  label="Thời gian kết thúc mã hàng cũ"
-                  type="datetime-local"
-                  name="last_garment_of_old_style"
-                  value={formatDateForInput(coData.last_garment_of_old_style)}
-                  onChange={handleDateChange}
-                  fullWidth
-                  InputLabelProps={{ shrink: true }}
-                  variant="outlined"
-                  sx={{ mb: 2 }}
+                <PermissionCheck
+                  requiredRole={[1]}
+                  renderContent={(hasPermission) => (
+                    <TextField
+                      label="Thời gian kết thúc mã hàng cũ"
+                      type="datetime-local"
+                      name="last_garment_of_old_style"
+                      value={formatDateForInput(
+                        coData.last_garment_of_old_style
+                      )}
+                      onChange={handleDateChange}
+                      fullWidth
+                      InputLabelProps={{ shrink: true }}
+                      variant="outlined"
+                      sx={{ mb: 2 }}
+                      InputProps={{
+                        readOnly: !hasPermission,
+                        sx: {
+                          backgroundColor: !hasPermission
+                            ? "#ffffcc"
+                            : "inherit",
+                        },
+                      }}
+                    />
+                  )}
                 />
               </Grid>
             </Grid>
@@ -614,78 +675,139 @@ const CoPage = () => {
             </Typography>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
-                <TextField
-                  label="SAM"
-                  name="SAM"
-                  value={coData.SAM || ""}
-                  onChange={handleChange}
-                  fullWidth
-                  variant="outlined"
-                  type="text"
-                  inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
-                  sx={{ mb: 2 }}
-                  InputProps={{
-                    readOnly: true,
-                    sx: { backgroundColor: "#ffffcc" },
-                  }}
+                <PermissionCheck
+                  requiredRole={[1]}
+                  renderContent={(hasPermission) => (
+                    <TextField
+                      label="SAM"
+                      name="SAM"
+                      value={coData.SAM || ""}
+                      onChange={handleChange}
+                      fullWidth
+                      variant="outlined"
+                      type="text"
+                      inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
+                      sx={{ mb: 2 }}
+                      InputProps={{
+                        readOnly: !hasPermission,
+                        sx: {
+                          backgroundColor: !hasPermission
+                            ? "#ffffcc"
+                            : "inherit",
+                        },
+                      }}
+                    />
+                  )}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Nhân Viên Sơ đồ chuyền"
-                  name="staff"
-                  value={coData.staff}
-                  onChange={handleChange}
-                  fullWidth
-                  variant="outlined"
-                  sx={{ mb: 2 }}
+                <PermissionCheck
+                  requiredRole={[1]}
+                  renderContent={(hasPermission) => (
+                    <TextField
+                      select
+                      label="Nhân Viên Sơ đồ chuyền"
+                      name="staff"
+                      value={coData.staff}
+                      onChange={handleChange}
+                      fullWidth
+                      variant="outlined"
+                      sx={{ mb: 2 }}
+                      InputProps={{
+                        readOnly: !hasPermission,
+                        sx: {
+                          backgroundColor: !hasPermission
+                            ? "#ffffcc"
+                            : "inherit",
+                        },
+                      }}
+                    >
+                      <MenuItem value="">
+                        <em>Chọn nhân viên SĐC</em>
+                      </MenuItem>
+                      {staffOptions.map((user) => (
+                        <MenuItem
+                          key={user.id_nhan_vien}
+                          value={`${user.ten_nv}`}
+                        >
+                          {user.ten_nv}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
                 />
               </Grid>
               <Grid item xs={12} sm={4}>
-                <TextField
-                  label="Định mức"
-                  name="quota"
-                  value={coData.quota || ""}
-                  onChange={handleChange}
-                  fullWidth
-                  variant="outlined"
-                  type="text"
-                  inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
-                  sx={{ mb: 2 }}
-                  InputProps={{
-                    readOnly: true,
-                    sx: { backgroundColor: "#ffffcc" },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <TextField
-                  label="Eff ngày 1"
-                  name="eff_1"
-                  value={coData.eff_1}
-                  onChange={handleChange}
-                  fullWidth
-                  type="text"
-                  inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">%</InputAdornment>
-                    ),
-                  }}
-                  variant="outlined"
-                  sx={{ mb: 2 }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={coData.carry_over === 1}
-                      onChange={handleSwitchChange}
+                <PermissionCheck
+                  requiredRole={[1]}
+                  renderContent={(hasPermission) => (
+                    <TextField
+                      label="Định mức"
+                      name="quota"
+                      value={coData.quota || ""}
+                      onChange={handleChange}
+                      fullWidth
+                      variant="outlined"
+                      type="text"
+                      inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
+                      sx={{ mb: 2 }}
+                      InputProps={{
+                        readOnly: !hasPermission,
+                        sx: {
+                          backgroundColor: !hasPermission
+                            ? "#ffffcc"
+                            : "inherit",
+                        },
+                      }}
                     />
-                  }
-                  label="Lặp lại (Carry Over)"
-                  sx={{ mt: 1 }}
+                  )}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <PermissionCheck
+                  requiredRole={[1]}
+                  renderContent={(hasPermission) => (
+                    <TextField
+                      label="Eff ngày 1"
+                      name="eff_1"
+                      value={coData.eff_1}
+                      onChange={handleChange}
+                      fullWidth
+                      type="text"
+                      inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end">%</InputAdornment>
+                        ),
+                        readOnly: !hasPermission,
+                        sx: {
+                          backgroundColor: !hasPermission
+                            ? "#ffffcc"
+                            : "inherit",
+                        },
+                      }}
+                      variant="outlined"
+                      sx={{ mb: 2 }}
+                    />
+                  )}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <PermissionCheck
+                  requiredRole={[1]}
+                  renderContent={(hasPermission) => (
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={coData.carry_over === 1}
+                          onChange={handleSwitchChange}
+                          disabled={!hasPermission}
+                        />
+                      }
+                      label="Lặp lại (Carry Over)"
+                      sx={{ mt: 1 }}
+                    />
+                  )}
                 />
               </Grid>
             </Grid>
@@ -752,23 +874,30 @@ const CoPage = () => {
           </Box>
 
           <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<SaveIcon />}
-              onClick={handleSave}
-              size="large"
-              sx={{
-                minWidth: 150,
-                borderRadius: 2,
-                boxShadow: 2,
-                "&:hover": {
-                  boxShadow: 4,
-                },
-              }}
-            >
-              Lưu Thông Tin
-            </Button>
+            <PermissionCheck
+              requiredRole={[1]}
+              renderContent={(hasPermission) =>
+                hasPermission && (
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<SaveIcon />}
+                    onClick={handleSave}
+                    size="large"
+                    sx={{
+                      minWidth: 150,
+                      borderRadius: 2,
+                      boxShadow: 2,
+                      "&:hover": {
+                        boxShadow: 4,
+                      },
+                    }}
+                  >
+                    Lưu Thông Tin
+                  </Button>
+                )
+              }
+            />
           </Box>
         </CardContent>
       </Card>

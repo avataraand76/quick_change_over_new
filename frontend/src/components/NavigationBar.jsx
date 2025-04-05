@@ -19,6 +19,7 @@ import {
 } from "@mui/icons-material";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import logo from "../assets/logo_vlh.jpg";
+import PermissionCheck from "./PermissionCheck";
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -92,23 +93,33 @@ const Navbar = () => {
           }}
         >
           {token && (
-            <Button
-              color="inherit"
-              component={Link}
-              to="/admin"
-              startIcon={<AccountCircle />}
-              sx={{
-                borderRadius: "15px",
-                backgroundColor: "rgba(255, 255, 255, 0.1)",
-                "&:hover": {
-                  backgroundColor: "rgba(255, 255, 255, 0.2)",
-                },
-                marginRight: 1,
-                textTransform: "none",
-              }}
-            >
-              {user.ma_nv}: {user.ten_nv}
-            </Button>
+            <PermissionCheck
+              requiredPermission={[1]}
+              renderContent={(hasPermission) => (
+                <Button
+                  color="inherit"
+                  onClick={(e) => {
+                    if (!hasPermission) {
+                      e.preventDefault();
+                      return;
+                    }
+                    navigate("/admin");
+                  }}
+                  startIcon={<AccountCircle />}
+                  sx={{
+                    borderRadius: "15px",
+                    backgroundColor: "rgba(255, 255, 255, 0.1)",
+                    "&:hover": {
+                      backgroundColor: "rgba(255, 255, 255, 0.2)",
+                    },
+                    marginRight: 1,
+                    textTransform: "none",
+                  }}
+                >
+                  {user.ma_nv}: {user.ten_nv}
+                </Button>
+              )}
+            />
           )}
           <Button
             color="inherit"
@@ -124,20 +135,29 @@ const Navbar = () => {
           >
             Trang chủ
           </Button>
-          <Button
-            color="inherit"
-            component={Link}
-            to="/create-phase"
-            startIcon={<i className="fas fa-plus" />}
-            sx={{
-              borderRadius: "15px",
-              "&:hover": {
-                backgroundColor: "rgba(255, 255, 255, 0.1)",
-              },
-            }}
-          >
-            Quản Lý kế hoạch
-          </Button>
+          {token && (
+            <PermissionCheck
+              requiredRole={[2]}
+              renderContent={(hasPermission) =>
+                hasPermission && (
+                  <Button
+                    color="inherit"
+                    component={Link}
+                    to="/create-phase"
+                    startIcon={<i className="fas fa-plus" />}
+                    sx={{
+                      borderRadius: "15px",
+                      "&:hover": {
+                        backgroundColor: "rgba(255, 255, 255, 0.1)",
+                      },
+                    }}
+                  >
+                    Quản Lý kế hoạch
+                  </Button>
+                )
+              }
+            />
+          )}
           {/* <Button
             color="inherit"
             component={Link}
@@ -246,18 +266,31 @@ const Navbar = () => {
               <i className="fas fa-home" style={{ marginRight: 8 }} />
               Trang chủ
             </MenuItem>
-            <MenuItem component={Link} to="/create-phase" onClick={handleClose}>
-              <i className="fas fa-plus" style={{ marginRight: 8 }} />
-              Quản Lý kế hoạch
-            </MenuItem>
-            <MenuItem component={Link} to="/calendar" onClick={handleClose}>
+            {token && (
+              <PermissionCheck
+                requiredRole={[2]}
+                renderContent={(hasPermission) =>
+                  hasPermission && (
+                    <MenuItem
+                      component={Link}
+                      to="/create-phase"
+                      onClick={handleClose}
+                    >
+                      <i className="fas fa-plus" style={{ marginRight: 8 }} />
+                      Quản Lý kế hoạch
+                    </MenuItem>
+                  )
+                }
+              />
+            )}
+            {/* <MenuItem component={Link} to="/calendar" onClick={handleClose}>
               <i className="fas fa-calendar" style={{ marginRight: 8 }} />
               Kế hoạch
             </MenuItem>
             <MenuItem component={Link} to="/report" onClick={handleClose}>
               <i className="fas fa-chart-bar" style={{ marginRight: 8 }} />
               Báo cáo
-            </MenuItem>
+            </MenuItem> */}
             <MenuItem
               component="a"
               href="https://drive.google.com/file/d/1a2pABLGmp4h6j98objZ-R5-nASF5CZJE/view?usp=sharing"

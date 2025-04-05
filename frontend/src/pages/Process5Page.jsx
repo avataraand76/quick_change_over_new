@@ -44,6 +44,7 @@ import {
   Warning as WarningIcon,
 } from "@mui/icons-material";
 import API from "../api/api";
+import PermissionCheck from "../components/PermissionCheck";
 
 const Process5Page = () => {
   const navigate = useNavigate();
@@ -915,291 +916,364 @@ const Process5Page = () => {
         </CardContent>
       </Card>
 
-      {/* Preparing Machines Card */}
-      <Card
-        elevation={4}
-        sx={{
-          borderRadius: 2,
-          overflow: "visible",
-          mb: 4,
-        }}
-      >
-        <Box
-          sx={{
-            bgcolor: "#1976d2",
-            padding: 2,
-            color: "white",
-            borderTopLeftRadius: 8,
-            borderTopRightRadius: 8,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <Typography variant="h5" fontWeight="bold">
-            THÔNG TIN MÁY CHUẨN BỊ
-          </Typography>
-          <Box sx={{ display: "flex", gap: 1 }}>
-            <Button
-              variant="contained"
-              startIcon={<SyncIcon />}
-              onClick={handleSyncWithHiLine}
-              disabled={syncLoading || isOverdue}
+      <PermissionCheck
+        requiredRole={[4, 5]}
+        renderContent={(hasPermission) => (
+          <>
+            {/* Preparing Machines Card */}
+            <Card
+              elevation={4}
               sx={{
-                bgcolor: "#4caf50",
-                color: "#ffffff",
-                "&:hover": { bgcolor: "#388e3c" },
-                opacity: isOverdue ? 0.5 : 1,
+                borderRadius: 2,
+                overflow: "visible",
+                mb: 4,
               }}
             >
-              {syncLoading ? "Đang đồng bộ..." : "Đồng bộ Hi-Line"}
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => handleOpenPreparingMachineDialog()}
-              disabled={isOverdue}
+              <Box
+                sx={{
+                  bgcolor: "#1976d2",
+                  padding: 2,
+                  color: "white",
+                  borderTopLeftRadius: 8,
+                  borderTopRightRadius: 8,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <Typography variant="h5" fontWeight="bold">
+                  THÔNG TIN MÁY CHUẨN BỊ
+                </Typography>
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <Button
+                    variant="contained"
+                    startIcon={<SyncIcon />}
+                    onClick={handleSyncWithHiLine}
+                    disabled={syncLoading || !hasPermission /* || isOverdue */}
+                    sx={{
+                      bgcolor: "#4caf50",
+                      color: "#ffffff",
+                      "&:hover": { bgcolor: "#388e3c" },
+                      opacity: !hasPermission /* || isOverdue */ ? 0.5 : 1,
+                    }}
+                  >
+                    {syncLoading ? "Đang đồng bộ..." : "Đồng bộ Hi-Line"}
+                  </Button>
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={() => handleOpenPreparingMachineDialog()}
+                    disabled={!hasPermission /* || isOverdue */}
+                    sx={{
+                      bgcolor: "#ffffff",
+                      color: "#1976d2",
+                      "&:hover": { bgcolor: "#f5f5f5" },
+                      opacity: !hasPermission /* || isOverdue */ ? 0.5 : 1,
+                    }}
+                  >
+                    Thêm máy
+                  </Button>
+                </Box>
+              </Box>
+              {!hasPermission && (
+                <Typography
+                  variant="body2"
+                  color="error"
+                  sx={{
+                    mt: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                  }}
+                >
+                  <WarningIcon fontSize="small" />
+                  Không có quyền cập nhật
+                </Typography>
+              )}
+              {isOverdue && (
+                <Typography
+                  variant="body2"
+                  color="error"
+                  sx={{
+                    mt: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                  }}
+                >
+                  <WarningIcon fontSize="small" />
+                  Đã quá hạn chỉnh sửa thông tin cho quy trình này
+                </Typography>
+              )}
+
+              <CardContent sx={{ padding: 3 }}>
+                {preparingMachines.length > 0 ? (
+                  <TableContainer component={Paper} sx={{ mb: 2 }}>
+                    <Table>
+                      <TableHead>
+                        <TableRow sx={{ bgcolor: "#f5f5f5" }}>
+                          <TableCell>STT</TableCell>
+                          <TableCell>Ngày điều chỉnh</TableCell>
+                          <TableCell>Tên máy</TableCell>
+                          <TableCell align="center">Số lượng</TableCell>
+                          <TableCell align="center">Đã chuẩn bị</TableCell>
+                          <TableCell align="center">Đạt</TableCell>
+                          <TableCell align="center">Không đạt</TableCell>
+                          <TableCell align="center">Tỉ lệ đạt (%)</TableCell>
+                          <TableCell align="center">Chưa chuẩn bị</TableCell>
+                          <TableCell align="center">
+                            Tỉ lệ chuẩn bị (%)
+                          </TableCell>
+                          <TableCell>{/* Thao tác */}</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {preparingMachines.map((machine, index) => (
+                          <TableRow
+                            key={machine.id_process_5_preparing_machine}
+                          >
+                            <TableCell>{index + 1}</TableCell>
+                            <TableCell>
+                              {machine.adjust_date
+                                ? formatDateShort(machine.adjust_date)
+                                : "..."}
+                            </TableCell>
+                            <TableCell>{machine.name_machine}</TableCell>
+                            <TableCell align="center">
+                              {machine.quantity}
+                            </TableCell>
+                            <TableCell align="center">
+                              {machine.prepared}
+                            </TableCell>
+                            <TableCell align="center">{machine.pass}</TableCell>
+                            <TableCell align="center">{machine.fail}</TableCell>
+                            <TableCell align="center">
+                              {machine.pass_rate}%
+                            </TableCell>
+                            <TableCell align="center">
+                              {machine.not_prepared}
+                            </TableCell>
+                            <TableCell align="center">
+                              {machine.prepare_rate}%
+                            </TableCell>
+                            <TableCell>
+                              <Box sx={{ display: "flex" }}>
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  onClick={() =>
+                                    handleOpenPreparingMachineDialog(machine)
+                                  }
+                                  disabled={!hasPermission /* || isOverdue */}
+                                  sx={{
+                                    opacity: !hasPermission /* || isOverdue */
+                                      ? 0.5
+                                      : 1,
+                                  }}
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() =>
+                                    handleDeletePreparingMachine(machine)
+                                  }
+                                  disabled={!hasPermission /* || isOverdue */}
+                                  sx={{
+                                    opacity: !hasPermission /* || isOverdue */
+                                      ? 0.5
+                                      : 1,
+                                  }}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                ) : (
+                  <Box sx={{ py: 3, textAlign: "center" }}>
+                    <Typography variant="body1" color="text.secondary">
+                      Chưa có thông tin máy chuẩn bị nào được thêm vào
+                    </Typography>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Backup Machines Card */}
+            <Card
+              elevation={4}
               sx={{
-                bgcolor: "#ffffff",
-                color: "#1976d2",
-                "&:hover": { bgcolor: "#f5f5f5" },
-                opacity: isOverdue ? 0.5 : 1,
+                borderRadius: 2,
+                overflow: "visible",
+                mb: 4,
               }}
             >
-              Thêm máy
-            </Button>
-          </Box>
-        </Box>
-        {isOverdue && (
-          <Typography
-            variant="body2"
-            color="error"
-            sx={{
-              mt: 1,
-              display: "flex",
-              alignItems: "center",
-              gap: 1,
-            }}
-          >
-            <WarningIcon fontSize="small" />
-            Đã quá hạn chỉnh sửa thông tin cho quy trình này
-          </Typography>
+              <Box
+                sx={{
+                  bgcolor: "#1976d2",
+                  padding: 2,
+                  color: "white",
+                  borderTopLeftRadius: 8,
+                  borderTopRightRadius: 8,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <Typography variant="h5" fontWeight="bold">
+                  THÔNG TIN MÁY DỰ PHÒNG
+                </Typography>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => handleOpenBackupMachineDialog()}
+                  disabled={!hasPermission /* || isOverdue */}
+                  sx={{
+                    bgcolor: "#ffffff",
+                    color: "#1976d2",
+                    "&:hover": { bgcolor: "#f5f5f5" },
+                    opacity: !hasPermission /* || isOverdue */ ? 0.5 : 1,
+                  }}
+                >
+                  Thêm máy
+                </Button>
+              </Box>
+              {!hasPermission && (
+                <Typography
+                  variant="body2"
+                  color="error"
+                  sx={{
+                    mt: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                  }}
+                >
+                  <WarningIcon fontSize="small" />
+                  Không có quyền cập nhật
+                </Typography>
+              )}
+              {isOverdue && (
+                <Typography
+                  variant="body2"
+                  color="error"
+                  sx={{
+                    mt: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                  }}
+                >
+                  <WarningIcon fontSize="small" />
+                  Đã quá hạn chỉnh sửa thông tin cho quy trình này
+                </Typography>
+              )}
+
+              <CardContent sx={{ padding: 3 }}>
+                {backupMachines.length > 0 ? (
+                  <TableContainer component={Paper} sx={{ mb: 2 }}>
+                    <Table>
+                      <TableHead>
+                        <TableRow sx={{ bgcolor: "#f5f5f5" }}>
+                          <TableCell>STT</TableCell>
+                          <TableCell>Ngày điều chỉnh</TableCell>
+                          <TableCell>Tên máy</TableCell>
+                          <TableCell align="center">Số lượng</TableCell>
+                          <TableCell align="center">Đã chuẩn bị</TableCell>
+                          <TableCell align="center">Đạt</TableCell>
+                          <TableCell align="center">Không đạt</TableCell>
+                          <TableCell align="center">Tỉ lệ đạt (%)</TableCell>
+                          <TableCell align="center">Chưa chuẩn bị</TableCell>
+                          <TableCell align="center">
+                            Tỉ lệ chuẩn bị (%)
+                          </TableCell>
+                          <TableCell>{/* Thao tác */}</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {backupMachines.map((machine, index) => (
+                          <TableRow key={machine.id_process_5_backup_machine}>
+                            <TableCell>{index + 1}</TableCell>
+                            <TableCell>
+                              {machine.adjust_date
+                                ? formatDateShort(machine.adjust_date)
+                                : "..."}
+                            </TableCell>
+                            <TableCell>{machine.name_machine}</TableCell>
+                            <TableCell align="center">
+                              {machine.quantity}
+                            </TableCell>
+                            <TableCell align="center">
+                              {machine.prepared}
+                            </TableCell>
+                            <TableCell align="center">{machine.pass}</TableCell>
+                            <TableCell align="center">{machine.fail}</TableCell>
+                            <TableCell align="center">
+                              {machine.pass_rate}%
+                            </TableCell>
+                            <TableCell align="center">
+                              {machine.not_prepared}
+                            </TableCell>
+                            <TableCell align="center">
+                              {machine.prepare_rate}%
+                            </TableCell>
+                            <TableCell>
+                              <Box sx={{ display: "flex" }}>
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  onClick={() =>
+                                    handleOpenBackupMachineDialog(machine)
+                                  }
+                                  disabled={!hasPermission /* || isOverdue */}
+                                  sx={{
+                                    opacity: !hasPermission /* || isOverdue */
+                                      ? 0.5
+                                      : 1,
+                                  }}
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() =>
+                                    handleDeleteBackupMachine(machine)
+                                  }
+                                  disabled={!hasPermission /* || isOverdue */}
+                                  sx={{
+                                    opacity: !hasPermission /* || isOverdue */
+                                      ? 0.5
+                                      : 1,
+                                  }}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                ) : (
+                  <Box sx={{ py: 3, textAlign: "center" }}>
+                    <Typography variant="body1" color="text.secondary">
+                      Chưa có thông tin máy dự phòng nào được thêm vào
+                    </Typography>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          </>
         )}
-
-        <CardContent sx={{ padding: 3 }}>
-          {preparingMachines.length > 0 ? (
-            <TableContainer component={Paper} sx={{ mb: 2 }}>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: "#f5f5f5" }}>
-                    <TableCell>STT</TableCell>
-                    <TableCell>Ngày điều chỉnh</TableCell>
-                    <TableCell>Tên máy</TableCell>
-                    <TableCell align="center">Số lượng</TableCell>
-                    <TableCell align="center">Đã chuẩn bị</TableCell>
-                    <TableCell align="center">Đạt</TableCell>
-                    <TableCell align="center">Không đạt</TableCell>
-                    <TableCell align="center">Tỉ lệ đạt (%)</TableCell>
-                    <TableCell align="center">Chưa chuẩn bị</TableCell>
-                    <TableCell align="center">Tỉ lệ chuẩn bị (%)</TableCell>
-                    <TableCell>{/* Thao tác */}</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {preparingMachines.map((machine, index) => (
-                    <TableRow key={machine.id_process_5_preparing_machine}>
-                      <TableCell>{index + 1}</TableCell>
-                      <TableCell>
-                        {machine.adjust_date
-                          ? formatDateShort(machine.adjust_date)
-                          : "..."}
-                      </TableCell>
-                      <TableCell>{machine.name_machine}</TableCell>
-                      <TableCell align="center">{machine.quantity}</TableCell>
-                      <TableCell align="center">{machine.prepared}</TableCell>
-                      <TableCell align="center">{machine.pass}</TableCell>
-                      <TableCell align="center">{machine.fail}</TableCell>
-                      <TableCell align="center">{machine.pass_rate}%</TableCell>
-                      <TableCell align="center">
-                        {machine.not_prepared}
-                      </TableCell>
-                      <TableCell align="center">
-                        {machine.prepare_rate}%
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: "flex" }}>
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() =>
-                              handleOpenPreparingMachineDialog(machine)
-                            }
-                            disabled={isOverdue}
-                            sx={{ opacity: isOverdue ? 0.5 : 1 }}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() =>
-                              handleDeletePreparingMachine(machine)
-                            }
-                            disabled={isOverdue}
-                            sx={{ opacity: isOverdue ? 0.5 : 1 }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          ) : (
-            <Box sx={{ py: 3, textAlign: "center" }}>
-              <Typography variant="body1" color="text.secondary">
-                Chưa có thông tin máy chuẩn bị nào được thêm vào
-              </Typography>
-            </Box>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Backup Machines Card */}
-      <Card
-        elevation={4}
-        sx={{
-          borderRadius: 2,
-          overflow: "visible",
-          mb: 4,
-        }}
-      >
-        <Box
-          sx={{
-            bgcolor: "#1976d2",
-            padding: 2,
-            color: "white",
-            borderTopLeftRadius: 8,
-            borderTopRightRadius: 8,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <Typography variant="h5" fontWeight="bold">
-            THÔNG TIN MÁY DỰ PHÒNG
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenBackupMachineDialog()}
-            disabled={isOverdue}
-            sx={{
-              bgcolor: "#ffffff",
-              color: "#1976d2",
-              "&:hover": { bgcolor: "#f5f5f5" },
-              opacity: isOverdue ? 0.5 : 1,
-            }}
-          >
-            Thêm máy
-          </Button>
-        </Box>
-        {isOverdue && (
-          <Typography
-            variant="body2"
-            color="error"
-            sx={{
-              mt: 1,
-              display: "flex",
-              alignItems: "center",
-              gap: 1,
-            }}
-          >
-            <WarningIcon fontSize="small" />
-            Đã quá hạn chỉnh sửa thông tin cho quy trình này
-          </Typography>
-        )}
-
-        <CardContent sx={{ padding: 3 }}>
-          {backupMachines.length > 0 ? (
-            <TableContainer component={Paper} sx={{ mb: 2 }}>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: "#f5f5f5" }}>
-                    <TableCell>STT</TableCell>
-                    <TableCell>Ngày điều chỉnh</TableCell>
-                    <TableCell>Tên máy</TableCell>
-                    <TableCell align="center">Số lượng</TableCell>
-                    <TableCell align="center">Đã chuẩn bị</TableCell>
-                    <TableCell align="center">Đạt</TableCell>
-                    <TableCell align="center">Không đạt</TableCell>
-                    <TableCell align="center">Tỉ lệ đạt (%)</TableCell>
-                    <TableCell align="center">Chưa chuẩn bị</TableCell>
-                    <TableCell align="center">Tỉ lệ chuẩn bị (%)</TableCell>
-                    <TableCell>{/* Thao tác */}</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {backupMachines.map((machine, index) => (
-                    <TableRow key={machine.id_process_5_backup_machine}>
-                      <TableCell>{index + 1}</TableCell>
-                      <TableCell>
-                        {machine.adjust_date
-                          ? formatDateShort(machine.adjust_date)
-                          : "..."}
-                      </TableCell>
-                      <TableCell>{machine.name_machine}</TableCell>
-                      <TableCell align="center">{machine.quantity}</TableCell>
-                      <TableCell align="center">{machine.prepared}</TableCell>
-                      <TableCell align="center">{machine.pass}</TableCell>
-                      <TableCell align="center">{machine.fail}</TableCell>
-                      <TableCell align="center">{machine.pass_rate}%</TableCell>
-                      <TableCell align="center">
-                        {machine.not_prepared}
-                      </TableCell>
-                      <TableCell align="center">
-                        {machine.prepare_rate}%
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: "flex" }}>
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() =>
-                              handleOpenBackupMachineDialog(machine)
-                            }
-                            disabled={isOverdue}
-                            sx={{ opacity: isOverdue ? 0.5 : 1 }}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleDeleteBackupMachine(machine)}
-                            disabled={isOverdue}
-                            sx={{ opacity: isOverdue ? 0.5 : 1 }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          ) : (
-            <Box sx={{ py: 3, textAlign: "center" }}>
-              <Typography variant="body1" color="text.secondary">
-                Chưa có thông tin máy dự phòng nào được thêm vào
-              </Typography>
-            </Box>
-          )}
-        </CardContent>
-      </Card>
+      />
 
       {/* Preparing Machine Dialog */}
       <Dialog

@@ -44,6 +44,7 @@ import {
   Warning as WarningIcon,
 } from "@mui/icons-material";
 import API from "../api/api";
+import PermissionCheck from "../components/PermissionCheck";
 
 const Process4Page = () => {
   const navigate = useNavigate();
@@ -861,403 +862,464 @@ const Process4Page = () => {
           </Typography>
         </Box>
 
-        <CardContent sx={{ padding: 3 }}>
-          <Grid container spacing={3}>
-            {/* Evidence Documentation Section */}
-            <Grid item xs={12} md={6}>
-              <Card variant="outlined" sx={{ height: "100%" }}>
-                <CardContent>
-                  <Typography variant="h6" color="primary" gutterBottom>
-                    Tài liệu Minh chứng
-                  </Typography>
-
-                  <Box sx={{ mb: 3 }}>
-                    <Stack
-                      direction="row"
-                      spacing={2}
-                      alignItems="center"
-                      sx={{ mb: 2 }}
-                    >
-                      <Button
-                        variant="outlined"
-                        component="label"
-                        startIcon={<InsertDriveFileIcon />}
-                        // disabled={isOverdue}
-                        // sx={{
-                        //   opacity: isOverdue ? 0.5 : 1,
-                        // }}
-                      >
-                        Chọn tập tin
-                        <input
-                          type="file"
-                          hidden
-                          multiple
-                          onChange={handleDocumentationFileSelect}
-                          // disabled={isOverdue}
-                          onClick={(e) => {
-                            // Reset value để có thể chọn lại cùng file
-                            e.target.value = null;
-                          }}
-                        />
-                      </Button>
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        startIcon={
-                          uploadingDocumentation ? (
-                            <CircularProgress size={20} color="inherit" />
-                          ) : documentationFiles.length > 0 ? (
-                            <CloudUploadIcon />
-                          ) : (
-                            <CheckIcon />
-                          )
-                        }
-                        onClick={uploadDocumentationFiles}
-                        disabled={
-                          documentationFiles.length === 0 ||
-                          uploadingDocumentation
-                          // || isOverdue
-                        }
-                        // sx={{
-                        //   opacity: isOverdue ? 0.5 : 1,
-                        // }}
-                      >
-                        {uploadingDocumentation
-                          ? "Đang tải lên..."
-                          : documentationFiles.length > 0
-                          ? "Tải lên"
-                          : "Chọn tập tin để tải lên"}
-                      </Button>
-                    </Stack>
-
-                    {/* Thêm thông báo nếu quá hạn */}
-                    {isOverdue && (
-                      <Typography
-                        variant="body2"
-                        color="error"
-                        sx={{
-                          mt: 1,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 1,
-                        }}
-                      >
-                        <WarningIcon fontSize="small" />
-                        Đã quá hạn nộp tài liệu minh chứng cho quy trình này
+        <PermissionCheck
+          requiredRole={[1]}
+          renderContent={(hasPermission) => (
+            <CardContent sx={{ padding: 3 }}>
+              <Grid container spacing={3}>
+                {/* Evidence Documentation Section */}
+                <Grid item xs={12} md={6}>
+                  <Card variant="outlined" sx={{ height: "100%" }}>
+                    <CardContent>
+                      <Typography variant="h6" color="primary" gutterBottom>
+                        Tài liệu Minh chứng
                       </Typography>
-                    )}
 
-                    {/* Selected Files List */}
-                    {documentationFiles.length > 0 && (
-                      <Paper
-                        variant="outlined"
-                        sx={{ p: 2, mb: 2, bgcolor: "#f5f5f5" }}
-                      >
-                        <Typography
-                          variant="subtitle2"
-                          sx={{ mb: 1, fontWeight: "medium" }}
+                      <Box sx={{ mb: 3 }}>
+                        <Stack
+                          direction="row"
+                          spacing={2}
+                          alignItems="center"
+                          sx={{ mb: 2 }}
                         >
-                          Tập tin đã chọn ({documentationFiles.length}):
-                        </Typography>
-                        <List dense>
-                          {Array.from(documentationFiles).map((file, index) => (
-                            <ListItem
-                              key={index}
-                              secondaryAction={
-                                <IconButton
-                                  edge="end"
-                                  aria-label="delete"
-                                  onClick={() =>
-                                    handleRemoveSelectedFile(index)
-                                  }
-                                  size="small"
-                                  sx={{
-                                    color: "error.main",
-                                    "&:hover": {
-                                      backgroundColor: "error.lighter",
-                                    },
-                                  }}
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              }
+                          <Button
+                            variant="outlined"
+                            component="label"
+                            startIcon={<InsertDriveFileIcon />}
+                            disabled={!hasPermission /* || isOverdue */}
+                            sx={{
+                              opacity: !hasPermission /* || isOverdue */
+                                ? 0.5
+                                : 1,
+                            }}
+                          >
+                            Chọn tập tin
+                            <input
+                              type="file"
+                              hidden
+                              multiple
+                              onChange={handleDocumentationFileSelect}
+                              disabled={!hasPermission /* || isOverdue */}
+                              onClick={(e) => {
+                                // Reset value để có thể chọn lại cùng file
+                                e.target.value = null;
+                              }}
+                            />
+                          </Button>
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            startIcon={
+                              uploadingDocumentation ? (
+                                <CircularProgress size={20} color="inherit" />
+                              ) : documentationFiles.length > 0 ? (
+                                <CloudUploadIcon />
+                              ) : (
+                                <CheckIcon />
+                              )
+                            }
+                            onClick={uploadDocumentationFiles}
+                            disabled={
+                              !hasPermission ||
+                              documentationFiles.length === 0 ||
+                              uploadingDocumentation /* ||
+                              isOverdue */
+                            }
+                            sx={{
+                              opacity: !hasPermission /* || isOverdue */
+                                ? 0.5
+                                : 1,
+                            }}
+                          >
+                            {uploadingDocumentation
+                              ? "Đang tải lên..."
+                              : documentationFiles.length > 0
+                              ? "Tải lên"
+                              : "Chọn tập tin để tải lên"}
+                          </Button>
+                        </Stack>
+
+                        {/* Thêm thông báo nếu không có quyền */}
+                        {!hasPermission && (
+                          <Typography
+                            variant="body2"
+                            color="error"
+                            sx={{
+                              mt: 1,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
+                            <WarningIcon fontSize="small" />
+                            Không có quyền cập nhật
+                          </Typography>
+                        )}
+
+                        {/* Thêm thông báo nếu quá hạn */}
+                        {isOverdue && (
+                          <Typography
+                            variant="body2"
+                            color="error"
+                            sx={{
+                              mt: 1,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
+                            <WarningIcon fontSize="small" />
+                            Đã quá hạn nộp tài liệu minh chứng cho quy trình này
+                          </Typography>
+                        )}
+
+                        {/* Selected Files List */}
+                        {documentationFiles.length > 0 && (
+                          <Paper
+                            variant="outlined"
+                            sx={{ p: 2, mb: 2, bgcolor: "#f5f5f5" }}
+                          >
+                            <Typography
+                              variant="subtitle2"
+                              sx={{ mb: 1, fontWeight: "medium" }}
                             >
-                              <ListItemText
-                                primary={file.name}
-                                secondary={`${(
-                                  file.size /
-                                  (1024 * 1024)
-                                ).toFixed(2)} MB`}
+                              Tập tin đã chọn ({documentationFiles.length}):
+                            </Typography>
+                            <List dense>
+                              {Array.from(documentationFiles).map(
+                                (file, index) => (
+                                  <ListItem
+                                    key={index}
+                                    secondaryAction={
+                                      <IconButton
+                                        edge="end"
+                                        aria-label="delete"
+                                        onClick={() =>
+                                          handleRemoveSelectedFile(index)
+                                        }
+                                        size="small"
+                                        sx={{
+                                          color: "error.main",
+                                          "&:hover": {
+                                            backgroundColor: "error.lighter",
+                                          },
+                                        }}
+                                      >
+                                        <DeleteIcon fontSize="small" />
+                                      </IconButton>
+                                    }
+                                  >
+                                    <ListItemText
+                                      primary={file.name}
+                                      secondary={`${(
+                                        file.size /
+                                        (1024 * 1024)
+                                      ).toFixed(2)} MB`}
+                                      sx={{
+                                        pr: 2,
+                                        "& .MuiListItemText-primary": {
+                                          fontSize: "0.9rem",
+                                        },
+                                        "& .MuiListItemText-secondary": {
+                                          fontSize: "0.8rem",
+                                        },
+                                      }}
+                                    />
+                                  </ListItem>
+                                )
+                              )}
+                            </List>
+                          </Paper>
+                        )}
+
+                        {!isOverdue && (
+                          <Typography
+                            variant="caption"
+                            color="textSecondary"
+                            sx={{ display: "block", mt: 1 }}
+                          >
+                            Giới hạn: Tối đa {MAX_FILES} tập tin, mỗi tập tin
+                            không quá {MAX_SIZE}MB
+                          </Typography>
+                        )}
+                      </Box>
+
+                      {/* Uploaded Files List */}
+                      <Box>
+                        <Typography
+                          variant="subtitle1"
+                          sx={{ mb: 2, fontWeight: "medium" }}
+                        >
+                          Tài liệu đã tải lên:
+                        </Typography>
+                        {uploadedDocumentations.length > 0 ? (
+                          <List sx={{ bgcolor: "#f5f5f5", borderRadius: 1 }}>
+                            {uploadedDocumentations.map((doc, index) => (
+                              <ListItem
+                                key={index}
                                 sx={{
-                                  pr: 2,
-                                  "& .MuiListItemText-primary": {
-                                    fontSize: "0.9rem",
-                                  },
-                                  "& .MuiListItemText-secondary": {
-                                    fontSize: "0.8rem",
-                                  },
+                                  borderBottom:
+                                    index < uploadedDocumentations.length - 1
+                                      ? "1px solid #e0e0e0"
+                                      : "none",
                                 }}
-                              />
-                            </ListItem>
-                          ))}
-                        </List>
-                      </Paper>
-                    )}
-
-                    {!isOverdue && (
-                      <Typography
-                        variant="caption"
-                        color="textSecondary"
-                        sx={{ display: "block", mt: 1 }}
-                      >
-                        Giới hạn: Tối đa {MAX_FILES} tập tin, mỗi tập tin không
-                        quá {MAX_SIZE}MB
-                      </Typography>
-                    )}
-                  </Box>
-
-                  {/* Uploaded Files List */}
-                  <Box>
-                    <Typography
-                      variant="subtitle1"
-                      sx={{ mb: 2, fontWeight: "medium" }}
-                    >
-                      Tài liệu đã tải lên:
-                    </Typography>
-                    {uploadedDocumentations.length > 0 ? (
-                      <List sx={{ bgcolor: "#f5f5f5", borderRadius: 1 }}>
-                        {uploadedDocumentations.map((doc, index) => (
-                          <ListItem
-                            key={index}
-                            sx={{
-                              borderBottom:
-                                index < uploadedDocumentations.length - 1
-                                  ? "1px solid #e0e0e0"
-                                  : "none",
-                            }}
+                              >
+                                <ListItemText
+                                  primary={doc.filename}
+                                  sx={{ mr: 2 }}
+                                />
+                                <ListItemSecondaryAction>
+                                  <Tooltip title="Xem tài liệu">
+                                    <IconButton
+                                      edge="end"
+                                      onClick={() =>
+                                        openPreview(doc.directUrl, doc.filename)
+                                      }
+                                      sx={{ mr: 1 }}
+                                    >
+                                      <VisibilityIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                  <Tooltip title="Xóa tài liệu">
+                                    <IconButton
+                                      edge="end"
+                                      onClick={() =>
+                                        deleteDocumentationFile(index)
+                                      }
+                                      disabled={
+                                        !hasPermission /* || isOverdue */
+                                      }
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                </ListItemSecondaryAction>
+                              </ListItem>
+                            ))}
+                          </List>
+                        ) : (
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ fontStyle: "italic" }}
                           >
-                            <ListItemText
-                              primary={doc.filename}
-                              sx={{ mr: 2 }}
-                            />
-                            <ListItemSecondaryAction>
-                              <Tooltip title="Xem tài liệu">
-                                <IconButton
-                                  edge="end"
-                                  onClick={() =>
-                                    openPreview(doc.directUrl, doc.filename)
-                                  }
-                                  sx={{ mr: 1 }}
-                                >
-                                  <VisibilityIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title="Xóa tài liệu">
-                                <IconButton
-                                  edge="end"
-                                  onClick={() => deleteDocumentationFile(index)}
-                                  // disabled={isOverdue}
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            </ListItemSecondaryAction>
-                          </ListItem>
-                        ))}
-                      </List>
-                    ) : (
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ fontStyle: "italic" }}
-                      >
-                        Chưa có tài liệu nào được tải lên
+                            Chưa có tài liệu nào được tải lên
+                          </Typography>
+                        )}
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                {/* A3 Documentation Section */}
+                <Grid item xs={12} md={6}>
+                  <Card variant="outlined" sx={{ height: "100%" }}>
+                    <CardContent>
+                      <Typography variant="h6" color="primary" gutterBottom>
+                        Tài liệu A3
                       </Typography>
-                    )}
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
 
-            {/* A3 Documentation Section */}
-            <Grid item xs={12} md={6}>
-              <Card variant="outlined" sx={{ height: "100%" }}>
-                <CardContent>
-                  <Typography variant="h6" color="primary" gutterBottom>
-                    Tài liệu A3
-                  </Typography>
-
-                  <Box sx={{ mb: 3 }}>
-                    <Stack
-                      direction="row"
-                      spacing={2}
-                      alignItems="center"
-                      sx={{ mb: 2 }}
-                    >
-                      <Button
-                        variant="outlined"
-                        component="label"
-                        startIcon={<InsertDriveFileIcon />}
-                      >
-                        Chọn tập tin
-                        <input
-                          type="file"
-                          hidden
-                          multiple
-                          onChange={handleA3DocumentationFileSelect}
-                          onClick={(e) => {
-                            // Reset value để có thể chọn lại cùng file
-                            e.target.value = null;
-                          }}
-                        />
-                      </Button>
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        startIcon={
-                          uploadingA3 ? (
-                            <CircularProgress size={20} color="inherit" />
-                          ) : a3DocumentationFiles.length > 0 ? (
-                            <CloudUploadIcon />
-                          ) : (
-                            <CheckIcon />
-                          )
-                        }
-                        onClick={uploadA3DocumentationFiles}
-                        disabled={
-                          a3DocumentationFiles.length === 0 || uploadingA3
-                        }
-                      >
-                        {uploadingA3
-                          ? "Đang tải lên..."
-                          : a3DocumentationFiles.length > 0
-                          ? "Tải lên"
-                          : "Chọn tập tin để tải lên"}
-                      </Button>
-                    </Stack>
-
-                    {/* Selected Files List */}
-                    {a3DocumentationFiles.length > 0 && (
-                      <Paper
-                        variant="outlined"
-                        sx={{ p: 2, mb: 2, bgcolor: "#f5f5f5" }}
-                      >
-                        <Typography
-                          variant="subtitle2"
-                          sx={{ mb: 1, fontWeight: "medium" }}
+                      <Box sx={{ mb: 3 }}>
+                        <Stack
+                          direction="row"
+                          spacing={2}
+                          alignItems="center"
+                          sx={{ mb: 2 }}
                         >
-                          Tập tin đã chọn ({a3DocumentationFiles.length}):
-                        </Typography>
-                        <List dense>
-                          {a3DocumentationFiles.map((file, index) => (
-                            <ListItem
-                              key={index}
-                              secondaryAction={
-                                <IconButton
-                                  edge="end"
-                                  aria-label="delete"
-                                  onClick={() =>
-                                    handleRemoveSelectedA3File(index)
-                                  }
-                                  size="small"
-                                  sx={{
-                                    color: "error.main",
-                                    "&:hover": {
-                                      backgroundColor: "error.lighter",
-                                    },
-                                  }}
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              }
-                            >
-                              <ListItemText
-                                primary={file.name}
-                                secondary={`${(file.size / 1024).toFixed(
-                                  2
-                                )} KB`}
-                              />
-                            </ListItem>
-                          ))}
-                        </List>
-                      </Paper>
-                    )}
-
-                    <Typography
-                      variant="caption"
-                      color="textSecondary"
-                      sx={{ display: "block", mt: 1 }}
-                    >
-                      Giới hạn: Tối đa {MAX_FILES} tập tin, mỗi tập tin không
-                      quá {MAX_SIZE}MB
-                    </Typography>
-                  </Box>
-
-                  {/* Uploaded Files List */}
-                  <Box>
-                    <Typography
-                      variant="subtitle1"
-                      sx={{ mb: 2, fontWeight: "medium" }}
-                    >
-                      Tài liệu đã tải lên:
-                    </Typography>
-                    {uploadedA3Documentations.length > 0 ? (
-                      <List sx={{ bgcolor: "#f5f5f5", borderRadius: 1 }}>
-                        {uploadedA3Documentations.map((doc, index) => (
-                          <ListItem
-                            key={index}
+                          <Button
+                            variant="outlined"
+                            component="label"
+                            startIcon={<InsertDriveFileIcon />}
+                            disabled={!hasPermission}
                             sx={{
-                              borderBottom:
-                                index < uploadedA3Documentations.length - 1
-                                  ? "1px solid #e0e0e0"
-                                  : "none",
+                              opacity: !hasPermission ? 0.5 : 1,
                             }}
                           >
-                            <ListItemText
-                              primary={doc.filename}
-                              sx={{ mr: 2 }}
+                            Chọn tập tin
+                            <input
+                              type="file"
+                              hidden
+                              multiple
+                              onChange={handleA3DocumentationFileSelect}
+                              disabled={!hasPermission}
+                              onClick={(e) => {
+                                // Reset value để có thể chọn lại cùng file
+                                e.target.value = null;
+                              }}
                             />
-                            <ListItemSecondaryAction>
-                              <Tooltip title="Xem tài liệu A3">
-                                <IconButton
-                                  edge="end"
-                                  onClick={() =>
-                                    openPreview(doc.directUrl, doc.filename)
+                          </Button>
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            startIcon={
+                              uploadingA3 ? (
+                                <CircularProgress size={20} color="inherit" />
+                              ) : a3DocumentationFiles.length > 0 ? (
+                                <CloudUploadIcon />
+                              ) : (
+                                <CheckIcon />
+                              )
+                            }
+                            onClick={uploadA3DocumentationFiles}
+                            disabled={
+                              !hasPermission ||
+                              a3DocumentationFiles.length === 0 ||
+                              uploadingA3
+                            }
+                            sx={{
+                              opacity: !hasPermission ? 0.5 : 1,
+                            }}
+                          >
+                            {uploadingA3
+                              ? "Đang tải lên..."
+                              : a3DocumentationFiles.length > 0
+                              ? "Tải lên"
+                              : "Chọn tập tin để tải lên"}
+                          </Button>
+                        </Stack>
+
+                        {/* Thêm thông báo nếu không có quyền */}
+                        {!hasPermission && (
+                          <Typography
+                            variant="body2"
+                            color="error"
+                            sx={{
+                              mt: 1,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
+                            <WarningIcon fontSize="small" />
+                            Không có quyền cập nhật
+                          </Typography>
+                        )}
+
+                        {/* Selected Files List */}
+                        {a3DocumentationFiles.length > 0 && (
+                          <Paper
+                            variant="outlined"
+                            sx={{ p: 2, mb: 2, bgcolor: "#f5f5f5" }}
+                          >
+                            <Typography
+                              variant="subtitle2"
+                              sx={{ mb: 1, fontWeight: "medium" }}
+                            >
+                              Tập tin đã chọn ({a3DocumentationFiles.length}):
+                            </Typography>
+                            <List dense>
+                              {a3DocumentationFiles.map((file, index) => (
+                                <ListItem
+                                  key={index}
+                                  secondaryAction={
+                                    <IconButton
+                                      edge="end"
+                                      aria-label="delete"
+                                      onClick={() =>
+                                        handleRemoveSelectedA3File(index)
+                                      }
+                                      size="small"
+                                      sx={{
+                                        color: "error.main",
+                                        "&:hover": {
+                                          backgroundColor: "error.lighter",
+                                        },
+                                      }}
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
                                   }
-                                  sx={{ mr: 1 }}
                                 >
-                                  <VisibilityIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title="Xóa tài liệu A3">
-                                <IconButton
-                                  edge="end"
-                                  onClick={() =>
-                                    deleteA3DocumentationFile(index)
-                                  }
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            </ListItemSecondaryAction>
-                          </ListItem>
-                        ))}
-                      </List>
-                    ) : (
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ fontStyle: "italic" }}
-                      >
-                        Chưa có tài liệu nào được tải lên
-                      </Typography>
-                    )}
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        </CardContent>
+                                  <ListItemText
+                                    primary={file.name}
+                                    secondary={`${(file.size / 1024).toFixed(
+                                      2
+                                    )} KB`}
+                                  />
+                                </ListItem>
+                              ))}
+                            </List>
+                          </Paper>
+                        )}
+
+                        <Typography
+                          variant="caption"
+                          color="textSecondary"
+                          sx={{ display: "block", mt: 1 }}
+                        >
+                          Giới hạn: Tối đa {MAX_FILES} tập tin, mỗi tập tin
+                          không quá {MAX_SIZE}MB
+                        </Typography>
+                      </Box>
+
+                      {/* Uploaded Files List */}
+                      <Box>
+                        <Typography
+                          variant="subtitle1"
+                          sx={{ mb: 2, fontWeight: "medium" }}
+                        >
+                          Tài liệu đã tải lên:
+                        </Typography>
+                        {uploadedA3Documentations.length > 0 ? (
+                          <List sx={{ bgcolor: "#f5f5f5", borderRadius: 1 }}>
+                            {uploadedA3Documentations.map((doc, index) => (
+                              <ListItem
+                                key={index}
+                                sx={{
+                                  borderBottom:
+                                    index < uploadedA3Documentations.length - 1
+                                      ? "1px solid #e0e0e0"
+                                      : "none",
+                                }}
+                              >
+                                <ListItemText
+                                  primary={doc.filename}
+                                  sx={{ mr: 2 }}
+                                />
+                                <ListItemSecondaryAction>
+                                  <Tooltip title="Xem tài liệu A3">
+                                    <IconButton
+                                      edge="end"
+                                      onClick={() =>
+                                        openPreview(doc.directUrl, doc.filename)
+                                      }
+                                      sx={{ mr: 1 }}
+                                    >
+                                      <VisibilityIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                  <Tooltip title="Xóa tài liệu A3">
+                                    <IconButton
+                                      edge="end"
+                                      onClick={() =>
+                                        deleteA3DocumentationFile(index)
+                                      }
+                                      disabled={!hasPermission}
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                </ListItemSecondaryAction>
+                              </ListItem>
+                            ))}
+                          </List>
+                        ) : (
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ fontStyle: "italic" }}
+                          >
+                            Chưa có tài liệu nào được tải lên
+                          </Typography>
+                        )}
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+            </CardContent>
+          )}
+        />
       </Card>
 
       {/* File Preview Dialog */}

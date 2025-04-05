@@ -38,6 +38,7 @@ import {
 } from "@mui/icons-material";
 import API from "../api/api";
 import NotificationDialog from "../components/NotificationDialog";
+import PermissionCheck from "../components/PermissionCheck";
 
 const DetailedPhasePage = () => {
   const { id } = useParams();
@@ -368,28 +369,54 @@ const DetailedPhasePage = () => {
                   </Typography>
                   <Grid container spacing={3}>
                     <Grid item xs={12} md={6}>
-                      <TextField
-                        label="Thời Gian Chuyển Đổi Dự Kiến"
-                        type="datetime-local"
-                        value={planDate}
-                        onChange={(e) => setPlanDate(e.target.value)}
-                        fullWidth
-                        required
-                        InputLabelProps={{ shrink: true }}
-                        variant="outlined"
+                      <PermissionCheck
+                        requiredRole={[1, 3]}
+                        renderContent={(hasPermission) => (
+                          <TextField
+                            label="Thời Gian Chuyển Đổi Dự Kiến"
+                            type="datetime-local"
+                            value={planDate}
+                            onChange={(e) => setPlanDate(e.target.value)}
+                            fullWidth
+                            required
+                            InputLabelProps={{ shrink: true }}
+                            variant="outlined"
+                            InputProps={{
+                              readOnly: !hasPermission,
+                              sx: {
+                                backgroundColor: !hasPermission
+                                  ? "#ffffcc"
+                                  : "inherit",
+                              },
+                            }}
+                          />
+                        )}
                       />
                     </Grid>
                     <Grid item xs={12} md={6}>
-                      <TextField
-                        label="Thời Gian Chuyển Đổi Thực Tế"
-                        type="datetime-local"
-                        value={actualDate || ""}
-                        onChange={(e) => setActualDate(e.target.value)}
-                        fullWidth
-                        required
-                        InputLabelProps={{ shrink: true }}
-                        variant="outlined"
-                        placeholder="dd/mm/yyyy --:-- --"
+                      <PermissionCheck
+                        requiredRole={[1, 3]}
+                        renderContent={(hasPermission) => (
+                          <TextField
+                            label="Thời Gian Chuyển Đổi Thực Tế"
+                            type="datetime-local"
+                            value={actualDate || ""}
+                            onChange={(e) => setActualDate(e.target.value)}
+                            fullWidth
+                            required
+                            InputLabelProps={{ shrink: true }}
+                            variant="outlined"
+                            placeholder="dd/mm/yyyy --:-- --"
+                            InputProps={{
+                              readOnly: !hasPermission,
+                              sx: {
+                                backgroundColor: !hasPermission
+                                  ? "#ffffcc"
+                                  : "inherit",
+                              },
+                            }}
+                          />
+                        )}
                       />
                     </Grid>
                   </Grid>
@@ -399,23 +426,30 @@ const DetailedPhasePage = () => {
           </Grid>
 
           <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleUpdate}
-              size="large"
-              startIcon={<UpdateIcon />}
-              sx={{
-                minWidth: 150,
-                borderRadius: 2,
-                boxShadow: 2,
-                "&:hover": {
-                  boxShadow: 4,
-                },
-              }}
-            >
-              Cập Nhật
-            </Button>
+            <PermissionCheck
+              requiredRole={[1, 3]}
+              renderContent={(hasPermission) =>
+                hasPermission && (
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={handleUpdate}
+                    size="large"
+                    startIcon={<UpdateIcon />}
+                    sx={{
+                      minWidth: 150,
+                      borderRadius: 2,
+                      boxShadow: 2,
+                      "&:hover": {
+                        boxShadow: 4,
+                      },
+                    }}
+                  >
+                    Cập Nhật
+                  </Button>
+                )
+              }
+            />
           </Box>
         </CardContent>
       </Card>
