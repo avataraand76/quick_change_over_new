@@ -181,6 +181,16 @@ const sanitizeDate = (dateString) => {
 
 // Thêm middleware xác thực JWT
 const authenticateToken = (req, res, next) => {
+  // Danh sách các endpoint không cần xác thực
+  const publicEndpoints = [
+    // Thêm các endpoint khác nếu cần
+  ];
+
+  // Kiểm tra nếu endpoint hiện tại nằm trong danh sách public
+  if (publicEndpoints.includes(req.path)) {
+    return next();
+  }
+
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
 

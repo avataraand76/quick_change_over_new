@@ -31,6 +31,9 @@ import {
   CircularProgress,
   Pagination,
   TableFooter,
+  useTheme,
+  useMediaQuery,
+  Stack,
 } from "@mui/material";
 import API from "../api/api";
 import {
@@ -81,6 +84,9 @@ const CreatePhasePage = () => {
   const [isCreating, setIsCreating] = useState(false);
 
   const navigate = useNavigate();
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const handleCloseNotification = () => {
     setNotification({ ...notification, open: false });
@@ -490,8 +496,133 @@ const CreatePhasePage = () => {
     }
   };
 
+  // Mobile view components
+  const MobileUpdatePlanCard = ({ item }) => (
+    <Card sx={{ mb: 2, position: "relative" }}>
+      <CardContent>
+        <Typography variant="h6" color="primary" gutterBottom>
+          Chuyền {item.line}
+        </Typography>
+        <Typography variant="body1" gutterBottom>
+          <strong>Mã Hàng:</strong> {item.style}
+        </Typography>
+        <Typography variant="body1" gutterBottom>
+          <strong>PO:</strong> {item.PO}
+        </Typography>
+        <Typography variant="body2" gutterBottom>
+          <strong>Số Lượng:</strong> {item.quantity}
+        </Typography>
+        <Typography variant="body2" gutterBottom>
+          <strong>Ngày CĐ Dự Kiến:</strong> {formatDateTime(item.plan_date)}
+        </Typography>
+        <Button
+          variant="contained"
+          color={
+            selectedPlans.some((p) => p.KHTId === item.KHTId)
+              ? "success"
+              : "primary"
+          }
+          fullWidth
+          onClick={() => handleSelectPlan(item)}
+          sx={{ mt: 1 }}
+        >
+          {selectedPlans.some((p) => p.KHTId === item.KHTId)
+            ? "Đã Chọn"
+            : "Chọn"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+
+  const MobilePlanListCard = ({ plan }) => (
+    <Card sx={{ mb: 2, opacity: plan.inactive === 1 ? 0.5 : 1 }}>
+      <CardContent>
+        <Typography variant="h6" color="primary" gutterBottom>
+          Chuyền {plan.line}
+        </Typography>
+        <Typography variant="body1" gutterBottom>
+          <strong>Mã Hàng:</strong> {plan.style}
+        </Typography>
+        <Typography variant="body2" gutterBottom>
+          <strong>Thời Gian CĐ Dự Kiến:</strong>
+          <br />
+          {formatDateTime(plan.plan_date)}
+        </Typography>
+        <Typography variant="body2" gutterBottom>
+          <strong>Thời Gian CĐ Thực Tế:</strong>
+          <br />
+          {plan.actual_date ? formatDateTime(plan.actual_date) : "..."}
+        </Typography>
+        {/* <Typography variant="body2" gutterBottom>
+          <strong>Người Cập Nhật:</strong> {plan.updated_by}
+        </Typography> */}
+        <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+          <Button
+            variant="outlined"
+            size="small"
+            color={plan.inactive === 1 ? "error" : "success"}
+            onClick={() => handleToggleInactive(plan.id_plan)}
+            startIcon={plan.inactive === 1 ? <LockIcon /> : <LockOpenIcon />}
+            fullWidth
+          >
+            {plan.inactive === 1 ? "Đã khóa" : "Đang mở"}
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            color="primary"
+            onClick={() => navigate(`/detailed-phase/${plan.id_plan}`)}
+            disabled={plan.inactive === 1}
+            fullWidth
+          >
+            Xem chi tiết
+          </Button>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+
+  // Mobile action buttons
+  const MobileActionButtons = () => (
+    <Box
+      sx={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        bgcolor: "white",
+        borderTop: "1px solid rgba(0, 0, 0, 0.12)",
+        p: 2,
+        zIndex: 1000,
+      }}
+    >
+      <Stack direction="row" spacing={1}>
+        <Button
+          variant="contained"
+          color="error"
+          onClick={() => setSelectedPlans([])}
+          disabled={selectedPlans.length === 0 || isCreating}
+          fullWidth
+        >
+          Bỏ chọn ({selectedPlans.length})
+        </Button>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleCreatePlan}
+          disabled={selectedPlans.length === 0 || isCreating}
+          fullWidth
+        >
+          {isCreating
+            ? "Đang cập nhật..."
+            : `Cập nhật (${selectedPlans.length})`}
+        </Button>
+      </Stack>
+    </Box>
+  );
+
   return (
-    <Container component="main" maxWidth="xl">
+    <Container component="main" maxWidth="xl" sx={{ pb: isMobile ? 8 : 0 }}>
       <Box sx={{ display: "flex", alignItems: "center", mt: 2 }}>
         <Button
           variant="outlined"
@@ -512,7 +643,7 @@ const CreatePhasePage = () => {
       <Box
         sx={{
           position: "fixed",
-          bottom: 20,
+          bottom: isMobile ? 80 : 20,
           right: 20,
           zIndex: 1000,
           display: "flex",
@@ -573,7 +704,7 @@ const CreatePhasePage = () => {
             alignItems: "center",
           }}
         >
-          <Typography variant="h5" fontWeight="bold">
+          <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
             CẬP NHẬT KẾ HOẠCH CHUYỂN ĐỔI
           </Typography>
         </Box>
@@ -589,6 +720,7 @@ const CreatePhasePage = () => {
               sx={{
                 mb: 2,
                 display: "flex",
+                flexDirection: isMobile ? "column" : "row",
                 gap: 2,
                 backgroundColor: "#f8f9fa",
                 p: 2,
@@ -600,7 +732,7 @@ const CreatePhasePage = () => {
                 placeholder="Tìm chuyền"
                 value={searchLine}
                 onChange={(e) => setSearchLine(e.target.value)}
-                sx={{ width: 200 }}
+                sx={{ width: isMobile ? "100%" : 200 }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -614,7 +746,7 @@ const CreatePhasePage = () => {
                 placeholder="Tìm mã hàng"
                 value={searchStyle}
                 onChange={(e) => setSearchStyle(e.target.value)}
-                sx={{ width: 200 }}
+                sx={{ width: isMobile ? "100%" : 200 }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -625,248 +757,286 @@ const CreatePhasePage = () => {
               />
             </Box>
 
-            {/* Header cột */}
-            <TableContainer>
-              <Table>
-                <TableBody>
-                  {groupedData.map(([line, items]) => (
-                    <React.Fragment key={line}>
-                      {/* Header chuyền */}
-                      <TableRow
-                        sx={{
-                          backgroundColor: "#e3f2fd",
-                          "&:hover": { backgroundColor: "#bbdefb" },
-                          cursor: "pointer",
-                        }}
-                        onClick={() => toggleLineCollapse(line)}
-                      >
-                        <TableCell colSpan={6}>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                            }}
-                          >
-                            <IconButton size="small">
-                              {collapsedLines[line] ? (
-                                <ExpandMore />
-                              ) : (
-                                <ChevronRight />
-                              )}
-                            </IconButton>
-                            <Typography
-                              sx={{ fontWeight: "bold", color: "#1976d2" }}
+            {/* Hiển thị dữ liệu dựa trên viewport */}
+            {isMobile ? (
+              // Mobile view
+              <Box>
+                {groupedData.map(([line, items]) => (
+                  <Box key={line} sx={{ mb: 3 }}>
+                    <Button
+                      fullWidth
+                      onClick={() => toggleLineCollapse(line)}
+                      sx={{
+                        justifyContent: "flex-start",
+                        backgroundColor: "#e3f2fd",
+                        mb: 1,
+                        "&:hover": { backgroundColor: "#bbdefb" },
+                      }}
+                      startIcon={
+                        collapsedLines[line] ? <ExpandMore /> : <ChevronRight />
+                      }
+                    >
+                      <Typography sx={{ fontWeight: "bold", color: "#1976d2" }}>
+                        Chuyền {line} ({items.length} kế hoạch)
+                      </Typography>
+                    </Button>
+                    <Collapse in={!collapsedLines[line]}>
+                      {items.map((item) => (
+                        <MobileUpdatePlanCard key={item.KHTId} item={item} />
+                      ))}
+                    </Collapse>
+                  </Box>
+                ))}
+              </Box>
+            ) : (
+              // Desktop view - Original table layout
+              <TableContainer>
+                <Table>
+                  <TableBody>
+                    {groupedData.map(([line, items]) => (
+                      <React.Fragment key={line}>
+                        {/* Header chuyền */}
+                        <TableRow
+                          sx={{
+                            backgroundColor: "#e3f2fd",
+                            "&:hover": { backgroundColor: "#bbdefb" },
+                            cursor: "pointer",
+                          }}
+                          onClick={() => toggleLineCollapse(line)}
+                        >
+                          <TableCell colSpan={6}>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                              }}
                             >
-                              Chuyền {line} ({items.length} kế hoạch)
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
+                              <IconButton size="small">
+                                {collapsedLines[line] ? (
+                                  <ExpandMore />
+                                ) : (
+                                  <ChevronRight />
+                                )}
+                              </IconButton>
+                              <Typography
+                                sx={{ fontWeight: "bold", color: "#1976d2" }}
+                              >
+                                Chuyền {line} ({items.length} kế hoạch)
+                              </Typography>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
 
-                      {/* Chi tiết các đợt */}
-                      {!collapsedLines[line] && (
-                        <>
-                          {/* Header columns cho mỗi phần collapse */}
-                          <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-                            <TableCell
-                              sx={{
-                                fontWeight: "bold",
-                                width: "15%",
-                                pl: 6,
-                              }}
-                            >
-                              Chuyền
-                            </TableCell>
-                            <TableCell
-                              sx={{
-                                fontWeight: "bold",
-                                width: "15%",
-                              }}
-                            >
-                              Mã Hàng
-                            </TableCell>
-                            <TableCell
-                              sx={{
-                                fontWeight: "bold",
-                                width: "15%",
-                              }}
-                            >
-                              PO
-                            </TableCell>
-                            <TableCell
-                              sx={{
-                                fontWeight: "bold",
-                                width: "15%",
-                                textAlign: "center",
-                              }}
-                            >
-                              Số Lượng
-                            </TableCell>
-                            <TableCell
-                              sx={{
-                                fontWeight: "bold",
-                                width: "25%",
-                              }}
-                            >
-                              Thời Gian CĐ Dự Kiến
-                            </TableCell>
-                            <TableCell
-                              sx={{
-                                fontWeight: "bold",
-                                width: "15%",
-                                textAlign: "left",
-                              }}
-                            >
-                              Thao Tác
-                            </TableCell>
-                          </TableRow>
-
-                          {/* Dữ liệu */}
-                          {items.map((item) => (
-                            <TableRow
-                              key={item.KHTId}
-                              selected={selectedPlans.some(
-                                (p) => p.KHTId === item.KHTId
-                              )}
-                              hover
-                              sx={{
-                                "& td": { borderBottom: "1px solid #e0e0e0" },
-                                "&.Mui-selected": {
-                                  backgroundColor: "#e8f5e9",
-                                },
-                                "&.Mui-selected:hover": {
-                                  backgroundColor: "#c8e6c9",
-                                },
-                              }}
-                            >
-                              <TableCell sx={{ pl: 6 }}>
-                                Chuyền {item.line}
+                        {/* Chi tiết các đợt */}
+                        {!collapsedLines[line] && (
+                          <>
+                            {/* Header columns cho mỗi phần collapse */}
+                            <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+                              <TableCell
+                                sx={{
+                                  fontWeight: "bold",
+                                  width: "15%",
+                                  pl: 6,
+                                }}
+                              >
+                                Chuyền
                               </TableCell>
-                              <TableCell>{item.style}</TableCell>
-                              <TableCell>{item.PO}</TableCell>
-                              <TableCell align="center">
-                                {item.quantity}
+                              <TableCell
+                                sx={{
+                                  fontWeight: "bold",
+                                  width: "15%",
+                                }}
+                              >
+                                Mã Hàng
                               </TableCell>
-                              <TableCell>
-                                {formatDateTime(item.plan_date)}
+                              <TableCell
+                                sx={{
+                                  fontWeight: "bold",
+                                  width: "15%",
+                                }}
+                              >
+                                PO
                               </TableCell>
-                              <TableCell>
-                                <Button
-                                  variant="contained"
-                                  color={
-                                    selectedPlans.some(
-                                      (p) => p.KHTId === item.KHTId
-                                    )
-                                      ? "success"
-                                      : "primary"
-                                  }
-                                  size="small"
-                                  onClick={() => handleSelectPlan(item)}
-                                  sx={{
-                                    textTransform: "none",
-                                    minWidth: 80,
-                                    boxShadow: "none",
-                                    "&:hover": { boxShadow: 1 },
-                                  }}
-                                >
-                                  {selectedPlans.some(
-                                    (p) => p.KHTId === item.KHTId
-                                  )
-                                    ? "Đã Chọn"
-                                    : "Chọn"}
-                                </Button>
+                              <TableCell
+                                sx={{
+                                  fontWeight: "bold",
+                                  width: "15%",
+                                  textAlign: "center",
+                                }}
+                              >
+                                Số Lượng
+                              </TableCell>
+                              <TableCell
+                                sx={{
+                                  fontWeight: "bold",
+                                  width: "25%",
+                                }}
+                              >
+                                Thời Gian CĐ Dự Kiến
+                              </TableCell>
+                              <TableCell
+                                sx={{
+                                  fontWeight: "bold",
+                                  width: "15%",
+                                  textAlign: "left",
+                                }}
+                              >
+                                Thao Tác
                               </TableCell>
                             </TableRow>
-                          ))}
-                        </>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
 
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "right",
-                gap: 2,
-                position: "sticky",
-                bottom: 0,
-                left: 0,
-                right: 0,
-                zIndex: 2,
-                padding: "16px",
-                // background: "transparent",
-                // backdropFilter: "blur(5px)",
-                marginTop: 2,
-                marginX: 2,
-                borderRadius: 1,
-                // "&::before": {
-                //   content: '""',
-                //   position: "absolute",
-                //   top: 0,
-                //   left: 0,
-                //   right: 0,
-                //   bottom: 0,
-                //   background: "rgba(255, 255, 255, 0.3)",
-                //   borderRadius: "inherit",
-                //   zIndex: -1,
-                // },
-              }}
-            >
-              <Button
-                variant="outlined"
-                color="error"
-                onClick={() => setSelectedPlans([])}
-                disabled={selectedPlans.length === 0 || isCreating}
-                size="large"
-                startIcon={<ClearIcon />}
+                            {/* Dữ liệu */}
+                            {items.map((item) => (
+                              <TableRow
+                                key={item.KHTId}
+                                selected={selectedPlans.some(
+                                  (p) => p.KHTId === item.KHTId
+                                )}
+                                hover
+                                sx={{
+                                  "& td": { borderBottom: "1px solid #e0e0e0" },
+                                  "&.Mui-selected": {
+                                    backgroundColor: "#e8f5e9",
+                                  },
+                                  "&.Mui-selected:hover": {
+                                    backgroundColor: "#c8e6c9",
+                                  },
+                                }}
+                              >
+                                <TableCell sx={{ pl: 6 }}>
+                                  Chuyền {item.line}
+                                </TableCell>
+                                <TableCell>{item.style}</TableCell>
+                                <TableCell>{item.PO}</TableCell>
+                                <TableCell align="center">
+                                  {item.quantity}
+                                </TableCell>
+                                <TableCell>
+                                  {formatDateTime(item.plan_date)}
+                                </TableCell>
+                                <TableCell>
+                                  <Button
+                                    variant="contained"
+                                    color={
+                                      selectedPlans.some(
+                                        (p) => p.KHTId === item.KHTId
+                                      )
+                                        ? "success"
+                                        : "primary"
+                                    }
+                                    size="small"
+                                    onClick={() => handleSelectPlan(item)}
+                                    sx={{
+                                      textTransform: "none",
+                                      minWidth: 80,
+                                      boxShadow: "none",
+                                      "&:hover": { boxShadow: 1 },
+                                    }}
+                                  >
+                                    {selectedPlans.some(
+                                      (p) => p.KHTId === item.KHTId
+                                    )
+                                      ? "Đã Chọn"
+                                      : "Chọn"}
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+
+            {/* Action buttons */}
+            {isMobile ? (
+              <MobileActionButtons />
+            ) : (
+              <Box
                 sx={{
-                  minWidth: 180,
-                  borderRadius: 2,
-                  textTransform: "none",
-                  fontWeight: "medium",
-                  borderWidth: 2,
-                  "&:hover": {
+                  display: "flex",
+                  justifyContent: "right",
+                  gap: 2,
+                  position: "sticky",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  zIndex: 2,
+                  padding: "16px",
+                  // background: "transparent",
+                  // backdropFilter: "blur(5px)",
+                  marginTop: 2,
+                  marginX: 2,
+                  borderRadius: 1,
+                  // "&::before": {
+                  //   content: '""',
+                  //   position: "absolute",
+                  //   top: 0,
+                  //   left: 0,
+                  //   right: 0,
+                  //   bottom: 0,
+                  //   background: "rgba(255, 255, 255, 0.3)",
+                  //   borderRadius: "inherit",
+                  //   zIndex: -1,
+                  // },
+                }}
+              >
+                <Button
+                  variant="contained"
+                  color="error"
+                  onClick={() => setSelectedPlans([])}
+                  disabled={selectedPlans.length === 0 || isCreating}
+                  size="large"
+                  startIcon={<ClearIcon />}
+                  sx={{
+                    minWidth: 180,
+                    borderRadius: 2,
+                    textTransform: "none",
+                    fontWeight: "medium",
                     borderWidth: 2,
-                  },
-                }}
-              >
-                Bỏ Chọn {selectedPlans.length} Kế Hoạch
-              </Button>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleCreatePlan}
-                disabled={selectedPlans.length === 0 || isCreating}
-                size="large"
-                startIcon={
-                  isCreating ? (
-                    <CircularProgress size={20} color="inherit" />
-                  ) : (
-                    <AddIcon />
-                  )
-                }
-                sx={{
-                  minWidth: 200,
-                  borderRadius: 2,
-                  boxShadow: 2,
-                  "&:hover": {
-                    boxShadow: 4,
-                  },
-                  textTransform: "none",
-                  bgcolor: "#1976d2",
-                  color: "white",
-                  fontWeight: "medium",
-                }}
-              >
-                {isCreating
-                  ? "Đang cập nhật..."
-                  : `Cập Nhật ${selectedPlans.length} Kế Hoạch`}
-              </Button>
-            </Box>
+                    "&:hover": {
+                      borderWidth: 2,
+                    },
+                  }}
+                >
+                  Bỏ Chọn {selectedPlans.length} Kế Hoạch
+                </Button>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleCreatePlan}
+                  disabled={selectedPlans.length === 0 || isCreating}
+                  size="large"
+                  startIcon={
+                    isCreating ? (
+                      <CircularProgress size={20} color="inherit" />
+                    ) : (
+                      <AddIcon />
+                    )
+                  }
+                  sx={{
+                    minWidth: 200,
+                    borderRadius: 2,
+                    boxShadow: 2,
+                    "&:hover": {
+                      boxShadow: 4,
+                    },
+                    textTransform: "none",
+                    bgcolor: "#1976d2",
+                    color: "white",
+                    fontWeight: "medium",
+                  }}
+                >
+                  {isCreating
+                    ? "Đang cập nhật..."
+                    : `Cập Nhật ${selectedPlans.length} Kế Hoạch`}
+                </Button>
+              </Box>
+            )}
           </Box>
         </CardContent>
       </Card>
@@ -893,380 +1063,405 @@ const CreatePhasePage = () => {
             alignItems: "center",
           }}
         >
-          <Typography variant="h5" fontWeight="bold">
+          <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
             DANH SÁCH CÁC KẾ HOẠCH
           </Typography>
         </Box>
         <Box sx={{ overflow: "auto", padding: 2 }}>
-          <Table sx={{ minWidth: 1200 }}>
-            <TableHead>
-              <TableRow sx={{ backgroundColor: "#1976d2" }}>
-                <TableCell
-                  sx={{ color: "white", fontWeight: "bold", width: "15%" }}
-                >
-                  Chuyền
-                </TableCell>
-                <TableCell
-                  sx={{ color: "white", fontWeight: "bold", width: "20%" }}
-                >
-                  Mã Hàng
-                </TableCell>
-                <TableCell
-                  sx={{ color: "white", fontWeight: "bold", width: "20%" }}
-                >
-                  Thời Gian CĐ Dự Kiến
-                </TableCell>
-                <TableCell
-                  sx={{ color: "white", fontWeight: "bold", width: "20%" }}
-                >
-                  Thời Gian CĐ Thực Tế
-                </TableCell>
-                <TableCell
-                  sx={{ color: "white", fontWeight: "bold", width: "20%" }}
-                >
-                  Người Cập Nhật
-                </TableCell>
-                <TableCell
-                  sx={{ color: "white", fontWeight: "bold", width: "10%" }}
-                >
-                  Trạng Thái
-                </TableCell>
-                <TableCell
-                  sx={{ color: "white", fontWeight: "bold", width: "5%" }}
-                >
-                  {/* Thao Tác */}
-                </TableCell>
-              </TableRow>
-              <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-                <TableCell
-                  sx={{
-                    backgroundColor:
-                      lineFilter.length > 0 ? "#ffee8c" : "#f5f5f5",
-                    padding: "8px",
-                  }}
-                >
-                  <Autocomplete
-                    multiple
-                    size="small"
-                    options={filteredOptions.lines}
-                    value={lineFilter}
-                    onChange={(event, newValue) => setLineFilter(newValue)}
-                    renderTags={(value, getTagProps) =>
-                      value.map((option, index) => {
-                        const tagProps = getTagProps({ index });
-                        const { key, ...chipProps } = tagProps;
-                        return (
-                          <Chip
-                            key={key}
-                            label={`Chuyền ${option}`}
-                            {...chipProps}
-                            size="small"
-                          />
-                        );
-                      })
-                    }
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        placeholder="Lọc chuyền..."
-                        InputProps={{
-                          ...params.InputProps,
-                          startAdornment: (
-                            <>
-                              <InputAdornment position="start">
-                                <SearchIcon fontSize="small" />
-                              </InputAdornment>
-                              {params.InputProps.startAdornment}
-                            </>
-                          ),
-                        }}
-                      />
-                    )}
-                  />
-                </TableCell>
-                <TableCell
-                  sx={{
-                    backgroundColor:
-                      styleFilter.length > 0 ? "#ffee8c" : "#f5f5f5",
-                    padding: "8px",
-                  }}
-                >
-                  <Autocomplete
-                    multiple
-                    size="small"
-                    options={filteredOptions.styles}
-                    value={styleFilter}
-                    onChange={(event, newValue) => setStyleFilter(newValue)}
-                    renderTags={(value, getTagProps) =>
-                      value.map((option, index) => {
-                        const tagProps = getTagProps({ index });
-                        const { key, ...chipProps } = tagProps;
-                        return (
-                          <Chip
-                            key={key}
-                            label={option}
-                            {...chipProps}
-                            size="small"
-                          />
-                        );
-                      })
-                    }
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        placeholder="Lọc mã hàng..."
-                        InputProps={{
-                          ...params.InputProps,
-                          startAdornment: (
-                            <>
-                              <InputAdornment position="start">
-                                <SearchIcon fontSize="small" />
-                              </InputAdornment>
-                              {params.InputProps.startAdornment}
-                            </>
-                          ),
-                        }}
-                      />
-                    )}
-                  />
-                </TableCell>
-                <TableCell
-                  sx={{
-                    backgroundColor:
-                      planDateFilter.length > 0 ? "#ffee8c" : "#f5f5f5",
-                    padding: "8px",
-                  }}
-                >
-                  <Autocomplete
-                    multiple
-                    size="small"
-                    options={filteredOptions.planDates}
-                    value={planDateFilter}
-                    onChange={(event, newValue) => setPlanDateFilter(newValue)}
-                    renderTags={(value, getTagProps) =>
-                      value.map((option, index) => {
-                        const tagProps = getTagProps({ index });
-                        const { key, ...chipProps } = tagProps;
-                        return (
-                          <Chip
-                            key={key}
-                            label={option}
-                            {...chipProps}
-                            size="small"
-                          />
-                        );
-                      })
-                    }
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        placeholder="Lọc thời gian..."
-                        InputProps={{
-                          ...params.InputProps,
-                          startAdornment: (
-                            <>
-                              <InputAdornment position="start">
-                                <SearchIcon fontSize="small" />
-                              </InputAdornment>
-                              {params.InputProps.startAdornment}
-                            </>
-                          ),
-                        }}
-                      />
-                    )}
-                  />
-                </TableCell>
-                <TableCell
-                  sx={{
-                    backgroundColor:
-                      actualDateFilter.length > 0 ? "#ffee8c" : "#f5f5f5",
-                    padding: "8px",
-                  }}
-                >
-                  <Autocomplete
-                    multiple
-                    size="small"
-                    options={filteredOptions.actualDates}
-                    value={actualDateFilter}
-                    onChange={(event, newValue) =>
-                      setActualDateFilter(newValue)
-                    }
-                    renderTags={(value, getTagProps) =>
-                      value.map((option, index) => {
-                        const tagProps = getTagProps({ index });
-                        const { key, ...chipProps } = tagProps;
-                        return (
-                          <Chip
-                            key={key}
-                            label={option}
-                            {...chipProps}
-                            size="small"
-                          />
-                        );
-                      })
-                    }
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        placeholder="Lọc thời gian..."
-                        InputProps={{
-                          ...params.InputProps,
-                          startAdornment: (
-                            <>
-                              <InputAdornment position="start">
-                                <SearchIcon fontSize="small" />
-                              </InputAdornment>
-                              {params.InputProps.startAdornment}
-                            </>
-                          ),
-                        }}
-                      />
-                    )}
-                  />
-                </TableCell>
-                <TableCell
-                  sx={{
-                    backgroundColor:
-                      userFilter.length > 0 ? "#ffee8c" : "#f5f5f5",
-                    padding: "8px",
-                  }}
-                >
-                  <Autocomplete
-                    multiple
-                    size="small"
-                    options={filteredOptions.users}
-                    value={userFilter}
-                    onChange={(event, newValue) => setUserFilter(newValue)}
-                    renderTags={(value, getTagProps) =>
-                      value.map((option, index) => {
-                        const tagProps = getTagProps({ index });
-                        const { key, ...chipProps } = tagProps;
-                        return (
-                          <Chip
-                            key={key}
-                            label={option}
-                            {...chipProps}
-                            size="small"
-                          />
-                        );
-                      })
-                    }
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        placeholder="Lọc người cập nhật..."
-                        InputProps={{
-                          ...params.InputProps,
-                          startAdornment: (
-                            <>
-                              <InputAdornment position="start">
-                                <SearchIcon fontSize="small" />
-                              </InputAdornment>
-                              {params.InputProps.startAdornment}
-                            </>
-                          ),
-                        }}
-                      />
-                    )}
-                  />
-                </TableCell>
-                <TableCell sx={{ backgroundColor: "#f5f5f5" }}></TableCell>
-                <TableCell sx={{ backgroundColor: "#f5f5f5" }}></TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {currentPageData.length > 0 ? (
-                currentPageData.map((plan, index) => (
-                  <TableRow
-                    key={plan.id_plan || `plan-${index}`}
-                    sx={{
-                      "&:nth-of-type(odd)": { backgroundColor: "#fafafa" },
-                      opacity: plan.inactive === 1 ? 0.5 : 1,
-                    }}
+          {isMobile ? (
+            // Mobile view for plan list
+            <Box>
+              {currentPageData.map((plan) => (
+                <MobilePlanListCard key={plan.id_plan} plan={plan} />
+              ))}
+              <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+                <Pagination
+                  count={totalPages}
+                  page={page + 1}
+                  onChange={(e, newPage) => handleChangePage(e, newPage - 1)}
+                  color="primary"
+                  size="small"
+                />
+              </Box>
+            </Box>
+          ) : (
+            // Desktop view - Original table with filters
+            <Table sx={{ minWidth: 1200 }}>
+              <TableHead>
+                <TableRow sx={{ backgroundColor: "#1976d2" }}>
+                  <TableCell
+                    sx={{ color: "white", fontWeight: "bold", width: "15%" }}
                   >
-                    <TableCell>Chuyền {plan.line || ""}</TableCell>
-                    <TableCell>{plan.style || ""}</TableCell>
-                    <TableCell>{formatDateTime(plan.plan_date)}</TableCell>
-                    <TableCell>{formatDateTime(plan.actual_date)}</TableCell>
-                    <TableCell>{plan.updated_by || ""}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        color={plan.inactive === 1 ? "error" : "success"}
-                        onClick={() => handleToggleInactive(plan.id_plan)}
-                        startIcon={
-                          plan.inactive === 1 ? <LockIcon /> : <LockOpenIcon />
-                        }
-                        sx={{
-                          fontSize: "0.75rem",
-                          whiteSpace: "nowrap",
-                          textTransform: "none",
-                          mr: 1,
-                        }}
-                      >
-                        {plan.inactive === 1 ? "Đã khóa" : "Đang mở"}
-                      </Button>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="contained"
-                        size="small"
-                        color="primary"
-                        onClick={() =>
-                          navigate(`/detailed-phase/${plan.id_plan}`)
-                        }
-                        disabled={plan.inactive === 1}
-                        sx={{
-                          fontSize: "0.75rem",
-                          whiteSpace: "nowrap",
-                          textTransform: "none",
-                        }}
-                      >
-                        Xem chi tiết
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={7} align="center">
-                    Không có dữ liệu
+                    Chuyền
+                  </TableCell>
+                  <TableCell
+                    sx={{ color: "white", fontWeight: "bold", width: "20%" }}
+                  >
+                    Mã Hàng
+                  </TableCell>
+                  <TableCell
+                    sx={{ color: "white", fontWeight: "bold", width: "20%" }}
+                  >
+                    Thời Gian CĐ Dự Kiến
+                  </TableCell>
+                  <TableCell
+                    sx={{ color: "white", fontWeight: "bold", width: "20%" }}
+                  >
+                    Thời Gian CĐ Thực Tế
+                  </TableCell>
+                  <TableCell
+                    sx={{ color: "white", fontWeight: "bold", width: "20%" }}
+                  >
+                    Người Cập Nhật
+                  </TableCell>
+                  <TableCell
+                    sx={{ color: "white", fontWeight: "bold", width: "10%" }}
+                  >
+                    Trạng Thái
+                  </TableCell>
+                  <TableCell
+                    sx={{ color: "white", fontWeight: "bold", width: "5%" }}
+                  >
+                    {/* Thao Tác */}
                   </TableCell>
                 </TableRow>
-              )}
-            </TableBody>
-            <TableFooter>
-              <TableRow>
-                <TableCell colSpan={7}>
-                  <Box
+                <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+                  <TableCell
                     sx={{
-                      display: "flex",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      padding: 2,
-                      gap: 2,
+                      backgroundColor:
+                        lineFilter.length > 0 ? "#ffee8c" : "#f5f5f5",
+                      padding: "8px",
                     }}
                   >
-                    <Typography variant="body2" color="text.secondary">
-                      Tổng số: {filteredPlans.length} kế hoạch
-                    </Typography>
-                    <Pagination
-                      count={totalPages}
-                      page={page + 1}
-                      onChange={(e, newPage) =>
-                        handleChangePage(e, newPage - 1)
+                    <Autocomplete
+                      multiple
+                      size="small"
+                      options={filteredOptions.lines}
+                      value={lineFilter}
+                      onChange={(event, newValue) => setLineFilter(newValue)}
+                      renderTags={(value, getTagProps) =>
+                        value.map((option, index) => {
+                          const tagProps = getTagProps({ index });
+                          const { key, ...chipProps } = tagProps;
+                          return (
+                            <Chip
+                              key={key}
+                              label={`Chuyền ${option}`}
+                              {...chipProps}
+                              size="small"
+                            />
+                          );
+                        })
                       }
-                      color="primary"
-                      showFirstButton
-                      showLastButton
-                      size="large"
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          placeholder="Lọc chuyền..."
+                          InputProps={{
+                            ...params.InputProps,
+                            startAdornment: (
+                              <>
+                                <InputAdornment position="start">
+                                  <SearchIcon fontSize="small" />
+                                </InputAdornment>
+                                {params.InputProps.startAdornment}
+                              </>
+                            ),
+                          }}
+                        />
+                      )}
                     />
-                  </Box>
-                </TableCell>
-              </TableRow>
-            </TableFooter>
-          </Table>
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      backgroundColor:
+                        styleFilter.length > 0 ? "#ffee8c" : "#f5f5f5",
+                      padding: "8px",
+                    }}
+                  >
+                    <Autocomplete
+                      multiple
+                      size="small"
+                      options={filteredOptions.styles}
+                      value={styleFilter}
+                      onChange={(event, newValue) => setStyleFilter(newValue)}
+                      renderTags={(value, getTagProps) =>
+                        value.map((option, index) => {
+                          const tagProps = getTagProps({ index });
+                          const { key, ...chipProps } = tagProps;
+                          return (
+                            <Chip
+                              key={key}
+                              label={option}
+                              {...chipProps}
+                              size="small"
+                            />
+                          );
+                        })
+                      }
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          placeholder="Lọc mã hàng..."
+                          InputProps={{
+                            ...params.InputProps,
+                            startAdornment: (
+                              <>
+                                <InputAdornment position="start">
+                                  <SearchIcon fontSize="small" />
+                                </InputAdornment>
+                                {params.InputProps.startAdornment}
+                              </>
+                            ),
+                          }}
+                        />
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      backgroundColor:
+                        planDateFilter.length > 0 ? "#ffee8c" : "#f5f5f5",
+                      padding: "8px",
+                    }}
+                  >
+                    <Autocomplete
+                      multiple
+                      size="small"
+                      options={filteredOptions.planDates}
+                      value={planDateFilter}
+                      onChange={(event, newValue) =>
+                        setPlanDateFilter(newValue)
+                      }
+                      renderTags={(value, getTagProps) =>
+                        value.map((option, index) => {
+                          const tagProps = getTagProps({ index });
+                          const { key, ...chipProps } = tagProps;
+                          return (
+                            <Chip
+                              key={key}
+                              label={option}
+                              {...chipProps}
+                              size="small"
+                            />
+                          );
+                        })
+                      }
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          placeholder="Lọc thời gian..."
+                          InputProps={{
+                            ...params.InputProps,
+                            startAdornment: (
+                              <>
+                                <InputAdornment position="start">
+                                  <SearchIcon fontSize="small" />
+                                </InputAdornment>
+                                {params.InputProps.startAdornment}
+                              </>
+                            ),
+                          }}
+                        />
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      backgroundColor:
+                        actualDateFilter.length > 0 ? "#ffee8c" : "#f5f5f5",
+                      padding: "8px",
+                    }}
+                  >
+                    <Autocomplete
+                      multiple
+                      size="small"
+                      options={filteredOptions.actualDates}
+                      value={actualDateFilter}
+                      onChange={(event, newValue) =>
+                        setActualDateFilter(newValue)
+                      }
+                      renderTags={(value, getTagProps) =>
+                        value.map((option, index) => {
+                          const tagProps = getTagProps({ index });
+                          const { key, ...chipProps } = tagProps;
+                          return (
+                            <Chip
+                              key={key}
+                              label={option}
+                              {...chipProps}
+                              size="small"
+                            />
+                          );
+                        })
+                      }
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          placeholder="Lọc thời gian..."
+                          InputProps={{
+                            ...params.InputProps,
+                            startAdornment: (
+                              <>
+                                <InputAdornment position="start">
+                                  <SearchIcon fontSize="small" />
+                                </InputAdornment>
+                                {params.InputProps.startAdornment}
+                              </>
+                            ),
+                          }}
+                        />
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      backgroundColor:
+                        userFilter.length > 0 ? "#ffee8c" : "#f5f5f5",
+                      padding: "8px",
+                    }}
+                  >
+                    <Autocomplete
+                      multiple
+                      size="small"
+                      options={filteredOptions.users}
+                      value={userFilter}
+                      onChange={(event, newValue) => setUserFilter(newValue)}
+                      renderTags={(value, getTagProps) =>
+                        value.map((option, index) => {
+                          const tagProps = getTagProps({ index });
+                          const { key, ...chipProps } = tagProps;
+                          return (
+                            <Chip
+                              key={key}
+                              label={option}
+                              {...chipProps}
+                              size="small"
+                            />
+                          );
+                        })
+                      }
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          placeholder="Lọc người cập nhật..."
+                          InputProps={{
+                            ...params.InputProps,
+                            startAdornment: (
+                              <>
+                                <InputAdornment position="start">
+                                  <SearchIcon fontSize="small" />
+                                </InputAdornment>
+                                {params.InputProps.startAdornment}
+                              </>
+                            ),
+                          }}
+                        />
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell sx={{ backgroundColor: "#f5f5f5" }}></TableCell>
+                  <TableCell sx={{ backgroundColor: "#f5f5f5" }}></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {currentPageData.length > 0 ? (
+                  currentPageData.map((plan, index) => (
+                    <TableRow
+                      key={plan.id_plan || `plan-${index}`}
+                      sx={{
+                        "&:nth-of-type(odd)": { backgroundColor: "#fafafa" },
+                        opacity: plan.inactive === 1 ? 0.5 : 1,
+                      }}
+                    >
+                      <TableCell>Chuyền {plan.line || ""}</TableCell>
+                      <TableCell>{plan.style || ""}</TableCell>
+                      <TableCell>{formatDateTime(plan.plan_date)}</TableCell>
+                      <TableCell>{formatDateTime(plan.actual_date)}</TableCell>
+                      <TableCell>{plan.updated_by || ""}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          color={plan.inactive === 1 ? "error" : "success"}
+                          onClick={() => handleToggleInactive(plan.id_plan)}
+                          startIcon={
+                            plan.inactive === 1 ? (
+                              <LockIcon />
+                            ) : (
+                              <LockOpenIcon />
+                            )
+                          }
+                          sx={{
+                            fontSize: "0.75rem",
+                            whiteSpace: "nowrap",
+                            textTransform: "none",
+                            mr: 1,
+                          }}
+                        >
+                          {plan.inactive === 1 ? "Đã khóa" : "Đang mở"}
+                        </Button>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          color="primary"
+                          onClick={() =>
+                            navigate(`/detailed-phase/${plan.id_plan}`)
+                          }
+                          disabled={plan.inactive === 1}
+                          sx={{
+                            fontSize: "0.75rem",
+                            whiteSpace: "nowrap",
+                            textTransform: "none",
+                          }}
+                        >
+                          Xem chi tiết
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center">
+                      Không có dữ liệu
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+              <TableFooter>
+                <TableRow>
+                  <TableCell colSpan={7}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        padding: 2,
+                        gap: 2,
+                      }}
+                    >
+                      <Typography variant="body2" color="text.secondary">
+                        Tổng số: {filteredPlans.length} kế hoạch
+                      </Typography>
+                      <Pagination
+                        count={totalPages}
+                        page={page + 1}
+                        onChange={(e, newPage) =>
+                          handleChangePage(e, newPage - 1)
+                        }
+                        color="primary"
+                        showFirstButton
+                        showLastButton
+                        size="large"
+                      />
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              </TableFooter>
+            </Table>
+          )}
         </Box>
       </Card>
       <NotificationDialog

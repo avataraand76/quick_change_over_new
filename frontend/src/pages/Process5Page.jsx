@@ -45,6 +45,8 @@ import {
 } from "@mui/icons-material";
 import API from "../api/api";
 import PermissionCheck from "../components/PermissionCheck";
+import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 
 const Process5Page = () => {
   const navigate = useNavigate();
@@ -117,6 +119,221 @@ const Process5Page = () => {
 
     return new Date() > deadlineDate;
   }, []);
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  const MobilePreparingMachineCard = ({
+    machine,
+    index,
+    onEdit,
+    onDelete,
+    hasPermission,
+  }) => {
+    return (
+      <Card sx={{ mb: 2, position: "relative" }}>
+        <CardContent>
+          <Box sx={{ position: "absolute", top: 12, right: 12 }}>
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={() => onEdit(machine)}
+              disabled={!hasPermission}
+              sx={{ mr: 1 }}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => onDelete(machine)}
+              disabled={!hasPermission}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Box>
+
+          <Typography variant="subtitle1" color="primary" gutterBottom>
+            Máy #{index + 1}
+          </Typography>
+
+          <Grid container spacing={1}>
+            <Grid item xs={6}>
+              <Typography variant="caption" color="textSecondary">
+                Ngày điều chỉnh
+              </Typography>
+              <Typography variant="body2">
+                {machine.adjust_date
+                  ? formatDateShort(machine.adjust_date)
+                  : "..."}
+              </Typography>
+            </Grid>
+
+            <Grid item xs={6}>
+              <Typography variant="caption" color="textSecondary">
+                Tên máy
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: "medium" }}>
+                {machine.name_machine}
+              </Typography>
+            </Grid>
+
+            <Grid item xs={4}>
+              <Typography variant="caption" color="textSecondary">
+                Số lượng
+              </Typography>
+              <Typography variant="body2">{machine.quantity}</Typography>
+            </Grid>
+
+            <Grid item xs={4}>
+              <Typography variant="caption" color="textSecondary">
+                Đã chuẩn bị
+              </Typography>
+              <Typography variant="body2">{machine.prepared}</Typography>
+            </Grid>
+
+            <Grid item xs={4}>
+              <Typography variant="caption" color="textSecondary">
+                Đạt
+              </Typography>
+              <Typography variant="body2" color="success.main">
+                {machine.pass}
+              </Typography>
+            </Grid>
+
+            <Grid item xs={4}>
+              <Typography variant="caption" color="textSecondary">
+                Không đạt
+              </Typography>
+              <Typography variant="body2" color="error.main">
+                {machine.fail}
+              </Typography>
+            </Grid>
+
+            <Grid item xs={4}>
+              <Typography variant="caption" color="textSecondary">
+                Tỉ lệ đạt
+              </Typography>
+              <Typography variant="body2">{machine.pass_rate}%</Typography>
+            </Grid>
+
+            <Grid item xs={4}>
+              <Typography variant="caption" color="textSecondary">
+                Tỉ lệ chuẩn bị
+              </Typography>
+              <Typography variant="body2">{machine.prepare_rate}%</Typography>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const MobileBackupMachineCard = ({
+    machine,
+    index,
+    onEdit,
+    onDelete,
+    hasPermission,
+  }) => {
+    return (
+      <Card sx={{ mb: 2, position: "relative" }}>
+        <CardContent>
+          <Box sx={{ position: "absolute", top: 12, right: 12 }}>
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={() => onEdit(machine)}
+              disabled={!hasPermission}
+              sx={{ mr: 1 }}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => onDelete(machine)}
+              disabled={!hasPermission}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Box>
+
+          <Typography variant="subtitle1" color="primary" gutterBottom>
+            Máy #{index + 1}
+          </Typography>
+
+          <Grid container spacing={1}>
+            <Grid item xs={6}>
+              <Typography variant="caption" color="textSecondary">
+                Ngày điều chỉnh
+              </Typography>
+              <Typography variant="body2">
+                {machine.adjust_date
+                  ? formatDateShort(machine.adjust_date)
+                  : "..."}
+              </Typography>
+            </Grid>
+
+            <Grid item xs={6}>
+              <Typography variant="caption" color="textSecondary">
+                Tên máy
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: "medium" }}>
+                {machine.name_machine}
+              </Typography>
+            </Grid>
+
+            <Grid item xs={4}>
+              <Typography variant="caption" color="textSecondary">
+                Số lượng
+              </Typography>
+              <Typography variant="body2">{machine.quantity}</Typography>
+            </Grid>
+
+            <Grid item xs={4}>
+              <Typography variant="caption" color="textSecondary">
+                Đã chuẩn bị
+              </Typography>
+              <Typography variant="body2">{machine.prepared}</Typography>
+            </Grid>
+
+            <Grid item xs={4}>
+              <Typography variant="caption" color="textSecondary">
+                Đạt
+              </Typography>
+              <Typography variant="body2" color="success.main">
+                {machine.pass}
+              </Typography>
+            </Grid>
+
+            <Grid item xs={4}>
+              <Typography variant="caption" color="textSecondary">
+                Không đạt
+              </Typography>
+              <Typography variant="body2" color="error.main">
+                {machine.fail}
+              </Typography>
+            </Grid>
+
+            <Grid item xs={4}>
+              <Typography variant="caption" color="textSecondary">
+                Tỉ lệ đạt
+              </Typography>
+              <Typography variant="body2">{machine.pass_rate}%</Typography>
+            </Grid>
+
+            <Grid item xs={4}>
+              <Typography variant="caption" color="textSecondary">
+                Tỉ lệ chuẩn bị
+              </Typography>
+              <Typography variant="body2">{machine.prepare_rate}%</Typography>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+    );
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -686,13 +903,13 @@ const Process5Page = () => {
             borderTopRightRadius: 8,
           }}
         >
-          <Typography variant="h5" fontWeight="bold">
+          <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
             THÔNG TIN KẾ HOẠCH CHUYỂN ĐỔI
           </Typography>
         </Box>
 
-        <CardContent sx={{ padding: 3 }}>
-          <Grid container spacing={3}>
+        <CardContent sx={{ padding: isMobile ? 2 : 3 }}>
+          <Grid container spacing={isMobile ? 2 : 3}>
             <Grid item xs={12} md={6}>
               <Card variant="outlined" sx={{ height: "100%" }}>
                 <CardContent>
@@ -760,12 +977,12 @@ const Process5Page = () => {
             borderTopRightRadius: 8,
           }}
         >
-          <Typography variant="h5" fontWeight="bold">
+          <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
             CÁC BƯỚC CÔNG VIỆC CHUẨN BỊ MÁY MÓC THIẾT BỊ, CỮ GÁ LẮP
           </Typography>
         </Box>
 
-        <CardContent sx={{ padding: 3 }}>
+        <CardContent sx={{ padding: isMobile ? 2 : 3 }}>
           {workSteps.length > 0 ? (
             <List sx={{ bgcolor: "background.paper", borderRadius: 2 }}>
               {workSteps.map((step, index) => (
@@ -774,20 +991,19 @@ const Process5Page = () => {
                   divider={index < workSteps.length - 1}
                   alignItems="flex-start"
                   sx={{
-                    py: 2,
-                    "&:hover": {
-                      backgroundColor: "rgba(25, 118, 210, 0.04)",
-                    },
+                    py: isMobile ? 1 : 2,
+                    // flexDirection: isMobile ? "column" : "row",
+                    gap: isMobile ? 1 : 0,
                   }}
                 >
                   <Avatar
                     sx={{
                       bgcolor: "#1976d2",
                       color: "white",
-                      width: 36,
-                      height: 36,
-                      mr: 2,
-                      fontSize: "0.875rem",
+                      width: isMobile ? 28 : 36,
+                      height: isMobile ? 28 : 36,
+                      mr: isMobile ? 1 : 2,
+                      fontSize: isMobile ? "0.75rem" : "0.875rem",
                       fontWeight: "bold",
                     }}
                   >
@@ -841,13 +1057,13 @@ const Process5Page = () => {
             borderTopRightRadius: 8,
           }}
         >
-          <Typography variant="h5" fontWeight="bold">
+          <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
             CHUẨN BỊ MÁY MÓC THIẾT BỊ, CỮ GÁ LẮP
           </Typography>
         </Box>
 
-        <CardContent sx={{ padding: 3 }}>
-          <Grid container spacing={3}>
+        <CardContent sx={{ padding: isMobile ? 2 : 3 }}>
+          <Grid container spacing={isMobile ? 2 : 3}>
             <Grid item xs={12} md={6}>
               <Card variant="outlined" sx={{ height: "100%" }}>
                 <CardContent>
@@ -941,15 +1157,23 @@ const Process5Page = () => {
                   alignItems: "center",
                 }}
               >
-                <Typography variant="h5" fontWeight="bold">
+                <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
                   THÔNG TIN MÁY CHUẨN BỊ
                 </Typography>
-                <Box sx={{ display: "flex", gap: 1 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    gap: 1,
+                    flexDirection: isMobile ? "column" : "row",
+                    width: isMobile ? "35%" : "auto",
+                  }}
+                >
                   <Button
                     variant="contained"
                     startIcon={<SyncIcon />}
                     onClick={handleSyncWithHiLine}
                     disabled={syncLoading || !hasPermission /* || isOverdue */}
+                    fullWidth={isMobile}
                     sx={{
                       bgcolor: "#4caf50",
                       color: "#ffffff",
@@ -964,6 +1188,7 @@ const Process5Page = () => {
                     startIcon={<AddIcon />}
                     onClick={() => handleOpenPreparingMachineDialog()}
                     disabled={!hasPermission /* || isOverdue */}
+                    fullWidth={isMobile}
                     sx={{
                       bgcolor: "#ffffff",
                       color: "#1976d2",
@@ -981,12 +1206,14 @@ const Process5Page = () => {
                   color="error"
                   sx={{
                     mt: 1,
+                    mx: isMobile ? 2 : 0,
                     display: "flex",
                     alignItems: "center",
                     gap: 1,
+                    fontSize: isMobile ? "0.75rem" : "0.875rem",
                   }}
                 >
-                  <WarningIcon fontSize="small" />
+                  <WarningIcon fontSize={isMobile ? "small" : "medium"} />
                   Không có quyền cập nhật
                 </Typography>
               )}
@@ -996,105 +1223,137 @@ const Process5Page = () => {
                   color="error"
                   sx={{
                     mt: 1,
+                    mx: isMobile ? 2 : 0,
                     display: "flex",
                     alignItems: "center",
                     gap: 1,
+                    fontSize: isMobile ? "0.75rem" : "0.875rem",
                   }}
                 >
-                  <WarningIcon fontSize="small" />
+                  <WarningIcon fontSize={isMobile ? "small" : "medium"} />
                   Đã quá hạn chỉnh sửa thông tin cho quy trình này
                 </Typography>
               )}
 
-              <CardContent sx={{ padding: 3 }}>
+              <CardContent sx={{ padding: isMobile ? 2 : 3 }}>
                 {preparingMachines.length > 0 ? (
-                  <TableContainer component={Paper} sx={{ mb: 2 }}>
-                    <Table>
-                      <TableHead>
-                        <TableRow sx={{ bgcolor: "#f5f5f5" }}>
-                          <TableCell>STT</TableCell>
-                          <TableCell>Ngày điều chỉnh</TableCell>
-                          <TableCell>Tên máy</TableCell>
-                          <TableCell align="center">Số lượng</TableCell>
-                          <TableCell align="center">Đã chuẩn bị</TableCell>
-                          <TableCell align="center">Đạt</TableCell>
-                          <TableCell align="center">Không đạt</TableCell>
-                          <TableCell align="center">Tỉ lệ đạt (%)</TableCell>
-                          <TableCell align="center">Chưa chuẩn bị</TableCell>
-                          <TableCell align="center">
-                            Tỉ lệ chuẩn bị (%)
-                          </TableCell>
-                          <TableCell>{/* Thao tác */}</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {preparingMachines.map((machine, index) => (
-                          <TableRow
-                            key={machine.id_process_5_preparing_machine}
-                          >
-                            <TableCell>{index + 1}</TableCell>
-                            <TableCell>
-                              {machine.adjust_date
-                                ? formatDateShort(machine.adjust_date)
-                                : "..."}
-                            </TableCell>
-                            <TableCell>{machine.name_machine}</TableCell>
+                  isMobile ? (
+                    // Mobile view - Card layout
+                    <Box>
+                      {preparingMachines.map((machine, index) => (
+                        <MobilePreparingMachineCard
+                          key={machine.id_process_5_preparing_machine}
+                          machine={machine}
+                          index={index}
+                          onEdit={handleOpenPreparingMachineDialog}
+                          onDelete={handleDeletePreparingMachine}
+                          hasPermission={hasPermission}
+                        />
+                      ))}
+                    </Box>
+                  ) : (
+                    // Desktop view - Table layout
+                    <TableContainer
+                      component={Paper}
+                      sx={{
+                        mb: 2,
+                        overflow: "auto",
+                        "& .MuiTable-root": {
+                          minWidth: 800,
+                        },
+                      }}
+                    >
+                      <Table>
+                        <TableHead>
+                          <TableRow sx={{ bgcolor: "#f5f5f5" }}>
+                            <TableCell>STT</TableCell>
+                            <TableCell>Ngày điều chỉnh</TableCell>
+                            <TableCell>Tên máy</TableCell>
+                            <TableCell align="center">Số lượng</TableCell>
+                            <TableCell align="center">Đã chuẩn bị</TableCell>
+                            <TableCell align="center">Đạt</TableCell>
+                            <TableCell align="center">Không đạt</TableCell>
+                            <TableCell align="center">Tỉ lệ đạt (%)</TableCell>
+                            <TableCell align="center">Chưa chuẩn bị</TableCell>
                             <TableCell align="center">
-                              {machine.quantity}
+                              Tỉ lệ chuẩn bị (%)
                             </TableCell>
-                            <TableCell align="center">
-                              {machine.prepared}
-                            </TableCell>
-                            <TableCell align="center">{machine.pass}</TableCell>
-                            <TableCell align="center">{machine.fail}</TableCell>
-                            <TableCell align="center">
-                              {machine.pass_rate}%
-                            </TableCell>
-                            <TableCell align="center">
-                              {machine.not_prepared}
-                            </TableCell>
-                            <TableCell align="center">
-                              {machine.prepare_rate}%
-                            </TableCell>
-                            <TableCell>
-                              <Box sx={{ display: "flex" }}>
-                                <IconButton
-                                  size="small"
-                                  color="primary"
-                                  onClick={() =>
-                                    handleOpenPreparingMachineDialog(machine)
-                                  }
-                                  disabled={!hasPermission /* || isOverdue */}
-                                  sx={{
-                                    opacity: !hasPermission /* || isOverdue */
-                                      ? 0.5
-                                      : 1,
-                                  }}
-                                >
-                                  <EditIcon fontSize="small" />
-                                </IconButton>
-                                <IconButton
-                                  size="small"
-                                  color="error"
-                                  onClick={() =>
-                                    handleDeletePreparingMachine(machine)
-                                  }
-                                  disabled={!hasPermission /* || isOverdue */}
-                                  sx={{
-                                    opacity: !hasPermission /* || isOverdue */
-                                      ? 0.5
-                                      : 1,
-                                  }}
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Box>
-                            </TableCell>
+                            <TableCell>{/* Thao tác */}</TableCell>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+                        </TableHead>
+                        <TableBody>
+                          {preparingMachines.map((machine, index) => (
+                            <TableRow
+                              key={machine.id_process_5_preparing_machine}
+                            >
+                              <TableCell>{index + 1}</TableCell>
+                              <TableCell>
+                                {machine.adjust_date
+                                  ? formatDateShort(machine.adjust_date)
+                                  : "..."}
+                              </TableCell>
+                              <TableCell>{machine.name_machine}</TableCell>
+                              <TableCell align="center">
+                                {machine.quantity}
+                              </TableCell>
+                              <TableCell align="center">
+                                {machine.prepared}
+                              </TableCell>
+                              <TableCell align="center">
+                                {machine.pass}
+                              </TableCell>
+                              <TableCell align="center">
+                                {machine.fail}
+                              </TableCell>
+                              <TableCell align="center">
+                                {machine.pass_rate}%
+                              </TableCell>
+                              <TableCell align="center">
+                                {machine.not_prepared}
+                              </TableCell>
+                              <TableCell align="center">
+                                {machine.prepare_rate}%
+                              </TableCell>
+                              <TableCell>
+                                <Box sx={{ display: "flex" }}>
+                                  <IconButton
+                                    size="small"
+                                    color="primary"
+                                    onClick={() =>
+                                      handleOpenPreparingMachineDialog(machine)
+                                    }
+                                    disabled={!hasPermission /* || isOverdue */}
+                                    sx={{
+                                      opacity: !hasPermission /* || isOverdue */
+                                        ? 0.5
+                                        : 1,
+                                    }}
+                                  >
+                                    <EditIcon fontSize="small" />
+                                  </IconButton>
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    onClick={() =>
+                                      handleDeletePreparingMachine(machine)
+                                    }
+                                    disabled={!hasPermission /* || isOverdue */}
+                                    sx={{
+                                      opacity: !hasPermission /* || isOverdue */
+                                        ? 0.5
+                                        : 1,
+                                    }}
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </Box>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  )
                 ) : (
                   <Box sx={{ py: 3, textAlign: "center" }}>
                     <Typography variant="body1" color="text.secondary">
@@ -1126,7 +1385,7 @@ const Process5Page = () => {
                   alignItems: "center",
                 }}
               >
-                <Typography variant="h5" fontWeight="bold">
+                <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
                   THÔNG TIN MÁY DỰ PHÒNG
                 </Typography>
                 <Button
@@ -1150,12 +1409,14 @@ const Process5Page = () => {
                   color="error"
                   sx={{
                     mt: 1,
+                    mx: isMobile ? 2 : 0,
                     display: "flex",
                     alignItems: "center",
                     gap: 1,
+                    fontSize: isMobile ? "0.75rem" : "0.875rem",
                   }}
                 >
-                  <WarningIcon fontSize="small" />
+                  <WarningIcon fontSize={isMobile ? "small" : "medium"} />
                   Không có quyền cập nhật
                 </Typography>
               )}
@@ -1165,103 +1426,135 @@ const Process5Page = () => {
                   color="error"
                   sx={{
                     mt: 1,
+                    mx: isMobile ? 2 : 0,
                     display: "flex",
                     alignItems: "center",
                     gap: 1,
+                    fontSize: isMobile ? "0.75rem" : "0.875rem",
                   }}
                 >
-                  <WarningIcon fontSize="small" />
+                  <WarningIcon fontSize={isMobile ? "small" : "medium"} />
                   Đã quá hạn chỉnh sửa thông tin cho quy trình này
                 </Typography>
               )}
 
-              <CardContent sx={{ padding: 3 }}>
+              <CardContent sx={{ padding: isMobile ? 2 : 3 }}>
                 {backupMachines.length > 0 ? (
-                  <TableContainer component={Paper} sx={{ mb: 2 }}>
-                    <Table>
-                      <TableHead>
-                        <TableRow sx={{ bgcolor: "#f5f5f5" }}>
-                          <TableCell>STT</TableCell>
-                          <TableCell>Ngày điều chỉnh</TableCell>
-                          <TableCell>Tên máy</TableCell>
-                          <TableCell align="center">Số lượng</TableCell>
-                          <TableCell align="center">Đã chuẩn bị</TableCell>
-                          <TableCell align="center">Đạt</TableCell>
-                          <TableCell align="center">Không đạt</TableCell>
-                          <TableCell align="center">Tỉ lệ đạt (%)</TableCell>
-                          <TableCell align="center">Chưa chuẩn bị</TableCell>
-                          <TableCell align="center">
-                            Tỉ lệ chuẩn bị (%)
-                          </TableCell>
-                          <TableCell>{/* Thao tác */}</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {backupMachines.map((machine, index) => (
-                          <TableRow key={machine.id_process_5_backup_machine}>
-                            <TableCell>{index + 1}</TableCell>
-                            <TableCell>
-                              {machine.adjust_date
-                                ? formatDateShort(machine.adjust_date)
-                                : "..."}
-                            </TableCell>
-                            <TableCell>{machine.name_machine}</TableCell>
+                  isMobile ? (
+                    // Mobile view - Card layout
+                    <Box>
+                      {backupMachines.map((machine, index) => (
+                        <MobileBackupMachineCard
+                          key={machine.id_process_5_backup_machine}
+                          machine={machine}
+                          index={index}
+                          onEdit={handleOpenBackupMachineDialog}
+                          onDelete={handleDeleteBackupMachine}
+                          hasPermission={hasPermission}
+                        />
+                      ))}
+                    </Box>
+                  ) : (
+                    // Desktop view - Table layout
+                    <TableContainer
+                      component={Paper}
+                      sx={{
+                        mb: 2,
+                        overflow: "auto",
+                        "& .MuiTable-root": {
+                          minWidth: 800,
+                        },
+                      }}
+                    >
+                      <Table>
+                        <TableHead>
+                          <TableRow sx={{ bgcolor: "#f5f5f5" }}>
+                            <TableCell>STT</TableCell>
+                            <TableCell>Ngày điều chỉnh</TableCell>
+                            <TableCell>Tên máy</TableCell>
+                            <TableCell align="center">Số lượng</TableCell>
+                            <TableCell align="center">Đã chuẩn bị</TableCell>
+                            <TableCell align="center">Đạt</TableCell>
+                            <TableCell align="center">Không đạt</TableCell>
+                            <TableCell align="center">Tỉ lệ đạt (%)</TableCell>
+                            <TableCell align="center">Chưa chuẩn bị</TableCell>
                             <TableCell align="center">
-                              {machine.quantity}
+                              Tỉ lệ chuẩn bị (%)
                             </TableCell>
-                            <TableCell align="center">
-                              {machine.prepared}
-                            </TableCell>
-                            <TableCell align="center">{machine.pass}</TableCell>
-                            <TableCell align="center">{machine.fail}</TableCell>
-                            <TableCell align="center">
-                              {machine.pass_rate}%
-                            </TableCell>
-                            <TableCell align="center">
-                              {machine.not_prepared}
-                            </TableCell>
-                            <TableCell align="center">
-                              {machine.prepare_rate}%
-                            </TableCell>
-                            <TableCell>
-                              <Box sx={{ display: "flex" }}>
-                                <IconButton
-                                  size="small"
-                                  color="primary"
-                                  onClick={() =>
-                                    handleOpenBackupMachineDialog(machine)
-                                  }
-                                  disabled={!hasPermission /* || isOverdue */}
-                                  sx={{
-                                    opacity: !hasPermission /* || isOverdue */
-                                      ? 0.5
-                                      : 1,
-                                  }}
-                                >
-                                  <EditIcon fontSize="small" />
-                                </IconButton>
-                                <IconButton
-                                  size="small"
-                                  color="error"
-                                  onClick={() =>
-                                    handleDeleteBackupMachine(machine)
-                                  }
-                                  disabled={!hasPermission /* || isOverdue */}
-                                  sx={{
-                                    opacity: !hasPermission /* || isOverdue */
-                                      ? 0.5
-                                      : 1,
-                                  }}
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Box>
-                            </TableCell>
+                            <TableCell>{/* Thao tác */}</TableCell>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+                        </TableHead>
+                        <TableBody>
+                          {backupMachines.map((machine, index) => (
+                            <TableRow key={machine.id_process_5_backup_machine}>
+                              <TableCell>{index + 1}</TableCell>
+                              <TableCell>
+                                {machine.adjust_date
+                                  ? formatDateShort(machine.adjust_date)
+                                  : "..."}
+                              </TableCell>
+                              <TableCell>{machine.name_machine}</TableCell>
+                              <TableCell align="center">
+                                {machine.quantity}
+                              </TableCell>
+                              <TableCell align="center">
+                                {machine.prepared}
+                              </TableCell>
+                              <TableCell align="center">
+                                {machine.pass}
+                              </TableCell>
+                              <TableCell align="center">
+                                {machine.fail}
+                              </TableCell>
+                              <TableCell align="center">
+                                {machine.pass_rate}%
+                              </TableCell>
+                              <TableCell align="center">
+                                {machine.not_prepared}
+                              </TableCell>
+                              <TableCell align="center">
+                                {machine.prepare_rate}%
+                              </TableCell>
+                              <TableCell>
+                                <Box sx={{ display: "flex" }}>
+                                  <IconButton
+                                    size="small"
+                                    color="primary"
+                                    onClick={() =>
+                                      handleOpenBackupMachineDialog(machine)
+                                    }
+                                    disabled={!hasPermission /* || isOverdue */}
+                                    sx={{
+                                      opacity: !hasPermission /* || isOverdue */
+                                        ? 0.5
+                                        : 1,
+                                    }}
+                                  >
+                                    <EditIcon fontSize="small" />
+                                  </IconButton>
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    onClick={() =>
+                                      handleDeleteBackupMachine(machine)
+                                    }
+                                    disabled={!hasPermission /* || isOverdue */}
+                                    sx={{
+                                      opacity: !hasPermission /* || isOverdue */
+                                        ? 0.5
+                                        : 1,
+                                    }}
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </Box>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  )
                 ) : (
                   <Box sx={{ py: 3, textAlign: "center" }}>
                     <Typography variant="body1" color="text.secondary">
@@ -1281,6 +1574,12 @@ const Process5Page = () => {
         onClose={handleClosePreparingMachineDialog}
         fullWidth
         maxWidth="sm"
+        PaperProps={{
+          sx: {
+            margin: isMobile ? 2 : "auto",
+            width: isMobile ? "calc(100% - 32px)" : undefined,
+          },
+        }}
       >
         <DialogTitle>
           {editingPreparingMachine
@@ -1288,7 +1587,7 @@ const Process5Page = () => {
             : "Thêm máy chuẩn bị"}
         </DialogTitle>
         <DialogContent dividers>
-          <Grid container spacing={2}>
+          <Grid container spacing={isMobile ? 2 : 2}>
             <Grid item xs={12}>
               <TextField
                 label="Ngày điều chỉnh"
@@ -1450,7 +1749,7 @@ const Process5Page = () => {
             : "Thêm máy dự phòng"}
         </DialogTitle>
         <DialogContent dividers>
-          <Grid container spacing={2}>
+          <Grid container spacing={isMobile ? 2 : 2}>
             <Grid item xs={12}>
               <TextField
                 label="Ngày điều chỉnh"
@@ -1609,6 +1908,12 @@ const Process5Page = () => {
         onClose={handleCloseSyncDialog}
         maxWidth="sm"
         fullWidth
+        PaperProps={{
+          sx: {
+            margin: isMobile ? 2 : "auto",
+            width: isMobile ? "calc(100% - 32px)" : undefined,
+          },
+        }}
       >
         <DialogTitle>
           {syncResult?.success ? (

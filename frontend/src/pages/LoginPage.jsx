@@ -94,7 +94,7 @@ const LoginPage = () => {
             margin="normal"
             required
             fullWidth
-            label="Username"
+            label="Số thẻ"
             autoComplete="username"
             autoFocus
             value={username}
@@ -111,7 +111,7 @@ const LoginPage = () => {
             margin="normal"
             required
             fullWidth
-            label="Password"
+            label="Mật khẩu"
             type={showPassword ? "text" : "password"}
             autoComplete="current-password"
             value={password}
@@ -171,7 +171,7 @@ const LoginPage = () => {
               fontSize: "1.1rem",
             }}
           >
-            Sign In
+            Đăng nhập
           </Button>
         </Box>
       </Paper>

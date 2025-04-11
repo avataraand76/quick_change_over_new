@@ -45,6 +45,8 @@ import {
 } from "@mui/icons-material";
 import API from "../api/api";
 import PermissionCheck from "../components/PermissionCheck";
+import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 
 const Process4Page = () => {
   const navigate = useNavigate();
@@ -83,6 +85,9 @@ const Process4Page = () => {
   // New state for A3 delete confirmation
   const [deleteA3ConfirmDialog, setDeleteA3ConfirmDialog] = useState(false);
   const [deletingA3FileIndex, setDeletingA3FileIndex] = useState(null);
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   // New function to check if a process is overdue
   const checkIsOverdue = useCallback((actualDate, planDate, deadline) => {
@@ -608,13 +613,13 @@ const Process4Page = () => {
             borderTopRightRadius: 8,
           }}
         >
-          <Typography variant="h5" fontWeight="bold">
+          <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
             THÔNG TIN KẾ HOẠCH CHUYỂN ĐỔI
           </Typography>
         </Box>
 
-        <CardContent sx={{ padding: 3 }}>
-          <Grid container spacing={3}>
+        <CardContent sx={{ padding: isMobile ? 2 : 3 }}>
+          <Grid container spacing={isMobile ? 2 : 3}>
             <Grid item xs={12} md={6}>
               <Card variant="outlined" sx={{ height: "100%" }}>
                 <CardContent>
@@ -682,13 +687,13 @@ const Process4Page = () => {
             borderTopRightRadius: 8,
           }}
         >
-          <Typography variant="h5" fontWeight="bold">
+          <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
             CÁC BƯỚC CÔNG VIỆC LẬP QUY TRÌNH CÔNG NGHỆ, THIẾT KẾ SƠ ĐỒ CHUYỀN,
             CÂN BẰNG YAMAZUMI
           </Typography>
         </Box>
 
-        <CardContent sx={{ padding: 3 }}>
+        <CardContent sx={{ padding: isMobile ? 2 : 3 }}>
           {workSteps.length > 0 ? (
             <List sx={{ bgcolor: "background.paper", borderRadius: 2 }}>
               {workSteps.map((step, index) => (
@@ -697,20 +702,19 @@ const Process4Page = () => {
                   divider={index < workSteps.length - 1}
                   alignItems="flex-start"
                   sx={{
-                    py: 2,
-                    "&:hover": {
-                      backgroundColor: "rgba(25, 118, 210, 0.04)",
-                    },
+                    py: isMobile ? 1 : 2,
+                    // flexDirection: isMobile ? "column" : "row",
+                    gap: isMobile ? 1 : 0,
                   }}
                 >
                   <Avatar
                     sx={{
                       bgcolor: "#1976d2",
                       color: "white",
-                      width: 36,
-                      height: 36,
-                      mr: 2,
-                      fontSize: "0.875rem",
+                      width: isMobile ? 28 : 36,
+                      height: isMobile ? 28 : 36,
+                      mr: isMobile ? 1 : 2,
+                      fontSize: isMobile ? "0.75rem" : "0.875rem",
                       fontWeight: "bold",
                     }}
                   >
@@ -764,13 +768,13 @@ const Process4Page = () => {
             borderTopRightRadius: 8,
           }}
         >
-          <Typography variant="h5" fontWeight="bold">
+          <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
             LẬP QUY TRÌNH CÔNG NGHỆ, THIẾT KẾ SƠ ĐỒ CHUYỀN, CÂN BẰNG YAMAZUMI
           </Typography>
         </Box>
 
-        <CardContent sx={{ padding: 3 }}>
-          <Grid container spacing={3}>
+        <CardContent sx={{ padding: isMobile ? 2 : 3 }}>
+          <Grid container spacing={isMobile ? 2 : 3}>
             <Grid item xs={12} md={6}>
               <Card variant="outlined" sx={{ height: "100%" }}>
                 <CardContent>
@@ -857,7 +861,7 @@ const Process4Page = () => {
             borderTopRightRadius: 8,
           }}
         >
-          <Typography variant="h5" fontWeight="bold">
+          <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
             TÀI LIỆU MINH CHỨNG
           </Typography>
         </Box>
@@ -865,10 +869,10 @@ const Process4Page = () => {
         <PermissionCheck
           requiredRole={[1]}
           renderContent={(hasPermission) => (
-            <CardContent sx={{ padding: 3 }}>
-              <Grid container spacing={3}>
+            <CardContent sx={{ padding: isMobile ? 2 : 3 }}>
+              <Grid container spacing={isMobile ? 2 : 3}>
                 {/* Evidence Documentation Section */}
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} md={isMobile ? 12 : 6}>
                   <Card variant="outlined" sx={{ height: "100%" }}>
                     <CardContent>
                       <Typography variant="h6" color="primary" gutterBottom>
@@ -877,15 +881,17 @@ const Process4Page = () => {
 
                       <Box sx={{ mb: 3 }}>
                         <Stack
-                          direction="row"
+                          direction={isMobile ? "column" : "row"}
                           spacing={2}
-                          alignItems="center"
+                          alignItems={isMobile ? "stretch" : "center"}
                           sx={{ mb: 2 }}
                         >
                           <Button
                             variant="outlined"
                             component="label"
                             startIcon={<InsertDriveFileIcon />}
+                            fullWidth={isMobile}
+                            size={isMobile ? "medium" : "large"}
                             disabled={!hasPermission /* || isOverdue */}
                             sx={{
                               opacity: !hasPermission /* || isOverdue */
@@ -977,7 +983,12 @@ const Process4Page = () => {
                         {documentationFiles.length > 0 && (
                           <Paper
                             variant="outlined"
-                            sx={{ p: 2, mb: 2, bgcolor: "#f5f5f5" }}
+                            sx={{
+                              p: isMobile ? 1 : 2,
+                              mb: 2,
+                              bgcolor: "#f5f5f5",
+                              width: isMobile ? "100%" : "auto",
+                            }}
                           >
                             <Typography
                               variant="subtitle2"
@@ -1112,7 +1123,7 @@ const Process4Page = () => {
                 </Grid>
 
                 {/* A3 Documentation Section */}
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} md={isMobile ? 12 : 6}>
                   <Card variant="outlined" sx={{ height: "100%" }}>
                     <CardContent>
                       <Typography variant="h6" color="primary" gutterBottom>
@@ -1121,15 +1132,17 @@ const Process4Page = () => {
 
                       <Box sx={{ mb: 3 }}>
                         <Stack
-                          direction="row"
+                          direction={isMobile ? "column" : "row"}
                           spacing={2}
-                          alignItems="center"
+                          alignItems={isMobile ? "stretch" : "center"}
                           sx={{ mb: 2 }}
                         >
                           <Button
                             variant="outlined"
                             component="label"
                             startIcon={<InsertDriveFileIcon />}
+                            fullWidth={isMobile}
+                            size={isMobile ? "medium" : "large"}
                             disabled={!hasPermission}
                             sx={{
                               opacity: !hasPermission ? 0.5 : 1,
@@ -1199,7 +1212,12 @@ const Process4Page = () => {
                         {a3DocumentationFiles.length > 0 && (
                           <Paper
                             variant="outlined"
-                            sx={{ p: 2, mb: 2, bgcolor: "#f5f5f5" }}
+                            sx={{
+                              p: isMobile ? 1 : 2,
+                              mb: 2,
+                              bgcolor: "#f5f5f5",
+                              width: isMobile ? "100%" : "auto",
+                            }}
                           >
                             <Typography
                               variant="subtitle2"
@@ -1330,11 +1348,10 @@ const Process4Page = () => {
         fullWidth
         PaperProps={{
           sx: {
-            height: "90vh",
-            maxHeight: "90vh",
-            backgroundColor: "white",
-            borderRadius: 2,
-            overflow: "hidden",
+            height: isMobile ? "100vh" : "90vh",
+            maxHeight: isMobile ? "100vh" : "90vh",
+            margin: isMobile ? 0 : 2,
+            borderRadius: isMobile ? 0 : 2,
           },
         }}
       >

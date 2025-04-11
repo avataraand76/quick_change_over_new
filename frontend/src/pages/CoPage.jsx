@@ -24,6 +24,9 @@ import {
   TableRow,
   Paper,
   Chip,
+  useTheme,
+  useMediaQuery,
+  Stack,
 } from "@mui/material";
 import {
   ArrowBack as ArrowBackIcon,
@@ -106,6 +109,132 @@ const CoPage = () => {
     message: "",
     severity: "info",
   });
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  const MobileDowntimeCard = ({ issue, index }) => {
+    return (
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <Typography variant="subtitle1" color="primary" gutterBottom>
+            Sự cố #{index + 1}
+          </Typography>
+
+          <Grid container spacing={1}>
+            <Grid item xs={6}>
+              <Typography variant="caption" color="textSecondary">
+                Thời gian bắt đầu
+              </Typography>
+              <Typography variant="body2">
+                {formatDateDisplay(issue.submission_time)}
+              </Typography>
+            </Grid>
+
+            <Grid item xs={6}>
+              <Typography variant="caption" color="textSecondary">
+                Vị trí
+              </Typography>
+              <Typography variant="body2">
+                {`${issue.line_number} - ${issue.station_number || ""}`}
+              </Typography>
+            </Grid>
+
+            <Grid item xs={12}>
+              <Typography variant="caption" color="textSecondary">
+                Phạm vi vấn đề
+              </Typography>
+              <Typography variant="body2">
+                {issue.name_category || ""}
+              </Typography>
+            </Grid>
+
+            {issue.machine_type && (
+              <>
+                <Grid item xs={12}>
+                  <Typography variant="caption" color="textSecondary">
+                    Loại máy
+                  </Typography>
+                  <Typography variant="body2">
+                    {issue.machine_type || ""}
+                  </Typography>
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Typography variant="caption" color="textSecondary">
+                    Mã thiết bị
+                  </Typography>
+                  <Typography variant="body2">
+                    {issue.machine_code || ""}
+                  </Typography>
+                </Grid>
+              </>
+            )}
+
+            <Grid item xs={12}>
+              <Typography variant="caption" color="textSecondary">
+                Mô tả lỗi
+              </Typography>
+              <Typography variant="body2">
+                {issue.issue_description || ""}
+              </Typography>
+            </Grid>
+
+            <Grid item xs={12}>
+              <Typography variant="caption" color="textSecondary">
+                Giải pháp
+              </Typography>
+              <Typography variant="body2">
+                {issue.solution_description || ""}
+              </Typography>
+            </Grid>
+
+            <Grid item xs={6}>
+              <Typography variant="caption" color="textSecondary">
+                Thời gian kết thúc
+              </Typography>
+              <Typography variant="body2">
+                {formatDateDisplay(issue.end_time)}
+              </Typography>
+            </Grid>
+
+            <Grid item xs={6}>
+              <Typography variant="caption" color="textSecondary">
+                Thời gian Downtime
+              </Typography>
+              <Typography variant="body2">
+                {formatDowntime(issue.downtime_minutes)}
+              </Typography>
+            </Grid>
+
+            <Grid item xs={6}>
+              <Typography variant="caption" color="textSecondary">
+                {/* Trạng thái:{" "} */}
+              </Typography>
+              <Chip
+                icon={
+                  issue.status_logged_issue === "resolved" ? (
+                    <CheckCircleIcon />
+                  ) : (
+                    <ErrorIcon />
+                  )
+                }
+                label={
+                  issue.status_logged_issue === "resolved"
+                    ? "Đã giải quyết"
+                    : "Đang xử lý"
+                }
+                color={
+                  issue.status_logged_issue === "resolved" ? "success" : "error"
+                }
+                variant="outlined"
+                size="small"
+              />
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+    );
+  };
 
   // Add calculation functions
   const calculateTargetOfCOPT = (sam) => {
@@ -519,17 +648,17 @@ const CoPage = () => {
             borderTopRightRadius: 8,
           }}
         >
-          <Typography variant="h5" fontWeight="bold">
+          <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
             THÔNG TIN CHUYỂN ĐỔI (CO)
           </Typography>
         </Box>
 
-        <CardContent sx={{ padding: 3 }}>
+        <CardContent sx={{ padding: isMobile ? 2 : 3 }}>
           <Box sx={{ mb: 3 }}>
             <Typography variant="h6" color="primary" gutterBottom>
               Thông tin chuyền/mã hàng
             </Typography>
-            <Grid container spacing={2}>
+            <Grid container spacing={isMobile ? 2 : 3}>
               <Grid item xs={12} sm={6}>
                 <TextField
                   label="Chuyền"
@@ -585,7 +714,7 @@ const CoPage = () => {
             <Typography variant="h6" color="primary" gutterBottom>
               Thời gian chuyển đổi
             </Typography>
-            <Grid container spacing={2}>
+            <Grid container spacing={isMobile ? 2 : 3}>
               <Grid item xs={12} sm={4}>
                 <PermissionCheck
                   requiredRole={[1]}
@@ -673,7 +802,7 @@ const CoPage = () => {
             <Typography variant="h6" color="primary" gutterBottom>
               Thông tin sản xuất
             </Typography>
-            <Grid container spacing={2}>
+            <Grid container spacing={isMobile ? 2 : 3}>
               <Grid item xs={12} sm={6}>
                 <PermissionCheck
                   requiredRole={[1]}
@@ -817,7 +946,7 @@ const CoPage = () => {
             <Typography variant="h6" color="primary" gutterBottom>
               Mục tiêu chuyển đổi
             </Typography>
-            <Grid container spacing={2}>
+            <Grid container spacing={isMobile ? 2 : 3}>
               <Grid item xs={12} sm={3}>
                 <TextField
                   label="Mục tiêu COPT"
@@ -921,12 +1050,12 @@ const CoPage = () => {
             borderTopRightRadius: 8,
           }}
         >
-          <Typography variant="h5" fontWeight="bold">
+          <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
             DOWNTIME CHUYỂN ĐỔI
           </Typography>
         </Box>
 
-        <CardContent sx={{ padding: 3 }}>
+        <CardContent sx={{ padding: isMobile ? 2 : 3 }}>
           {loadingDowntime ? (
             <Box sx={{ display: "flex", justifyContent: "center", my: 3 }}>
               <LinearProgress sx={{ width: "50%" }} />
@@ -937,6 +1066,7 @@ const CoPage = () => {
                 sx={{
                   mb: 4,
                   display: "flex",
+                  flexDirection: isMobile ? "column" : "row",
                   gap: 3,
                   flexWrap: "wrap",
                 }}
@@ -1014,7 +1144,7 @@ const CoPage = () => {
                     Thống kê theo phạm vi vấn đề
                   </Typography>
 
-                  <Grid container spacing={2} sx={{ mt: 1 }}>
+                  <Grid container spacing={isMobile ? 2 : 3} sx={{ mt: 1 }}>
                     {downtimeByCategory.map((category) => {
                       // Assign specific colors based on category type
                       let darkColor, lightColor;
@@ -1172,7 +1302,12 @@ const CoPage = () => {
               {downtimeIssues.length > 0 ? (
                 <>
                   <Box
-                    sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}
+                    sx={{
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      mb: 2,
+                      mt: isMobile ? 8 : 0,
+                    }}
                   >
                     <TextField
                       select
@@ -1193,125 +1328,151 @@ const CoPage = () => {
                         ))}
                     </TextField>
                   </Box>
-                  <TableContainer
-                    component={Paper}
-                    elevation={2}
-                    sx={{
-                      mb: 3,
-                      maxWidth: "100%",
-                      overflowX: "auto",
-                    }}
-                  >
-                    <Table
-                      aria-label="downtime issues table"
-                      size="small"
-                      stickyHeader
+                  {isMobile ? (
+                    // Mobile view - Card layout
+                    <Box>
+                      {filteredIssues.map((issue, index) => (
+                        <MobileDowntimeCard
+                          key={issue.id_logged_issue}
+                          issue={issue}
+                          index={index}
+                        />
+                      ))}
+                    </Box>
+                  ) : (
+                    // Desktop view - Table layout
+                    <TableContainer
+                      component={Paper}
+                      elevation={2}
+                      sx={{
+                        mb: 3,
+                        maxWidth: "100%",
+                        overflowX: "auto",
+                      }}
                     >
-                      <TableHead>
-                        <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-                          <TableCell sx={{ fontWeight: "bold" }}>STT</TableCell>
-                          <TableCell sx={{ fontWeight: "bold" }}>
-                            Thời gian bắt đầu
-                          </TableCell>
+                      <Table
+                        aria-label="downtime issues table"
+                        size={isMobile ? "small" : "medium"}
+                        stickyHeader
+                      >
+                        <TableHead>
+                          <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+                            <TableCell sx={{ fontWeight: "bold" }}>
+                              STT
+                            </TableCell>
+                            <TableCell sx={{ fontWeight: "bold" }}>
+                              Thời gian bắt đầu
+                            </TableCell>
 
-                          <TableCell sx={{ fontWeight: "bold" }}>
-                            Vị trí
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: "bold" }}>
-                            Phạm vi vấn đề
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: "bold" }}>
-                            Loại máy
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: "bold" }}>
-                            Mã thiết bị
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: "bold" }}>
-                            Mô tả lỗi
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: "bold" }}>
-                            Giải pháp
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: "bold" }}>
-                            Thời gian kết thúc
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: "bold" }}>
-                            Thời gian Downtime
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: "bold" }}>
-                            Mã hàng cũ
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: "bold" }}>
-                            Mã hàng mới
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: "bold" }}>
-                            Trạng thái
-                          </TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {filteredIssues.map((issue, index) => (
-                          <TableRow key={issue.id_logged_issue}>
-                            <TableCell>{index + 1}</TableCell>
-                            <TableCell>
-                              {formatDateDisplay(issue.submission_time)}
+                            <TableCell sx={{ fontWeight: "bold" }}>
+                              Vị trí
                             </TableCell>
-                            <TableCell>{`${issue.line_number} - ${
-                              issue.station_number || ""
-                            }`}</TableCell>
-                            <TableCell>{issue.name_category || ""}</TableCell>
-                            <TableCell>{issue.machinery_type || ""}</TableCell>
-                            <TableCell>{issue.machinery_code || ""}</TableCell>
-                            <TableCell
-                              sx={{ maxWidth: 200, overflowWrap: "break-word" }}
-                            >
-                              {issue.issue_description || ""}
+                            <TableCell sx={{ fontWeight: "bold" }}>
+                              Phạm vi vấn đề
                             </TableCell>
-                            <TableCell
-                              sx={{ maxWidth: 200, overflowWrap: "break-word" }}
-                            >
-                              {issue.solution_description || ""}
+                            <TableCell sx={{ fontWeight: "bold" }}>
+                              Loại máy
                             </TableCell>
-                            <TableCell>
-                              {formatDateDisplay(issue.end_time)}
+                            <TableCell sx={{ fontWeight: "bold" }}>
+                              Mã thiết bị
                             </TableCell>
-                            <TableCell>
-                              {formatDowntime(issue.downtime_minutes)}
+                            <TableCell sx={{ fontWeight: "bold" }}>
+                              Mô tả lỗi
                             </TableCell>
-                            <TableCell>
-                              {issue.old_product_code || ""}
+                            <TableCell sx={{ fontWeight: "bold" }}>
+                              Giải pháp
                             </TableCell>
-                            <TableCell>
-                              {issue.new_product_code || ""}
+                            <TableCell sx={{ fontWeight: "bold" }}>
+                              Thời gian kết thúc
                             </TableCell>
-                            <TableCell>
-                              <Chip
-                                icon={
-                                  issue.status_logged_issue === "resolved" ? (
-                                    <CheckCircleIcon />
-                                  ) : (
-                                    <ErrorIcon />
-                                  )
-                                }
-                                label={
-                                  issue.status_logged_issue === "resolved"
-                                    ? "Đã giải quyết"
-                                    : "Đang xử lý"
-                                }
-                                color={
-                                  issue.status_logged_issue === "resolved"
-                                    ? "success"
-                                    : "error"
-                                }
-                                variant="outlined"
-                                size="small"
-                              />
+                            <TableCell sx={{ fontWeight: "bold" }}>
+                              Thời gian Downtime
+                            </TableCell>
+                            <TableCell sx={{ fontWeight: "bold" }}>
+                              Mã hàng cũ
+                            </TableCell>
+                            <TableCell sx={{ fontWeight: "bold" }}>
+                              Mã hàng mới
+                            </TableCell>
+                            <TableCell sx={{ fontWeight: "bold" }}>
+                              Trạng thái
                             </TableCell>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+                        </TableHead>
+                        <TableBody>
+                          {filteredIssues.map((issue, index) => (
+                            <TableRow key={issue.id_logged_issue}>
+                              <TableCell>{index + 1}</TableCell>
+                              <TableCell>
+                                {formatDateDisplay(issue.submission_time)}
+                              </TableCell>
+                              <TableCell>{`${issue.line_number} - ${
+                                issue.station_number || ""
+                              }`}</TableCell>
+                              <TableCell>{issue.name_category || ""}</TableCell>
+                              <TableCell>
+                                {issue.machinery_type || ""}
+                              </TableCell>
+                              <TableCell>
+                                {issue.machinery_code || ""}
+                              </TableCell>
+                              <TableCell
+                                sx={{
+                                  maxWidth: 200,
+                                  overflowWrap: "break-word",
+                                }}
+                              >
+                                {issue.issue_description || ""}
+                              </TableCell>
+                              <TableCell
+                                sx={{
+                                  maxWidth: 200,
+                                  overflowWrap: "break-word",
+                                }}
+                              >
+                                {issue.solution_description || ""}
+                              </TableCell>
+                              <TableCell>
+                                {formatDateDisplay(issue.end_time)}
+                              </TableCell>
+                              <TableCell>
+                                {formatDowntime(issue.downtime_minutes)}
+                              </TableCell>
+                              <TableCell>
+                                {issue.old_product_code || ""}
+                              </TableCell>
+                              <TableCell>
+                                {issue.new_product_code || ""}
+                              </TableCell>
+                              <TableCell>
+                                <Chip
+                                  icon={
+                                    issue.status_logged_issue === "resolved" ? (
+                                      <CheckCircleIcon />
+                                    ) : (
+                                      <ErrorIcon />
+                                    )
+                                  }
+                                  label={
+                                    issue.status_logged_issue === "resolved"
+                                      ? "Đã giải quyết"
+                                      : "Đang xử lý"
+                                  }
+                                  color={
+                                    issue.status_logged_issue === "resolved"
+                                      ? "success"
+                                      : "error"
+                                  }
+                                  variant="outlined"
+                                  size="small"
+                                />
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  )}
                 </>
               ) : (
                 <Box sx={{ textAlign: "center", py: 4 }}>
