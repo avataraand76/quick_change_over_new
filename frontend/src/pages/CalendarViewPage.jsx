@@ -22,6 +22,8 @@ import {
   DialogActions,
   Button,
   LinearProgress,
+  useMediaQuery,
+  IconButton,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { styled } from "@mui/material/styles";
@@ -32,11 +34,11 @@ import CloseIcon from "@mui/icons-material/Close";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import PercentIcon from "@mui/icons-material/Percent";
 
-const StyledDialog = styled(Dialog)(() => ({
+const StyledDialog = styled(Dialog)(({ theme }) => ({
   "& .MuiDialog-paper": {
     borderRadius: 16,
     padding: 0,
-    minWidth: 800,
+    minWidth: theme.breakpoints.down("sm") ? "95%" : 800,
     maxWidth: 1000,
     width: "90%",
     overflow: "hidden",
@@ -51,6 +53,7 @@ const CalendarViewPage = () => {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedWorkshops, setSelectedWorkshops] = useState([]);
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -80,89 +83,234 @@ const CalendarViewPage = () => {
       : events;
 
   // Workshop selection buttons
-  const WorkshopButtons = () => (
-    <Box sx={{ mb: 2, display: "flex", gap: 1, justifyContent: "right" }}>
-      <Button
-        variant={selectedWorkshops.length === 0 ? "contained" : "outlined"}
-        onClick={() => setSelectedWorkshops([])}
-        sx={{ borderRadius: 2 }}
+  const WorkshopButtons = () =>
+    !isMobile ? (
+      <Box
+        sx={{
+          mb: 2,
+          display: "flex",
+          gap: 1,
+          justifyContent: "right",
+          flexWrap: isMobile ? "wrap" : "nowrap",
+          "& .MuiButton-root": {
+            flex: isMobile ? "1 1 calc(50% - 8px)" : "0 1 auto",
+            minWidth: isMobile ? 0 : "auto",
+          },
+        }}
       >
-        Tất cả
-      </Button>
-      {[1, 2, 3, 4].map((workshop) => (
         <Button
-          key={workshop}
-          variant={
-            selectedWorkshops.includes(workshop) ? "contained" : "outlined"
-          }
-          onClick={() => {
-            setSelectedWorkshops((prev) => {
-              if (prev.includes(workshop)) {
-                // Nếu xưởng đã được chọn, loại bỏ khỏi mảng
-                return prev.filter((w) => w !== workshop);
-              } else {
-                // Nếu xưởng chưa được chọn, thêm vào mảng
-                return [...prev, workshop];
-              }
-            });
-          }}
-          sx={{
-            borderRadius: 2,
-            // Màu nền khi button được chọn (variant="contained")
-            backgroundColor: selectedWorkshops.includes(workshop)
-              ? workshop === 1
-                ? "#0373d9"
-                : workshop === 2
-                ? "#00da8c"
-                : workshop === 3
-                ? "#180cda"
-                : "#3ada14"
-              : "transparent",
-            // Màu viền khi button không được chọn (variant="outlined")
-            borderColor:
-              workshop === 1
-                ? "#0373d9"
-                : workshop === 2
-                ? "#00da8c"
-                : workshop === 3
-                ? "#180cda"
-                : "#3ada14",
-            // Màu chữ
-            color: selectedWorkshops.includes(workshop)
-              ? "#fff"
-              : workshop === 1
-              ? "#0373d9"
-              : workshop === 2
-              ? "#00da8c"
-              : workshop === 3
-              ? "#180cda"
-              : "#3ada14",
-            "&:hover": {
+          variant={selectedWorkshops.length === 0 ? "contained" : "outlined"}
+          onClick={() => setSelectedWorkshops([])}
+          sx={{ borderRadius: 2 }}
+        >
+          Tất cả
+        </Button>
+        {[1, 2, 3, 4].map((workshop) => (
+          <Button
+            key={workshop}
+            variant={
+              selectedWorkshops.includes(workshop) ? "contained" : "outlined"
+            }
+            onClick={() => {
+              setSelectedWorkshops((prev) => {
+                if (prev.includes(workshop)) {
+                  // Nếu xưởng đã được chọn, loại bỏ khỏi mảng
+                  return prev.filter((w) => w !== workshop);
+                } else {
+                  // Nếu xưởng chưa được chọn, thêm vào mảng
+                  return [...prev, workshop];
+                }
+              });
+            }}
+            sx={{
+              borderRadius: 2,
+              // Màu nền khi button được chọn (variant="contained")
               backgroundColor: selectedWorkshops.includes(workshop)
                 ? workshop === 1
-                  ? "#025bb5"
+                  ? "#64b5f6"
                   : workshop === 2
-                  ? "#00b374"
+                  ? "#81c784"
                   : workshop === 3
-                  ? "#1309b5"
-                  : "#2fb310"
-                : "rgba(0, 0, 0, 0.04)",
+                  ? "#ffb74d"
+                  : "#ff6b6b"
+                : "transparent",
+              // Màu viền khi button không được chọn (variant="outlined")
               borderColor:
                 workshop === 1
-                  ? "#0373d9"
+                  ? "#64b5f6"
                   : workshop === 2
-                  ? "#00da8c"
+                  ? "#81c784"
                   : workshop === 3
-                  ? "#180cda"
-                  : "#3ada14",
-            },
+                  ? "#ffb74d"
+                  : "#ff6b6b",
+              // Màu chữ
+              color: selectedWorkshops.includes(workshop)
+                ? "#fff"
+                : workshop === 1
+                ? "#64b5f6"
+                : workshop === 2
+                ? "#81c784"
+                : workshop === 3
+                ? "#ffb74d"
+                : "#ff6b6b",
+              "&:hover": {
+                backgroundColor: selectedWorkshops.includes(workshop)
+                  ? workshop === 1
+                    ? "#42a5f5"
+                    : workshop === 2
+                    ? "#66bb6a"
+                    : workshop === 3
+                    ? "#ffa726"
+                    : "#cc5555"
+                  : "rgba(0, 0, 0, 0.04)",
+                borderColor:
+                  workshop === 1
+                    ? "#64b5f6"
+                    : workshop === 2
+                    ? "#81c784"
+                    : workshop === 3
+                    ? "#ffb74d"
+                    : "#ff6b6b",
+              },
+            }}
+          >
+            Xưởng {workshop}
+          </Button>
+        ))}
+      </Box>
+    ) : (
+      <Box
+        sx={{
+          mb: 2,
+          display: "flex",
+          flexDirection: "column",
+          gap: 1,
+        }}
+      >
+        {/* Nút "Tất cả" sẽ nằm một hàng riêng và full width trên mobile */}
+        <Box
+          sx={{
+            display: "flex",
+            width: "100%",
           }}
         >
-          Xưởng {workshop}
-        </Button>
-      ))}
-    </Box>
-  );
+          <Button
+            variant={selectedWorkshops.length === 0 ? "contained" : "outlined"}
+            onClick={() => setSelectedWorkshops([])}
+            sx={{
+              borderRadius: 2,
+              flex: 1,
+            }}
+          >
+            Tất cả
+          </Button>
+        </Box>
+
+        {/* Container cho 2 nút xưởng 1,2 */}
+        <Box
+          sx={{
+            display: "flex",
+            gap: 1,
+            width: "100%",
+          }}
+        >
+          {[1, 2].map((workshop) => (
+            <Button
+              key={workshop}
+              variant={
+                selectedWorkshops.includes(workshop) ? "contained" : "outlined"
+              }
+              onClick={() => {
+                setSelectedWorkshops((prev) => {
+                  if (prev.includes(workshop)) {
+                    return prev.filter((w) => w !== workshop);
+                  } else {
+                    return [...prev, workshop];
+                  }
+                });
+              }}
+              sx={{
+                borderRadius: 2,
+                flex: 1,
+                backgroundColor: selectedWorkshops.includes(workshop)
+                  ? workshop === 1
+                    ? "#64b5f6"
+                    : "#81c784"
+                  : "transparent",
+                borderColor: workshop === 1 ? "#64b5f6" : "#81c784",
+                color: selectedWorkshops.includes(workshop)
+                  ? "#fff"
+                  : workshop === 1
+                  ? "#64b5f6"
+                  : "#81c784",
+                "&:hover": {
+                  backgroundColor: selectedWorkshops.includes(workshop)
+                    ? workshop === 1
+                      ? "#42a5f5"
+                      : "#66bb6a"
+                    : "rgba(0, 0, 0, 0.04)",
+                  borderColor: workshop === 1 ? "#64b5f6" : "#81c784",
+                },
+              }}
+            >
+              Xưởng {workshop}
+            </Button>
+          ))}
+        </Box>
+
+        {/* Container cho 2 nút xưởng 3,4 */}
+        <Box
+          sx={{
+            display: "flex",
+            gap: 1,
+            width: "100%",
+          }}
+        >
+          {[3, 4].map((workshop) => (
+            <Button
+              key={workshop}
+              variant={
+                selectedWorkshops.includes(workshop) ? "contained" : "outlined"
+              }
+              onClick={() => {
+                setSelectedWorkshops((prev) => {
+                  if (prev.includes(workshop)) {
+                    return prev.filter((w) => w !== workshop);
+                  } else {
+                    return [...prev, workshop];
+                  }
+                });
+              }}
+              sx={{
+                borderRadius: 2,
+                flex: 1,
+                backgroundColor: selectedWorkshops.includes(workshop)
+                  ? workshop === 3
+                    ? "#ffb74d"
+                    : "#ff6b6b"
+                  : "transparent",
+                borderColor: workshop === 3 ? "#ffb74d" : "#ff6b6b",
+                color: selectedWorkshops.includes(workshop)
+                  ? "#fff"
+                  : workshop === 3
+                  ? "#ffb74d"
+                  : "#ff6b6b",
+                "&:hover": {
+                  backgroundColor: selectedWorkshops.includes(workshop)
+                    ? workshop === 3
+                      ? "#ffa726"
+                      : "#cc5555"
+                    : "rgba(0, 0, 0, 0.04)",
+                  borderColor: workshop === 3 ? "#ffb74d" : "#ff6b6b",
+                },
+              }}
+            >
+              Xưởng {workshop}
+            </Button>
+          ))}
+        </Box>
+      </Box>
+    );
 
   const handleEventClick = (clickInfo) => {
     setSelectedEvent({
@@ -170,7 +318,13 @@ const CalendarViewPage = () => {
       title: clickInfo.event.title,
       line: clickInfo.event.extendedProps.line,
       style: clickInfo.event.extendedProps.style,
-      plan_date: clickInfo.event.extendedProps.plan_date,
+      start: clickInfo.event.start,
+      end: clickInfo.event.end,
+
+      /* để tạm */
+      // plan_date: clickInfo.event.extendedProps.plan_date,
+      /* để tạm */
+
       actual_date: clickInfo.event.extendedProps.actual_date,
       total_percent_rate: clickInfo.event.extendedProps.total_percent_rate || 0,
     });
@@ -205,16 +359,6 @@ const CalendarViewPage = () => {
           width: "100%", // Đảm bảo sự kiện chiếm toàn bộ chiều rộng trong listDay
         }}
       >
-        {/* Hiển thị chấm trắng trong tất cả các chế độ */}
-        <Box
-          sx={{
-            width: 10,
-            height: 10,
-            borderRadius: "50%",
-            backgroundColor: "white", // Chấm màu trắng để nổi bật trên nền màu
-            flexShrink: 0,
-          }}
-        />
         <div
           className="fc-event-title"
           style={{
@@ -272,119 +416,30 @@ const CalendarViewPage = () => {
     ".fc .fc-toolbar-title": {
       fontSize: theme.typography.h5.fontSize,
       fontWeight: theme.typography.fontWeightBold,
-      fontFamily: "Arial, sans-serif",
     },
     ".fc .fc-button": {
       textTransform: "capitalize",
-      fontFamily: "Arial, sans-serif",
-    },
-    ".fc .fc-event": {
-      cursor: "pointer",
-      fontFamily: "Arial, sans-serif",
-      fontSize: "0.9rem",
-      border: "none",
-      padding: "3px 5px",
-      overflow: "hidden",
-      lineHeight: "1.2",
-      borderRadius: "4px",
-    },
-    ".fc .fc-event:hover": {
-      opacity: 0.9,
-    },
-    ".fc .fc-daygrid-day-number": {
-      fontSize: "1.2rem",
-      fontFamily: "Arial, sans-serif",
-    },
-    ".fc th": {
-      fontSize: "1.2rem",
-      fontFamily: "Arial, sans-serif",
     },
     ".fc .fc-day-today": {
-      backgroundColor: "#ACFFFC !important",
-    },
-    ".fc-theme-standard .fc-list-day-cushion": {
-      backgroundColor: theme.palette.grey[100],
-      fontSize: "1.2rem",
-      fontFamily: "Arial, sans-serif",
-    },
-    // Style cho sự kiện trong chế độ listDay
-    ".fc .fc-list-event": {
-      fontFamily: "Arial, sans-serif",
-      fontSize: "0.9rem",
-      lineHeight: "1.2",
-      padding: "3px 5px",
-      border: "none",
-    },
-    ".fc .fc-list-event-dot": {
-      display: "none", // Ẩn chấm màu mặc định
-    },
-    // Style cho tiêu đề sự kiện trong chế độ listDay
-    ".fc .fc-list-event .fc-event-title": {
-      fontFamily: "Arial, sans-serif",
-      fontSize: "0.9rem",
-      lineHeight: "1.2",
-      width: "100%",
-    },
-    // Đảm bảo sự kiện trong dayGridMonth hiển thị dạng thanh
-    ".fc .fc-daygrid-day-events .fc-daygrid-event": {
-      fontFamily: "Arial, sans-serif",
-      fontSize: "0.9rem",
-      lineHeight: "1.2",
-      whiteSpace: "nowrap",
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-      maxWidth: "100%",
-      padding: "2px 4px",
-      borderRadius: "4px",
-    },
-    ".fc .fc-daygrid-day-events": {
-      position: "relative !important",
-      minHeight: "auto !important",
-      height: "auto !important",
-      display: "flex !important",
-      flexDirection: "column !important",
-      gap: "2px !important",
-      margin: "0 !important",
-      padding: "2px !important",
-    },
-    ".fc .fc-daygrid-event-harness": {
-      position: "relative !important",
-      margin: "0 !important",
-      top: "0 !important",
-      left: "0 !important",
-      right: "0 !important",
-    },
-    ".fc .fc-daygrid-day-bottom": {
-      margin: "0 !important",
-      padding: "2px 0 !important",
-    },
-    ".fc .fc-daygrid-body": {
-      width: "100% !important",
-    },
-    ".fc .fc-daygrid-body table": {
-      width: "100% !important",
-    },
-    ".fc .fc-scrollgrid-sync-table": {
-      height: "auto !important",
-      width: "100% !important",
-    },
-    ".fc-view-harness": {
-      height: "auto !important",
+      backgroundColor: `#ffdf00 !important`,
+      // border: "5px solid rgb(255, 0, 8) !important",
     },
     "@media (max-width: 600px)": {
       ".fc .fc-toolbar": {
         flexDirection: "column",
-      },
-      ".fc .fc-toolbar-title": {
-        fontSize: theme.typography.h6.fontSize,
-        margin: theme.spacing(1, 0),
+        gap: "1rem",
       },
     },
   };
 
   return (
     <Container
-      sx={{ mt: 4, mb: 4, maxWidth: "100% !important", px: "0 !important" }}
+      sx={{
+        mt: 4,
+        mb: 4,
+        maxWidth: "100% !important",
+        px: isMobile ? "8px !important" : "0 !important",
+      }}
     >
       <Paper
         elevation={3}
@@ -394,7 +449,7 @@ const CalendarViewPage = () => {
           flexDirection: "column",
           borderRadius: 2,
           overflow: "hidden",
-          mx: 1,
+          mx: isMobile ? 0 : 1,
         }}
       >
         <Box
@@ -409,12 +464,12 @@ const CalendarViewPage = () => {
             alignItems: "center",
           }}
         >
-          <Typography variant="h5" fontWeight="bold">
+          <Typography variant={isMobile ? "h6" : "h5"} fontWeight="bold">
             LỊCH KẾ HOẠCH SẢN XUẤT
           </Typography>
         </Box>
 
-        <Box sx={{ p: 2, minHeight: "70vh" }}>
+        <Box sx={{ p: isMobile ? 1 : 2, minHeight: "70vh" }}>
           {loading ? (
             <Box
               sx={{
@@ -446,29 +501,29 @@ const CalendarViewPage = () => {
                   headerToolbar={{
                     left: "prev,next today",
                     center: "title",
-                    right: "listDay,dayGridWeek,dayGridMonth,multiMonthYear",
+                    right: isMobile
+                      ? "listDay,dayGridWeek,dayGridMonth"
+                      : "listDay,dayGridWeek,dayGridMonth,multiMonthYear",
                   }}
-                  initialView="dayGridMonth"
+                  initialView={isMobile ? "dayGridMonth" : "dayGridMonth"}
                   views={{
                     listDay: {
                       buttonText: "Day",
                       hiddenDays: [0],
+                      displayEventTime: false,
                     },
                     dayGridWeek: {
                       buttonText: "Week",
                       hiddenDays: [0],
-                      dayMaxEvents: false,
                     },
                     dayGridMonth: {
                       buttonText: "Month",
                       hiddenDays: [0],
-                      dayMaxEvents: false,
                     },
                     multiMonthYear: {
                       buttonText: "Year",
                       hiddenDays: [0],
                       multiMonthMaxColumns: 2,
-                      dayMaxEvents: false,
                     },
                   }}
                   hiddenDays={[0]}
@@ -481,8 +536,6 @@ const CalendarViewPage = () => {
                   timeZone="local"
                   firstDay={1}
                   nowIndicator={true}
-                  displayEventTime={false}
-                  dayMaxEvents={false}
                   eventDisplay="block"
                 />
               </Box>
@@ -496,6 +549,7 @@ const CalendarViewPage = () => {
         onClose={handleDialogClose}
         aria-labelledby="alert-dialog-title"
         aria-describedby="alert-dialog-description"
+        fullScreen={isMobile}
       >
         <DialogTitle
           id="alert-dialog-title"
@@ -503,29 +557,51 @@ const CalendarViewPage = () => {
             display: "flex",
             alignItems: "center",
             gap: 1,
-            p: 3,
+            p: isMobile ? 2 : 3,
             pb: 2,
             backgroundColor: theme.palette.primary.main,
             color: "white",
           }}
         >
           <EventIcon />
-          <Typography variant="h6" component="span">
+          <Typography
+            variant={isMobile ? "subtitle1" : "h6"}
+            component="span"
+            sx={{ flex: 1 }}
+          >
             Chi tiết kế hoạch sản xuất
           </Typography>
+          {isMobile && (
+            <IconButton
+              edge="end"
+              color="inherit"
+              onClick={handleDialogClose}
+              aria-label="close"
+              size="small"
+            >
+              <CloseIcon />
+            </IconButton>
+          )}
         </DialogTitle>
 
-        <DialogContent sx={{ p: 3 }}>
+        <DialogContent sx={{ p: isMobile ? 2 : 3 }}>
           {selectedEvent && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <Box sx={{ display: "flex", gap: 2, mt: "24px" }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  gap: 2,
+                  mt: isMobile ? 1 : "24px",
+                  flexDirection: isMobile ? "column" : "row",
+                }}
+              >
                 <Box
                   sx={{
                     flex: 1,
                     display: "flex",
                     alignItems: "center",
                     gap: 2,
-                    p: 2,
+                    p: isMobile ? 1.5 : 2,
                     bgcolor: theme.palette.grey[50],
                     borderRadius: 2,
                     border: `1px solid ${theme.palette.grey[200]}`,
@@ -538,7 +614,7 @@ const CalendarViewPage = () => {
                 >
                   <FormatListNumberedIcon
                     color="primary"
-                    sx={{ fontSize: 28 }}
+                    sx={{ fontSize: isMobile ? 24 : 28 }}
                   />
                   <Box>
                     <Typography
@@ -548,7 +624,10 @@ const CalendarViewPage = () => {
                     >
                       Chuyền sản xuất
                     </Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    <Typography
+                      variant={isMobile ? "h6" : "h5"}
+                      sx={{ fontWeight: 600 }}
+                    >
                       {selectedEvent.line}
                     </Typography>
                   </Box>
@@ -560,7 +639,7 @@ const CalendarViewPage = () => {
                     display: "flex",
                     alignItems: "center",
                     gap: 2,
-                    p: 2,
+                    p: isMobile ? 1.5 : 2,
                     bgcolor: theme.palette.grey[50],
                     borderRadius: 2,
                     border: `1px solid ${theme.palette.grey[200]}`,
@@ -571,7 +650,10 @@ const CalendarViewPage = () => {
                     },
                   }}
                 >
-                  <InventoryIcon color="primary" sx={{ fontSize: 28 }} />
+                  <InventoryIcon
+                    color="primary"
+                    sx={{ fontSize: isMobile ? 24 : 28 }}
+                  />
                   <Box>
                     <Typography
                       variant="body2"
@@ -580,21 +662,30 @@ const CalendarViewPage = () => {
                     >
                       Mã hàng
                     </Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    <Typography
+                      variant={isMobile ? "h6" : "h5"}
+                      sx={{ fontWeight: 600 }}
+                    >
                       {selectedEvent.style}
                     </Typography>
                   </Box>
                 </Box>
               </Box>
 
-              <Box sx={{ display: "flex", gap: 2 }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  gap: 2,
+                  flexDirection: isMobile ? "column" : "row",
+                }}
+              >
                 <Box
                   sx={{
                     flex: 1,
                     display: "flex",
                     alignItems: "center",
                     gap: 2,
-                    p: 2,
+                    p: isMobile ? 1.5 : 2,
                     bgcolor: theme.palette.grey[50],
                     borderRadius: 2,
                     border: `1px solid ${theme.palette.grey[200]}`,
@@ -605,7 +696,10 @@ const CalendarViewPage = () => {
                     },
                   }}
                 >
-                  <EventIcon color="primary" sx={{ fontSize: 28 }} />
+                  <EventIcon
+                    color="primary"
+                    sx={{ fontSize: isMobile ? 24 : 28 }}
+                  />
                   <Box>
                     <Typography
                       variant="body2"
@@ -614,8 +708,15 @@ const CalendarViewPage = () => {
                     >
                       Ngày dự kiến
                     </Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      {formatDateTime(selectedEvent.plan_date) || "Chưa có"}
+                    <Typography
+                      variant={isMobile ? "body1" : "h6"}
+                      sx={{ fontWeight: 600 }}
+                    >
+                      {formatDateTime(selectedEvent.end) || "Chưa có"}
+
+                      {/* để tạm */}
+                      {/* {formatDateTime(selectedEvent.plan_date) || "Chưa có"} */}
+                      {/* để tạm */}
                     </Typography>
                   </Box>
                 </Box>
@@ -626,7 +727,7 @@ const CalendarViewPage = () => {
                     display: "flex",
                     alignItems: "center",
                     gap: 2,
-                    p: 2,
+                    p: isMobile ? 1.5 : 2,
                     bgcolor: theme.palette.grey[50],
                     borderRadius: 2,
                     border: `1px solid ${theme.palette.grey[200]}`,
@@ -637,7 +738,10 @@ const CalendarViewPage = () => {
                     },
                   }}
                 >
-                  <EventIcon color="primary" sx={{ fontSize: 28 }} />
+                  <EventIcon
+                    color="primary"
+                    sx={{ fontSize: isMobile ? 24 : 28 }}
+                  />
                   <Box>
                     <Typography
                       variant="body2"
@@ -646,7 +750,10 @@ const CalendarViewPage = () => {
                     >
                       Ngày thực hiện
                     </Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    <Typography
+                      variant={isMobile ? "body1" : "h6"}
+                      sx={{ fontWeight: 600 }}
+                    >
                       {formatDateTime(selectedEvent.actual_date) || "Chưa có"}
                     </Typography>
                   </Box>
@@ -658,7 +765,7 @@ const CalendarViewPage = () => {
                   display: "flex",
                   alignItems: "center",
                   gap: 2,
-                  p: 2,
+                  p: isMobile ? 1.5 : 2,
                   bgcolor: theme.palette.grey[50],
                   borderRadius: 2,
                   border: `1px solid ${theme.palette.grey[200]}`,
@@ -669,7 +776,10 @@ const CalendarViewPage = () => {
                   },
                 }}
               >
-                <PercentIcon color="primary" sx={{ fontSize: 28 }} />
+                <PercentIcon
+                  color="primary"
+                  sx={{ fontSize: isMobile ? 24 : 28 }}
+                />
                 <Box sx={{ width: "100%" }}>
                   <Typography
                     variant="body2"
@@ -684,7 +794,7 @@ const CalendarViewPage = () => {
                         variant="determinate"
                         value={selectedEvent.total_percent_rate}
                         sx={{
-                          height: 8,
+                          height: isMobile ? 6 : 8,
                           borderRadius: 4,
                           backgroundColor: "#e0e0e0",
                           "& .MuiLinearProgress-bar": {
@@ -696,7 +806,7 @@ const CalendarViewPage = () => {
                       />
                     </Box>
                     <Typography
-                      variant="h6"
+                      variant={isMobile ? "h6" : "h5"}
                       sx={{
                         fontWeight: 600,
                         minWidth: 60,
@@ -717,10 +827,15 @@ const CalendarViewPage = () => {
 
         <DialogActions
           sx={{
-            p: 3,
-            pt: 2,
+            p: isMobile ? "12px 16px" : 3,
+            pt: isMobile ? "12px" : 2,
             borderTop: `1px solid ${theme.palette.grey[200]}`,
             gap: 1,
+            flexDirection: isMobile ? "column-reverse" : "row",
+            "& .MuiButton-root": {
+              width: isMobile ? "100%" : "auto",
+              margin: 0,
+            },
           }}
         >
           <Button

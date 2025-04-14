@@ -1142,9 +1142,9 @@ app.get("/api/plans-for-calendar", authenticateToken, (req, res) => {
     }
 
     const events = results.map((plan) => {
-      // const endDate = new Date(plan.plan_date);
-      // const startDate = new Date(endDate);
-      // startDate.setDate(startDate.getDate() - 8);
+      const endDate = new Date(plan.plan_date);
+      const startDate = new Date(endDate);
+      startDate.setDate(startDate.getDate() - 8);
 
       const workshop = getWorkshop(plan.line);
       let backgroundColor, borderColor, textColor;
@@ -1152,37 +1152,42 @@ app.get("/api/plans-for-calendar", authenticateToken, (req, res) => {
       // Assign colors based on workshop
       switch (workshop) {
         case 1:
-          backgroundColor = "#0373d9"; // Workshop 1
-          borderColor = "#025aa6"; // Darker shade for border
-          textColor = "white";
+          backgroundColor = "#64b5f6"; // Light Blue
+          borderColor = "#42a5f5"; // Medium Blue
+          textColor = "black";
           break;
         case 2:
-          backgroundColor = "#00da8c"; // Workshop 2
-          borderColor = "#00b374"; // Darker shade for border
+          backgroundColor = "#81c784"; // Light Green
+          borderColor = "#66bb6a"; // Medium Green
           textColor = "black";
           break;
         case 3:
-          backgroundColor = "#180cda"; // Workshop 3
-          borderColor = "#130aa3"; // Darker shade for border
-          textColor = "white";
+          backgroundColor = "#ffb74d"; // Light Orange
+          borderColor = "#ffa726"; // Medium Orange
+          textColor = "black";
           break;
         case 4:
-          backgroundColor = "#3ada14"; // Workshop 4
-          borderColor = "#2fb310"; // Darker shade for border
+          backgroundColor = "#ff6b6b"; // Red-orange
+          borderColor = "#cc5555"; // Darker red-orange
           textColor = "black";
           break;
         default:
           backgroundColor = "#808080"; // Grey for undefined workshop
           borderColor = "#666666";
-          textColor = "white";
+          textColor = "black";
       }
 
       return {
         id: plan.id_plan,
         title: `C${plan.line}_${plan.style}`,
-        // start: startDate,
-        // end: endDate,
-        start: plan.plan_date,
+        start: startDate,
+        end: endDate,
+
+        /* để tạm */
+        // start: plan.plan_date,
+        // end: plan.plan_date,
+        /* để tạm */
+
         extendedProps: {
           line: plan.line,
           style: plan.style,
