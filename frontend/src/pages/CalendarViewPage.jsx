@@ -322,7 +322,7 @@ const CalendarViewPage = () => {
       end: clickInfo.event.end,
 
       /* để tạm */
-      // plan_date: clickInfo.event.extendedProps.plan_date,
+      plan_date: clickInfo.event.extendedProps.plan_date,
       /* để tạm */
 
       actual_date: clickInfo.event.extendedProps.actual_date,
@@ -712,7 +712,7 @@ const CalendarViewPage = () => {
                       variant={isMobile ? "body1" : "h6"}
                       sx={{ fontWeight: 600 }}
                     >
-                      {formatDateTime(selectedEvent.end) || "Chưa có"}
+                      {formatDateTime(selectedEvent.start) || "Chưa có"}
 
                       {/* để tạm */}
                       {/* {formatDateTime(selectedEvent.plan_date) || "Chưa có"} */}

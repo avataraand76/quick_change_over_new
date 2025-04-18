@@ -1142,10 +1142,9 @@ app.get("/api/plans-for-calendar", authenticateToken, (req, res) => {
     }
 
     const events = results.map((plan) => {
-      const endDate = new Date(plan.plan_date);
-      const startDate = new Date(endDate);
-      startDate.setDate(startDate.getDate() - 8);
-
+      // const endDate = new Date(plan.plan_date);
+      // const startDate = new Date(endDate);
+      // startDate.setDate(startDate.getDate() - 8);
       const workshop = getWorkshop(plan.line);
       let backgroundColor, borderColor, textColor;
 
@@ -1180,14 +1179,7 @@ app.get("/api/plans-for-calendar", authenticateToken, (req, res) => {
       return {
         id: plan.id_plan,
         title: `C${plan.line}_${plan.style}`,
-        start: startDate,
-        end: endDate,
-
-        /* để tạm */
-        // start: plan.plan_date,
-        // end: plan.plan_date,
-        /* để tạm */
-
+        start: plan.plan_date,
         extendedProps: {
           line: plan.line,
           style: plan.style,
@@ -1199,6 +1191,7 @@ app.get("/api/plans-for-calendar", authenticateToken, (req, res) => {
         backgroundColor,
         borderColor,
         textColor,
+        allDay: true,
       };
     });
 
@@ -4302,6 +4295,824 @@ app.get("/api/processes/:id_process/roles", authenticateToken, (req, res) => {
     }
   );
 });
+
+////////////////////code của Anh Thư////////////////////
+// CALENDAR START
+// API lấy danh sách kế hoạch cho view calendar trong MAIN mysql
+app.get("/api/plans-for-calendar-of-anh-thu", (req, res) => {
+  const query = `
+    SELECT id_plan, line, style, plan_date, actual_date, total_percent_rate
+    FROM tb_plan
+    WHERE inactive = 0
+    OR inactive IS NULL
+    ORDER BY plan_date DESC
+  `;
+
+  const getWorkshop = (line) => {
+    const lineNum = parseInt(line);
+    if ((lineNum >= 1 && lineNum <= 10) || lineNum === 1001) return 1;
+    if ((lineNum >= 11 && lineNum <= 20) || lineNum === 2001) return 2;
+    if (lineNum >= 21 && lineNum <= 30) return 3;
+    if (lineNum >= 31 && lineNum <= 40) return 4;
+    return null;
+  };
+
+  mysqlConnection.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching plans for calendar:", err);
+      return res
+        .status(500)
+        .json({ error: "Database error", details: err.message });
+    }
+
+    const events = results.map((plan) => {
+      // const endDate = new Date(plan.plan_date);
+      // const startDate = new Date(endDate);
+      // startDate.setDate(startDate.getDate() - 5);
+      const startDate = new Date(plan.plan_date);
+      const workshop = getWorkshop(plan.line);
+      let backgroundColor, borderColor, textColor;
+
+      // Assign colors based on workshop
+      switch (workshop) {
+        case 1:
+          backgroundColor = "#FFC107"; // Workshop 1
+          borderColor = "#025aa6"; // Darker shade for border
+          textColor = "black";
+          break;
+        case 2:
+          backgroundColor = "#007BFF"; // Workshop 2
+          borderColor = "#00b374"; // Darker shade for border
+          textColor = "white";
+          break;
+        case 3:
+          backgroundColor = "#28A745"; // Workshop 3
+          borderColor = "#130aa3"; // Darker shade for border
+          textColor = "white";
+          break;
+        case 4:
+          backgroundColor = "#EA7095"; // Workshop 4
+          borderColor = "#2fb310"; // Darker shade for border
+          textColor = "black";
+          break;
+        default:
+          backgroundColor = "#808080"; // Grey for undefined workshop
+          borderColor = "#666666";
+          textColor = "white";
+      }
+
+      return {
+        id: plan.id_plan,
+        title: `C${plan.line}_${plan.style}`,
+        start: startDate,
+        // end: endDate,
+        extendedProps: {
+          line: plan.line,
+          style: plan.style,
+          plan_date: plan.plan_date,
+          actual_date: plan.actual_date,
+          total_percent_rate: plan.total_percent_rate || 0,
+          workshop: workshop,
+        },
+        backgroundColor,
+        borderColor,
+        textColor,
+      };
+    });
+
+    res.json(events);
+  });
+});
+// CALENDAR END
+
+// Đếm số lần chuyển đổi
+app.get("/api/count-so-lan-chuyen-doi", (req, res) => {
+  const query = `
+  SELECT
+    p.id_plan,
+    p.line,
+    p.style,
+    p.plan_date,
+    p.actual_date,
+    COUNT(p.id_plan) AS Planned_Changeover,
+    SUM(CASE WHEN c.CO_begin_date IS NOT NULL THEN 1 ELSE 0 END) AS Actual_Changeover,
+    SUM(CASE WHEN c.CO_begin_date IS NULL THEN 1 ELSE 0 END) AS Not_Yet_Changeover
+  FROM tb_plan p
+  LEFT JOIN tb_co c ON p.id_plan = c.id_plan
+  WHERE p.inactive = 0 OR p.inactive IS NULL
+  GROUP BY p.id_plan, p.line, p.style, p.plan_date, p.actual_date
+  ORDER BY p.plan_date DESC;
+  `;
+
+  const getWorkshop = (line) => {
+    const lineNum = parseInt(line);
+    if ((lineNum >= 1 && lineNum <= 10) || lineNum === 1001) return 1;
+    if ((lineNum >= 11 && lineNum <= 20) || lineNum === 2001) return 2;
+    if (lineNum >= 21 && lineNum <= 30) return 3;
+    if (lineNum >= 31 && lineNum <= 40) return 4;
+    return null;
+  };
+
+  mysqlConnection.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching data dem so lan chuyen doi:", err);
+      return res
+        .status(500)
+        .json({ error: "Database error", details: err.message });
+    }
+
+    if (results.length === 0) {
+      return res.json({ events: [] });
+    }
+
+    // Tạo một đối tượng để lưu trữ thống kê tổng hợp theo workshop
+    const workshopStats = {
+      1: { planned_changeover: 0, actual_changeover: 0, not_yet_changeover: 0 },
+      2: { planned_changeover: 0, actual_changeover: 0, not_yet_changeover: 0 },
+      3: { planned_changeover: 0, actual_changeover: 0, not_yet_changeover: 0 },
+      4: { planned_changeover: 0, actual_changeover: 0, not_yet_changeover: 0 },
+    };
+
+    const events = results.map((plan) => {
+      const workshop = getWorkshop(plan.line);
+
+      // chuyển sang thập phân
+      const actualChangeover = parseInt(plan.Actual_Changeover, 10) || 0;
+      const notYetChangeover = parseInt(plan.Not_Yet_Changeover, 10) || 0;
+
+      if (workshop) {
+        // Cập nhật thống kê tổng hợp cho workshop
+        workshopStats[workshop].planned_changeover += plan.Planned_Changeover;
+        workshopStats[workshop].actual_changeover += actualChangeover;
+        workshopStats[workshop].not_yet_changeover += notYetChangeover;
+      }
+
+      return {
+        id: plan.id_plan,
+        start: new Date(plan.plan_date),
+        extendedProps: {
+          line: plan.line,
+          style: plan.style,
+          plan_date: plan.plan_date,
+          actual_date: plan.actual_date,
+          workshop: workshop,
+          planned_changeover: plan.Planned_Changeover,
+          actual_changeover: actualChangeover,
+          not_yet_changeover: notYetChangeover,
+        },
+      };
+    });
+
+    res.json({
+      events,
+      workshopStats,
+    });
+  });
+});
+
+// FINISH FINISH FINISH
+// dashboard preparation
+// đếm số lần chưa chuyển đổi
+app.get("/api/count-so-lan-chua-chuyen-doi", (req, res) => {
+  const query = `
+    SELECT DISTINCT
+    p.plan_date,
+    p.line,
+    p.style,
+    CAST(COALESCE(p1.percent_rate, 0) AS DECIMAL(5,2)) AS process_1_percent,
+    CAST(COALESCE(p2.percent_rate, 0) AS DECIMAL(5,2)) AS process_2_percent,
+    CAST(COALESCE(p3.percent_rate, 0) AS DECIMAL(5,2)) AS process_3_percent,
+    CAST(COALESCE(p4.percent_rate, 0) AS DECIMAL(5,2)) AS process_4_percent,
+    CAST(ROUND(
+        COALESCE(
+            (COALESCE(b.pass_rate, 0) * 0.2) + (COALESCE(pr.pass_rate, 0) * 0.8),
+            (COALESCE(b.pass_rate, 0) * 0.2),
+            (COALESCE(pr.pass_rate, 0) * 0.8),
+            0
+        )
+    ) AS DECIMAL(5,2)) AS process_5_percent,
+    CAST(COALESCE(p6.percent_rate, 0) AS DECIMAL(5,2)) AS process_6_percent,
+    CAST(COALESCE(p7.percent_rate, 0) AS DECIMAL(5,2)) AS process_7_percent,
+    CAST(COALESCE(p8.percent_rate, 0) AS DECIMAL(5,2)) AS process_8_percent
+
+    FROM tb_plan p
+
+    LEFT JOIN tb_process_1 p1 ON p.id_plan = p1.id_plan
+    LEFT JOIN tb_process_2 p2 ON p.id_plan = p2.id_plan
+    LEFT JOIN tb_process_3 p3 ON p.id_plan = p3.id_plan
+    LEFT JOIN tb_process_4 p4 ON p.id_plan = p4.id_plan
+    LEFT JOIN tb_process_6 p6 ON p.id_plan = p6.id_plan
+    LEFT JOIN tb_process_7 p7 ON p.id_plan = p7.id_plan
+    LEFT JOIN tb_process_8 p8 ON p.id_plan = p8.id_plan
+    LEFT JOIN tb_process_5_backup_machine b ON p.id_plan = b.id_plan
+    LEFT JOIN tb_process_5_preparing_machine pr ON p.id_plan = pr.id_plan
+    WHERE p.inactive = 0 OR p.inactive IS NULL
+    ORDER BY p.plan_date DESC;
+  `;
+
+  const getWorkshop = (line) => {
+    const lineNum = parseInt(line.toString().replace(/\D/g, ""));
+    if (isNaN(lineNum)) return null;
+
+    if ((lineNum >= 1 && lineNum <= 10) || lineNum === 1001) return 1;
+    if ((lineNum >= 11 && lineNum <= 20) || lineNum === 2001) return 2;
+    if (lineNum >= 21 && lineNum <= 30) return 3;
+    if (lineNum >= 31 && lineNum <= 40) return 4;
+    return null;
+  };
+
+  mysqlConnection.query(query, (err, results) => {
+    if (err) {
+      console.error("Error executing query:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    const transformedResults = results.map((row) => {
+      const process_1_percent = parseFloat(row.process_1_percent);
+      const process_2_percent = parseFloat(row.process_2_percent);
+      const process_3_percent = parseFloat(row.process_3_percent);
+      const process_4_percent = parseFloat(row.process_4_percent);
+      const process_5_percent = parseFloat(row.process_5_percent);
+      const process_6_percent = parseFloat(row.process_6_percent);
+      const process_7_percent = parseFloat(row.process_7_percent);
+      const process_8_percent = parseFloat(row.process_8_percent);
+
+      const avg_percent =
+        (process_1_percent +
+          process_2_percent +
+          process_3_percent +
+          process_4_percent +
+          process_5_percent +
+          process_6_percent +
+          process_7_percent +
+          process_8_percent) /
+        8;
+
+      return {
+        start: row.plan_date,
+        extendedProps: {
+          line: row.line,
+          style: row.style,
+          process_1_percent: process_1_percent,
+          process_2_percent: process_2_percent,
+          process_3_percent: process_3_percent,
+          process_4_percent: process_4_percent,
+          process_5_percent: process_5_percent,
+          process_6_percent: process_6_percent,
+          process_7_percent: process_7_percent,
+          process_8_percent: process_8_percent,
+          avg_percent: Math.round(avg_percent),
+          status: avg_percent >= 97.5 ? "ready" : "notYetReady",
+          workshop: getWorkshop(row.line),
+        },
+      };
+    });
+    res.json({ events: transformedResults });
+  });
+});
+
+// FINISH FINISH FINISH
+// Phục vụ cho dashboard prep results
+// API lấy ra actual_date, line, style cho dashboard prep results
+app.get("/api/get-prep-results-data", (req, res) => {
+  const query = `
+    SELECT DISTINCT
+        p.actual_date,
+        p.line,
+        p.style,
+        COALESCE(p1.percent_rate, 0) AS process_1_percent,
+        COALESCE(p2.percent_rate, 0) AS process_2_percent,
+        COALESCE(p3.percent_rate, 0) AS process_3_percent,
+        COALESCE(p4.percent_rate, 0) AS process_4_percent,
+        ROUND(
+            COALESCE(
+                (COALESCE(b.pass_rate, 0) * 0.2) + (COALESCE(pr.pass_rate, 0) * 0.8),
+                (COALESCE(b.pass_rate, 0) * 0.2),
+                (COALESCE(pr.pass_rate, 0) * 0.8),
+                0
+            )
+        ) AS process_5_percent,
+        COALESCE(p6.percent_rate, 0) AS process_6_percent,
+        COALESCE(p7.percent_rate, 0) AS process_7_percent,
+        COALESCE(p8.percent_rate, 0) AS process_8_percent
+    FROM
+        tb_plan p
+    LEFT JOIN
+        tb_process_1 p1 ON p.id_plan = p1.id_plan
+    LEFT JOIN
+        tb_process_2 p2 ON p.id_plan = p2.id_plan
+    LEFT JOIN
+        tb_process_3 p3 ON p.id_plan = p3.id_plan
+    LEFT JOIN
+        tb_process_4 p4 ON p.id_plan = p4.id_plan
+    LEFT JOIN
+        tb_process_6 p6 ON p.id_plan = p6.id_plan
+    LEFT JOIN
+        tb_process_7 p7 ON p.id_plan = p7.id_plan
+    LEFT JOIN
+        tb_process_8 p8 ON p.id_plan = p8.id_plan
+    LEFT JOIN
+        tb_process_5_backup_machine b ON p.id_plan = b.id_plan
+    LEFT JOIN
+        tb_process_5_preparing_machine pr ON p.id_plan = pr.id_plan
+    WHERE
+        (p.inactive = 0 OR p.inactive IS NULL)
+    ORDER BY p.actual_date DESC
+  `;
+
+  const getWorkshop = (line) => {
+    const lineNum = parseInt(line);
+    if ((lineNum >= 1 && lineNum <= 10) || lineNum === 1001) return 1;
+    if ((lineNum >= 11 && lineNum <= 20) || lineNum === 2001) return 2;
+    if (lineNum >= 21 && lineNum <= 30) return 3;
+    if (lineNum >= 31 && lineNum <= 40) return 4;
+    return null;
+  };
+
+  mysqlConnection.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching data:", err);
+      return res
+        .status(500)
+        .json({ error: "Database error", details: err.message });
+    }
+
+    const events = results.map((plan) => {
+      const workshop = getWorkshop(plan.line);
+      return {
+        id: plan.id_plan,
+        // ngay_chuyen_doi_thuc_te: new Date(plan.actual_date),
+        extendedProps: {
+          line: plan.line,
+          style: plan.style,
+          actual_date: plan.actual_date,
+          workshop: workshop,
+          process_1_percent: Number(plan.process_1_percent),
+          process_2_percent: Number(plan.process_2_percent),
+          process_3_percent: Number(plan.process_3_percent),
+          process_4_percent: Number(plan.process_4_percent),
+          process_5_percent: Number(plan.process_5_percent),
+          process_6_percent: Number(plan.process_6_percent),
+          process_7_percent: Number(plan.process_7_percent),
+          process_8_percent: Number(plan.process_8_percent),
+        },
+      };
+    });
+    res.json({
+      events,
+    });
+  });
+});
+
+// Dashboard COT, COPT và DOWNTIME
+// API lấy thông tin kế hoạch và downtime tương ứng
+// version gốc: trả về toàn bộ id_plan những thằng mà rỗng thì cũng xuất hiện ở đây luôn
+app.get("/api/plans-with-downtime", (req, res) => {
+  try {
+    // Lấy thông tin từ tb_plan và tb_co
+    mysqlConnection.query(
+      "SELECT p.id_plan, p.line, p.style, c.CO_begin_date, c.CO_end_date FROM tb_plan p JOIN tb_co c ON p.id_plan = c.id_plan",
+      (err, planResults) => {
+        if (err) {
+          console.error("Error fetching plan and CO data:", err);
+          return res
+            .status(500)
+            .json({ success: false, message: "Database error" });
+        }
+
+        if (planResults.length === 0) {
+          return res.json([]);
+        }
+
+        // Tạo mảng để chứa kết quả cuối cùng
+        const finalResults = [];
+        let completedQueries = 0;
+
+        // Duyệt qua từng plan để lấy downtime issues
+        planResults.forEach((planData, index) => {
+          if (!planData.CO_begin_date || !planData.CO_end_date) {
+            finalResults[index] = { ...planData, downtime_issues: [] };
+            completedQueries++;
+            if (completedQueries === planResults.length) {
+              res.json(finalResults);
+            }
+            return;
+          }
+
+          const lineNumber = planData.line;
+          const productCode = planData.style;
+
+          // Xử lý đặc biệt cho line 2001
+          let lineNumberCondition;
+          let lineParams = [];
+          if (lineNumber === "2001") {
+            const formattedLineBase = "20.01";
+            lineNumberCondition =
+              "(line_number = ? OR line_number = ? OR line_number = ?)";
+            lineParams.push(
+              `Tổ ${formattedLineBase}`,
+              `Tổ ${formattedLineBase}A`,
+              `Tổ ${formattedLineBase}B`
+            );
+          } else {
+            lineNumberCondition = "line_number = ?";
+            lineParams.push(`Tổ ${lineNumber}`);
+          }
+
+          // Điều kiện cho product code
+          const productCodeChars = productCode.split("");
+          const productCodeConditions = productCodeChars
+            .map(() => "new_product_code LIKE ?")
+            .join(" OR ");
+          const productCodeParams = productCodeChars.map((char) => `%${char}%`);
+
+          // Điều kiện thời gian
+          let timeRangeCondition = "AND submission_time >= ? AND end_time <= ?";
+          let params = [
+            ...lineParams,
+            ...productCodeParams,
+            planData.CO_begin_date,
+            planData.CO_end_date,
+          ];
+
+          // Query downtime issues
+          const query = `
+              SELECT
+                i.id_logged_issue,
+                i.submission_time,
+                i.line_number,
+                i.station_number,
+                i.id_category,
+                c.name_category,
+                i.machinery_type,
+                i.machinery_code,
+                i.issue_description,
+                i.solution_description,
+                i.problem_solver,
+                i.responsible_person,
+                i.end_time,
+                i.downtime_minutes,
+                i.old_product_code,
+                i.new_product_code,
+                i.workshop,
+                i.factory,
+                i.status_logged_issue
+              FROM tb_logged_issue i
+              LEFT JOIN tb_category c ON i.id_category = c.id_category
+              WHERE ${lineNumberCondition}
+                AND (${productCodeConditions})
+                ${timeRangeCondition}
+              ORDER BY i.submission_time ASC`;
+
+          issueLoggerConnection.query(query, params, (err, issueResults) => {
+            if (err) {
+              console.error("Error fetching downtime issues:", err);
+              finalResults[index] = { ...planData, downtime_issues: [] };
+            } else {
+              // Tính tổng thời gian downtime
+              const totalDowntime = issueResults.reduce(
+                (sum, issue) => sum + (issue.downtime_minutes || 0),
+                0
+              );
+
+              finalResults[index] = {
+                ...planData,
+                downtime_issues: issueResults,
+                total_downtime_minutes: totalDowntime,
+              };
+            }
+
+            completedQueries++;
+            if (completedQueries === planResults.length) {
+              // Sắp xếp kết quả theo id_plan giảm dần
+              finalResults.sort((a, b) => b.id_plan - a.id_plan);
+              res.json(finalResults);
+            }
+          });
+        });
+      }
+    );
+  } catch (error) {
+    console.error("Error in plans with downtime endpoint:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// version hiện tại: chỉ giữ lại những cái id_plan mà nó có nội dung downtime_issues
+app.get("/api/get-cot-copt-downtime-data", (req, res) => {
+  try {
+    const getWorkshop = (line) => {
+      const lineNum = parseInt(line);
+      if ((lineNum >= 1 && lineNum <= 10) || lineNum === 1001) return 1;
+      if ((lineNum >= 11 && lineNum <= 20) || lineNum === 2001) return 2;
+      if (lineNum >= 21 && lineNum <= 30) return 3;
+      if (lineNum >= 31 && lineNum <= 40) return 4;
+      return null;
+    };
+
+    mysqlConnection.query(
+      `SELECT
+        p.id_plan, p.line, p.style,
+        c.CO_begin_date, c.CO_end_date,
+        c.target_of_COPT, c.COPT,
+        c.target_of_COT, c.COT
+      FROM tb_plan p
+      JOIN tb_co c ON p.id_plan = c.id_plan`,
+      (err, planResults) => {
+        if (err) {
+          console.error("Error fetching plan and CO data:", err);
+          return res
+            .status(500)
+            .json({ success: false, message: "Database error" });
+        }
+
+        if (planResults.length === 0) {
+          return res.json([]);
+        }
+
+        const finalResults = [];
+        let completedQueries = 0;
+        let globalDowntime = 0;
+        let globalWasteMan = 0;
+        let totalChangeovers = 0;
+
+        planResults.forEach((planData, index) => {
+          const lineNumberStr = planData.line;
+          const lineNumber = parseInt(lineNumberStr); // Ép kiểu về số
+          const workshop = getWorkshop(lineNumber); // Gán xưởng
+
+          // Gắn thông tin mới vào planData
+          planData.line = lineNumber;
+          planData.workshop = workshop;
+
+          if (planData.CO_begin_date) {
+            totalChangeovers++;
+          }
+
+          if (!planData.CO_begin_date || !planData.CO_end_date) {
+            finalResults[index] = { ...planData, downtime_issues: [] };
+            completedQueries++;
+            if (completedQueries === planResults.length) {
+              const filteredResults = finalResults.filter(
+                (plan) =>
+                  plan.downtime_issues && plan.downtime_issues.length > 0
+              );
+              filteredResults.sort((a, b) => b.id_plan - a.id_plan);
+              res.json({
+                total_downtime_minutes_all: globalDowntime,
+                total_waste_man_all: Math.round(globalWasteMan * 100) / 100,
+                total_changeovers: totalChangeovers,
+                data: filteredResults,
+              });
+            }
+            return;
+          }
+
+          let lineNumberCondition;
+          let lineParams = [];
+
+          if (lineNumber === 2001) {
+            const formattedLineBase = "20.01";
+            lineNumberCondition =
+              "(line_number = ? OR line_number = ? OR line_number = ?)";
+            lineParams.push(
+              `Tổ ${formattedLineBase}`,
+              `Tổ ${formattedLineBase}A`,
+              `Tổ ${formattedLineBase}B`
+            );
+          } else {
+            lineNumberCondition = "line_number = ?";
+            lineParams.push(`Tổ ${lineNumberStr}`);
+          }
+
+          const productCode = planData.style;
+          const productCodeChars = productCode.split("");
+          const productCodeConditions = productCodeChars
+            .map(() => "new_product_code LIKE ?")
+            .join(" OR ");
+          const productCodeParams = productCodeChars.map((char) => `%${char}%`);
+
+          const timeRangeCondition =
+            "AND submission_time >= ? AND end_time <= ?";
+          const params = [
+            ...lineParams,
+            ...productCodeParams,
+            planData.CO_begin_date,
+            planData.CO_end_date,
+          ];
+
+          const query = `
+            SELECT
+              i.id_logged_issue,
+              i.submission_time,
+              i.line_number,
+              i.station_number,
+              i.id_category,
+              c.name_category,
+              i.machinery_type,
+              i.machinery_code,
+              i.issue_description,
+              i.solution_description,
+              i.problem_solver,
+              i.responsible_person,
+              i.end_time,
+              i.downtime_minutes,
+              i.old_product_code,
+              i.new_product_code,
+              i.workshop,
+              i.factory,
+              i.status_logged_issue
+            FROM tb_logged_issue i
+            LEFT JOIN tb_category c ON i.id_category = c.id_category
+            WHERE ${lineNumberCondition}
+              AND (${productCodeConditions})
+              ${timeRangeCondition}
+            ORDER BY i.submission_time ASC`;
+
+          issueLoggerConnection.query(query, params, (err, issueResults) => {
+            if (err) {
+              console.error("Error fetching downtime issues:", err);
+              finalResults[index] = { ...planData, downtime_issues: [] };
+            } else {
+              const issuesWithWaste = issueResults.map((issue) => {
+                const downtime = issue.downtime_minutes || 0;
+                const wasteMan = Math.round((downtime / 535) * 100) / 100;
+
+                return {
+                  ...issue,
+                  waste_man: wasteMan,
+                };
+              });
+
+              const totalDowntime = issueResults.reduce(
+                (sum, issue) => sum + (issue.downtime_minutes || 0),
+                0
+              );
+
+              const totalWasteMan = issuesWithWaste.reduce(
+                (sum, issue) => sum + (issue.waste_man || 0),
+                0
+              );
+
+              globalDowntime += totalDowntime;
+              globalWasteMan += totalWasteMan;
+
+              finalResults[index] = {
+                ...planData,
+                downtime_issues: issuesWithWaste,
+                total_downtime_minutes: totalDowntime,
+                total_waste_man: Math.round(totalWasteMan * 100) / 100,
+              };
+            }
+
+            completedQueries++;
+            if (completedQueries === planResults.length) {
+              const filteredResults = finalResults.filter(
+                (plan) =>
+                  plan.downtime_issues && plan.downtime_issues.length > 0
+              );
+              filteredResults.sort((a, b) => b.id_plan - a.id_plan);
+
+              res.json({
+                total_downtime_minutes_all: globalDowntime,
+                total_waste_man_all: Math.round(globalWasteMan * 100) / 100,
+                total_changeovers: totalChangeovers,
+                data: filteredResults,
+              });
+            }
+          });
+        });
+      }
+    );
+  } catch (error) {
+    console.error("Error in plans with downtime endpoint:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// hoàn thiện
+app.get("/api/get-ramp-up-data", (req, res) => {
+  const { date, workshop } = req.query;
+  const filterWorkshop = workshop ? parseInt(workshop) : null;
+
+  // Tùy điều kiện có date hay không
+  const query = `
+    SELECT
+      tb_co.eff_1 AS eff1,
+      tb_co.CO_begin_date,
+      tb_plan.line,
+      tb_plan.style
+    FROM tb_co
+    JOIN tb_plan ON tb_co.id_plan = tb_plan.id_plan
+    ${date ? "WHERE DATE(tb_co.CO_begin_date) = ?" : ""}
+    ORDER BY CO_begin_date DESC
+  `;
+  // thích truyền gì thì truyền vô
+  const params = date ? [date] : [];
+
+  mysqlConnection.query(query, params, (err, rows) => {
+    if (err) {
+      console.error("MySQL error:", err);
+      return res.status(500).json({ message: "MySQL query error" });
+    }
+
+    if (!rows.length) return res.json([]);
+
+    sql.connect(mssqlHiproConfig, (err) => {
+      if (err) {
+        console.error("MSSQL connect error:", err.message || err);
+        return res
+          .status(500)
+          .json({ message: "MSSQL connection error", detail: err.message });
+      }
+
+      const results = [];
+      let completed = 0;
+
+      rows.forEach((row, index) => {
+        const lineNum = parseInt(row.line?.match(/\d+/)?.[0] || 0);
+
+        const getWorkshop = (line) => {
+          const num = parseInt(line);
+          if ((num >= 1 && num <= 10) || num === 1001) return 1;
+          if ((num >= 11 && num <= 20) || num === 2001) return 2;
+          if (num >= 21 && num <= 30) return 3;
+          if (num >= 31 && num <= 40) return 4;
+          return null;
+        };
+
+        const currentWorkshop = getWorkshop(lineNum);
+
+        if (filterWorkshop && currentWorkshop !== filterWorkshop) {
+          completed++;
+          if (completed === rows.length) {
+            sql.close();
+            res.json(results);
+          }
+          return;
+        }
+
+        const style = row.style;
+        const eff1 = row.eff1 || 0;
+        // mặc định của javascript 1970-01-01
+        // const coBeginDate = new Date(row.CO_begin_date);
+        const coBeginDate = row.CO_begin_date
+          ? new Date(row.CO_begin_date)
+          : null;
+
+        const dates = [];
+        const start = new Date(coBeginDate);
+        start.setDate(start.getDate() + 1);
+
+        while (dates.length < 6) {
+          if (start.getDay() !== 0) dates.push(new Date(start));
+          start.setDate(start.getDate() + 1);
+        }
+
+        const effRest = [];
+        let subCompleted = 0;
+
+        dates.slice(0, 4).forEach((d, i) => {
+          const dateStr = d.toISOString().split("T")[0];
+          const query = `SELECT line${lineNum} FROM BaoCao_NangSuat_Ngay WHERE CAST(Ngay AS DATE) = '${dateStr}' ORDER BY STT`;
+
+          const request = new sql.Request();
+          request.query(query, (err, result) => {
+            if (err || !result.recordset) {
+              effRest[i] = 0;
+            } else {
+              const records = result.recordset;
+              const first = records[0]?.[`line${lineNum}`];
+              if (first && first.includes(style)) {
+                effRest[i] = parseInt(records[19]?.[`line${lineNum}`]) || 0;
+              } else {
+                effRest[i] = 0;
+              }
+            }
+
+            subCompleted++;
+            if (subCompleted === 4) {
+              results[index] = {
+                line: lineNum,
+                style,
+                coBeginDate,
+                workshop: currentWorkshop,
+                eff: [eff1, ...effRest],
+              };
+
+              completed++;
+              if (completed === rows.length) {
+                sql.close();
+                res.json(results);
+              }
+            }
+          });
+        });
+      });
+    });
+  });
+});
+////////////////////code của Anh Thư////////////////////
 
 const PORT = process.env.MYSQL_PORT;
 app.listen(PORT, () => {
