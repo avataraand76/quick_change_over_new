@@ -566,6 +566,18 @@ app.get("/api/higmf-lines-styles", authenticateToken, async (req, res) => {
             AND MaHang LIKE '%${record.style}%'
           `);
 
+        // Check if plan exists in tb_plan
+        const [existingPlan] = await new Promise((resolve, reject) => {
+          mysqlConnection.query(
+            "SELECT id_plan FROM tb_plan WHERE KHTId = ?",
+            [record.KHTId.toString()],
+            (err, results) => {
+              if (err) reject(err);
+              else resolve(results);
+            }
+          );
+        });
+
         return {
           ...record,
           KHTId: record.KHTId.toString(),
@@ -578,6 +590,7 @@ app.get("/api/higmf-lines-styles", authenticateToken, async (req, res) => {
             hiproResult.recordset.length > 0
               ? parseInt(hiproResult.recordset[0].DinhMuc) || 0
               : 0,
+          is_synced: !!existingPlan, // Add is_synced flag
         };
       })
     );

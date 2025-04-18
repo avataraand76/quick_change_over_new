@@ -504,7 +504,15 @@ const CreatePhasePage = () => {
           Chuyền {item.line}
         </Typography>
         <Typography variant="body1" gutterBottom>
-          <strong>Mã Hàng:</strong> {item.style}
+          <strong>Mã Hàng:</strong> {item.style}{" "}
+          {item.is_synced && (
+            <Chip
+              label="Đã đồng bộ"
+              color="success"
+              size="small"
+              sx={{ ml: 1 }}
+            />
+          )}
         </Typography>
         <Typography variant="body1" gutterBottom>
           <strong>PO:</strong> {item.PO}
@@ -916,30 +924,45 @@ const CreatePhasePage = () => {
                                   {formatDateTime(item.plan_date)}
                                 </TableCell>
                                 <TableCell>
-                                  <Button
-                                    variant="contained"
-                                    color={
-                                      selectedPlans.some(
-                                        (p) => p.KHTId === item.KHTId
-                                      )
-                                        ? "success"
-                                        : "primary"
-                                    }
-                                    size="small"
-                                    onClick={() => handleSelectPlan(item)}
+                                  <Box
                                     sx={{
-                                      textTransform: "none",
-                                      minWidth: 80,
-                                      boxShadow: "none",
-                                      "&:hover": { boxShadow: 1 },
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 1,
                                     }}
                                   >
-                                    {selectedPlans.some(
-                                      (p) => p.KHTId === item.KHTId
-                                    )
-                                      ? "Đã Chọn"
-                                      : "Chọn"}
-                                  </Button>
+                                    <Button
+                                      variant="contained"
+                                      color={
+                                        selectedPlans.some(
+                                          (p) => p.KHTId === item.KHTId
+                                        )
+                                          ? "success"
+                                          : "primary"
+                                      }
+                                      size="small"
+                                      onClick={() => handleSelectPlan(item)}
+                                      sx={{
+                                        textTransform: "none",
+                                        minWidth: 80,
+                                        boxShadow: "none",
+                                        "&:hover": { boxShadow: 1 },
+                                      }}
+                                    >
+                                      {selectedPlans.some(
+                                        (p) => p.KHTId === item.KHTId
+                                      )
+                                        ? "Đã Chọn"
+                                        : "Chọn"}
+                                    </Button>
+                                    {item.is_synced && (
+                                      <Chip
+                                        label="Đã đồng bộ"
+                                        color="success"
+                                        size="small"
+                                      />
+                                    )}
+                                  </Box>
                                 </TableCell>
                               </TableRow>
                             ))}
