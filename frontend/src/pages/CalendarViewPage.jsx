@@ -132,7 +132,7 @@ const CalendarViewPage = () => {
                   ? "#81c784"
                   : workshop === 3
                   ? "#ffb74d"
-                  : "#ff6b6b"
+                  : "#ff8a65"
                 : "transparent",
               // Màu viền khi button không được chọn (variant="outlined")
               borderColor:
@@ -142,7 +142,7 @@ const CalendarViewPage = () => {
                   ? "#81c784"
                   : workshop === 3
                   ? "#ffb74d"
-                  : "#ff6b6b",
+                  : "#ff8a65",
               // Màu chữ
               color: selectedWorkshops.includes(workshop)
                 ? "#fff"
@@ -152,7 +152,7 @@ const CalendarViewPage = () => {
                 ? "#81c784"
                 : workshop === 3
                 ? "#ffb74d"
-                : "#ff6b6b",
+                : "#ff8a65",
               "&:hover": {
                 backgroundColor: selectedWorkshops.includes(workshop)
                   ? workshop === 1
@@ -161,7 +161,7 @@ const CalendarViewPage = () => {
                     ? "#66bb6a"
                     : workshop === 3
                     ? "#ffa726"
-                    : "#cc5555"
+                    : "#e57373"
                   : "rgba(0, 0, 0, 0.04)",
                 borderColor:
                   workshop === 1
@@ -170,7 +170,7 @@ const CalendarViewPage = () => {
                     ? "#81c784"
                     : workshop === 3
                     ? "#ffb74d"
-                    : "#ff6b6b",
+                    : "#ff8a65",
               },
             }}
           >
@@ -287,21 +287,21 @@ const CalendarViewPage = () => {
                 backgroundColor: selectedWorkshops.includes(workshop)
                   ? workshop === 3
                     ? "#ffb74d"
-                    : "#ff6b6b"
+                    : "#ff8a65"
                   : "transparent",
-                borderColor: workshop === 3 ? "#ffb74d" : "#ff6b6b",
+                borderColor: workshop === 3 ? "#ffb74d" : "#ff8a65",
                 color: selectedWorkshops.includes(workshop)
                   ? "#fff"
                   : workshop === 3
                   ? "#ffb74d"
-                  : "#ff6b6b",
+                  : "#ff8a65",
                 "&:hover": {
                   backgroundColor: selectedWorkshops.includes(workshop)
                     ? workshop === 3
                       ? "#ffa726"
-                      : "#cc5555"
+                      : "#e57373"
                     : "rgba(0, 0, 0, 0.04)",
-                  borderColor: workshop === 3 ? "#ffb74d" : "#ff6b6b",
+                  borderColor: workshop === 3 ? "#ffb74d" : "#ff8a65",
                 },
               }}
             >

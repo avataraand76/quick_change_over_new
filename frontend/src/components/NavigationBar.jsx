@@ -189,7 +189,7 @@ const Navbar = () => {
           <Button
             color="inherit"
             component="a"
-            href="https://drive.google.com/file/d/1a2pABLGmp4h6j98objZ-R5-nASF5CZJE/view?usp=sharing"
+            href="https://docs.google.com/document/d/1nySjp3VF5kBBTdaDGO8Xhq3AT45z8S8yMTQ08_jRenE/edit?usp=sharing"
             target="_blank"
             startIcon={<i className="fas fa-book" />}
             sx={{
