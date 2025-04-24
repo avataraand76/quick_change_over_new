@@ -4744,10 +4744,9 @@ app.get("/api/get-cot-copt-downtime-data", (req, res) => {
 
         planResults.forEach((planData, index) => {
           const lineNumberStr = planData.line;
-          const lineNumber = parseInt(lineNumberStr); // Ép kiểu về số
-          const workshop = getWorkshop(lineNumber); // Gán xưởng
+          const lineNumber = parseInt(lineNumberStr);
+          const workshop = getWorkshop(lineNumber);
 
-          // Gắn thông tin mới vào planData
           planData.line = lineNumber;
           planData.workshop = workshop;
 
@@ -4755,20 +4754,43 @@ app.get("/api/get-cot-copt-downtime-data", (req, res) => {
             totalChangeovers++;
           }
 
-          if (!planData.CO_begin_date || !planData.CO_end_date) {
-            finalResults[index] = { ...planData, downtime_issues: [] };
+          // Nếu không có ngày bắt đầu hoặc kết thúc, và không có COT/COPT, bỏ qua record này
+          if (
+            (!planData.CO_begin_date || !planData.CO_end_date) &&
+            !planData.COT &&
+            !planData.COPT &&
+            !planData.target_of_COT &&
+            !planData.target_of_COPT
+          ) {
             completedQueries++;
             if (completedQueries === planResults.length) {
-              const filteredResults = finalResults.filter(
-                (plan) =>
-                  plan.downtime_issues && plan.downtime_issues.length > 0
-              );
-              filteredResults.sort((a, b) => b.id_plan - a.id_plan);
+              const validResults = finalResults.filter(Boolean);
               res.json({
                 total_downtime_minutes_all: globalDowntime,
                 total_waste_man_all: Math.round(globalWasteMan * 100) / 100,
                 total_changeovers: totalChangeovers,
-                data: filteredResults,
+                data: validResults,
+              });
+            }
+            return;
+          }
+
+          // Nếu không có ngày bắt đầu hoặc kết thúc, nhưng có COT/COPT, thêm vào kết quả với downtime = 0
+          if (!planData.CO_begin_date || !planData.CO_end_date) {
+            finalResults[index] = {
+              ...planData,
+              downtime_issues: [],
+              total_downtime_minutes: 0,
+              total_waste_man: 0,
+            };
+            completedQueries++;
+            if (completedQueries === planResults.length) {
+              const validResults = finalResults.filter(Boolean);
+              res.json({
+                total_downtime_minutes_all: globalDowntime,
+                total_waste_man_all: Math.round(globalWasteMan * 100) / 100,
+                total_changeovers: totalChangeovers,
+                data: validResults,
               });
             }
             return;
@@ -4838,12 +4860,17 @@ app.get("/api/get-cot-copt-downtime-data", (req, res) => {
           issueLoggerConnection.query(query, params, (err, issueResults) => {
             if (err) {
               console.error("Error fetching downtime issues:", err);
-              finalResults[index] = { ...planData, downtime_issues: [] };
+              // Nếu có lỗi khi query downtime nhưng có COT/COPT, vẫn giữ lại record với downtime = 0
+              finalResults[index] = {
+                ...planData,
+                downtime_issues: [],
+                total_downtime_minutes: 0,
+                total_waste_man: 0,
+              };
             } else {
               const issuesWithWaste = issueResults.map((issue) => {
                 const downtime = issue.downtime_minutes || 0;
                 const wasteMan = Math.round((downtime / 535) * 100) / 100;
-
                 return {
                   ...issue,
                   waste_man: wasteMan,
@@ -4873,17 +4900,12 @@ app.get("/api/get-cot-copt-downtime-data", (req, res) => {
 
             completedQueries++;
             if (completedQueries === planResults.length) {
-              const filteredResults = finalResults.filter(
-                (plan) =>
-                  plan.downtime_issues && plan.downtime_issues.length > 0
-              );
-              filteredResults.sort((a, b) => b.id_plan - a.id_plan);
-
+              const validResults = finalResults.filter(Boolean);
               res.json({
                 total_downtime_minutes_all: globalDowntime,
                 total_waste_man_all: Math.round(globalWasteMan * 100) / 100,
                 total_changeovers: totalChangeovers,
-                data: filteredResults,
+                data: validResults,
               });
             }
           });

@@ -515,19 +515,20 @@ const Process5Page = () => {
 
   // Preparing Machine handling functions
   const handleOpenPreparingMachineDialog = (machine = null) => {
+    const currentTime = new Date(); // Get current time
     if (machine) {
       setPreparingMachineData({
         ...machine,
         adjust_date: machine.adjust_date
           ? formatDateForInput(new Date(machine.adjust_date))
-          : "",
+          : formatDateForInput(currentTime), // Default to current time if null
       });
       setEditingPreparingMachine(machine.id_process_5_preparing_machine);
     } else {
       setPreparingMachineData({
         id_plan: id,
         id_process: 5,
-        adjust_date: "",
+        adjust_date: formatDateForInput(currentTime), // Default to current time
         SQL_oid_thiet_bi: "",
         name_machine: "",
         quantity: 0,
@@ -664,19 +665,20 @@ const Process5Page = () => {
 
   // Backup Machine handling functions
   const handleOpenBackupMachineDialog = (machine = null) => {
+    const currentTime = new Date(); // Get current time
     if (machine) {
       setBackupMachineData({
         ...machine,
         adjust_date: machine.adjust_date
           ? formatDateForInput(new Date(machine.adjust_date))
-          : "",
+          : formatDateForInput(currentTime), // Default to current time if null
       });
       setEditingBackupMachine(machine.id_process_5_backup_machine);
     } else {
       setBackupMachineData({
         id_plan: id,
         id_process: 5,
-        adjust_date: "",
+        adjust_date: formatDateForInput(currentTime), // Default to current time
         name_machine: "",
         quantity: 0,
         prepared: 0,
@@ -1592,7 +1594,7 @@ const Process5Page = () => {
               <TextField
                 label="Ngày điều chỉnh"
                 type="datetime-local"
-                value={preparingMachineData.adjust_date || ""}
+                value={preparingMachineData.adjust_date}
                 onChange={handlePreparingMachineDateChange}
                 fullWidth
                 margin="normal"
@@ -1754,7 +1756,7 @@ const Process5Page = () => {
               <TextField
                 label="Ngày điều chỉnh"
                 type="datetime-local"
-                value={backupMachineData.adjust_date || ""}
+                value={backupMachineData.adjust_date}
                 onChange={handleBackupMachineDateChange}
                 fullWidth
                 margin="normal"
