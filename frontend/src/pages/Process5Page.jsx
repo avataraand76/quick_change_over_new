@@ -32,6 +32,11 @@ import {
   DialogTitle,
   Divider,
   InputAdornment,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Autocomplete,
 } from "@mui/material";
 import {
   ArrowBack as ArrowBackIcon,
@@ -42,6 +47,7 @@ import {
   Clear as ClearIcon,
   Sync as SyncIcon,
   Warning as WarningIcon,
+  ContentCopy as ContentCopyIcon,
 } from "@mui/icons-material";
 import API from "../api/api";
 import PermissionCheck from "../components/PermissionCheck";
@@ -102,6 +108,16 @@ const Process5Page = () => {
 
   // Add state for overdue check
   const [isOverdue, setIsOverdue] = useState(false);
+
+  // Add new state for copy dialog
+  const [copyDialog, setCopyDialog] = useState(false);
+  const [sourcePlanId, setSourcePlanId] = useState("");
+  const [availablePlans, setAvailablePlans] = useState([]);
+  const [copyLoading, setCopyLoading] = useState(false);
+
+  // Add new state for preview data
+  const [previewData, setPreviewData] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   // Add useCallback for checkIsOverdue
   const checkIsOverdue = useCallback((actualDate, planDate, deadline) => {
@@ -853,6 +869,108 @@ const Process5Page = () => {
     setSyncDialog(false);
   };
 
+  // Add new useEffect to fetch available plans with machine data
+  useEffect(() => {
+    const fetchAvailablePlans = async () => {
+      try {
+        const plans = await API.getPlans();
+        // Get all plans with machine data
+        const plansWithMachineData = await Promise.all(
+          plans
+            .filter(
+              (plan) =>
+                plan.id_plan !== id && (!plan.inactive || plan.inactive === 0)
+            )
+            .map(async (plan) => {
+              try {
+                const [preparingMachines, backupMachines] = await Promise.all([
+                  API.getProcess5PreparingMachines(plan.id_plan),
+                  API.getProcess5BackupMachines(plan.id_plan),
+                ]);
+                return {
+                  ...plan,
+                  hasMachines:
+                    preparingMachines.length > 0 || backupMachines.length > 0,
+                };
+              } catch (error) {
+                console.error(
+                  `Error fetching machines for plan ${plan.id_plan}:`,
+                  error
+                );
+                return { ...plan, hasMachines: false };
+              }
+            })
+        );
+
+        // Filter plans that have machines
+        const filteredPlans = plansWithMachineData.filter(
+          (plan) => plan.hasMachines
+        );
+        setAvailablePlans(filteredPlans);
+      } catch (error) {
+        console.error("Error fetching plans:", error);
+      }
+    };
+
+    fetchAvailablePlans();
+  }, [id]);
+
+  // Add new function to handle copying machines
+  const handleCopyMachines = async () => {
+    if (!sourcePlanId) {
+      return;
+    }
+
+    try {
+      setCopyLoading(true);
+      await API.copyProcess5Machines(sourcePlanId, id);
+
+      // Refresh the machine lists
+      const preparingMachinesResponse = await API.getProcess5PreparingMachines(
+        id
+      );
+      setPreparingMachines(preparingMachinesResponse);
+
+      const backupMachinesResponse = await API.getProcess5BackupMachines(id);
+      setBackupMachines(backupMachinesResponse);
+
+      // Update process info to reflect the new rate
+      const processRatesResponse = await API.getProcessRates(id);
+      const process5Rate = processRatesResponse.find(
+        (rate) => rate.id_process === 5
+      );
+      if (process5Rate) {
+        setProcessInfo(process5Rate);
+      }
+
+      // Show success message
+      setCopyDialog(false);
+      setSourcePlanId("");
+    } catch (error) {
+      console.error("Error copying machines:", error);
+    } finally {
+      setCopyLoading(false);
+    }
+  };
+
+  // Add function to handle preview
+  const handlePreview = async (selectedPlan) => {
+    if (!selectedPlan) {
+      setPreviewData(null);
+      return;
+    }
+
+    try {
+      setPreviewLoading(true);
+      const data = await API.getProcess5MachinesPreview(selectedPlan.id_plan);
+      setPreviewData(data);
+    } catch (error) {
+      console.error("Error getting preview:", error);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box
@@ -1184,6 +1302,21 @@ const Process5Page = () => {
                     }}
                   >
                     {syncLoading ? "Đang đồng bộ..." : "Đồng bộ Hi-Line"}
+                  </Button>
+                  <Button
+                    variant="contained"
+                    startIcon={<ContentCopyIcon />}
+                    onClick={() => setCopyDialog(true)}
+                    disabled={!hasPermission /* || isOverdue */}
+                    fullWidth={isMobile}
+                    sx={{
+                      bgcolor: "#ff9800",
+                      color: "#ffffff",
+                      "&:hover": { bgcolor: "#f57c00" },
+                      opacity: !hasPermission /* || isOverdue */ ? 0.5 : 1,
+                    }}
+                  >
+                    Sao chép máy
                   </Button>
                   <Button
                     variant="contained"
@@ -1966,6 +2099,139 @@ const Process5Page = () => {
         <DialogActions>
           <Button onClick={handleCloseSyncDialog} color="primary">
             Đóng
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Copy Machines Dialog */}
+      <Dialog
+        open={copyDialog}
+        onClose={() => setCopyDialog(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            margin: isMobile ? 2 : "auto",
+            width: isMobile ? "calc(100% - 32px)" : undefined,
+          },
+        }}
+      >
+        <DialogTitle>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <ContentCopyIcon sx={{ mr: 1 }} />
+            Sao chép máy móc từ kế hoạch khác
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary" paragraph>
+            Chọn kế hoạch nguồn để sao chép tất cả máy móc (cả máy chuẩn bị và
+            máy dự phòng) sang kế hoạch hiện tại.
+          </Typography>
+
+          <Autocomplete
+            fullWidth
+            options={availablePlans}
+            value={
+              availablePlans.find((plan) => plan.id_plan === sourcePlanId) ||
+              null
+            }
+            onChange={(event, newValue) => {
+              setSourcePlanId(newValue ? newValue.id_plan : "");
+              handlePreview(newValue);
+            }}
+            getOptionLabel={(option) =>
+              `Chuyền ${option.line} - ${option.style}`
+            }
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Tìm kiếm theo chuyền hoặc mã hàng"
+                variant="outlined"
+              />
+            )}
+            noOptionsText="Không tìm thấy kết quả phù hợp"
+            filterOptions={(options, { inputValue }) => {
+              const searchLower = inputValue.toLowerCase();
+              return options.filter(
+                (plan) =>
+                  plan.line.toString().toLowerCase().includes(searchLower) ||
+                  plan.style.toLowerCase().includes(searchLower)
+              );
+            }}
+          />
+
+          {previewLoading && (
+            <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+              <CircularProgress size={24} />
+            </Box>
+          )}
+
+          {previewData && !previewLoading && (
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="subtitle1" color="primary" gutterBottom>
+                Danh sách máy sẽ được sao chép:
+              </Typography>
+
+              {previewData.preparing_machines.length > 0 && (
+                <>
+                  <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+                    Máy chuẩn bị:
+                  </Typography>
+                  <List dense>
+                    {previewData.preparing_machines.map((machine, index) => (
+                      <ListItem key={index}>
+                        <ListItemText
+                          primary={machine.name_machine}
+                          secondary={`Số lượng: ${machine.quantity}`}
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                </>
+              )}
+
+              {previewData.backup_machines.length > 0 && (
+                <>
+                  <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+                    Máy dự phòng:
+                  </Typography>
+                  <List dense>
+                    {previewData.backup_machines.map((machine, index) => (
+                      <ListItem key={index}>
+                        <ListItemText
+                          primary={machine.name_machine}
+                          secondary={`Số lượng: ${machine.quantity}`}
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                </>
+              )}
+
+              {previewData.preparing_machines.length === 0 &&
+                previewData.backup_machines.length === 0 && (
+                  <Typography
+                    color="text.secondary"
+                    sx={{ mt: 2, textAlign: "center" }}
+                  >
+                    Không có dữ liệu máy móc để sao chép
+                  </Typography>
+                )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCopyDialog(false)}>Hủy</Button>
+          <Button
+            onClick={handleCopyMachines}
+            variant="contained"
+            color="primary"
+            disabled={!sourcePlanId || copyLoading}
+            startIcon={
+              copyLoading ? <CircularProgress size={20} /> : <ContentCopyIcon />
+            }
+          >
+            {copyLoading ? "Đang sao chép..." : "Sao chép"}
           </Button>
         </DialogActions>
       </Dialog>

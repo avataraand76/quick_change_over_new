@@ -450,6 +450,33 @@ let API = {
     }
   },
 
+  // Get Process 5 machines preview
+  getProcess5MachinesPreview: async (id_plan) => {
+    try {
+      const response = await httpConnect.get(
+        `/api/process5/machines-preview/${id_plan}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error getting machines preview:", error);
+      throw error;
+    }
+  },
+
+  // Process 5 copy machines from another plan
+  copyProcess5Machines: async (source_plan_id, target_plan_id) => {
+    try {
+      const response = await httpConnect.post("/api/process5/copy-machines", {
+        source_plan_id,
+        target_plan_id,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error copying machines:", error);
+      throw error;
+    }
+  },
+
   getAllPlansForCalendar: async () => {
     try {
       const response = await httpConnect.get("/api/plans-for-calendar");

@@ -1795,6 +1795,15 @@ app.get(
             planData.CO_end_date,
           ];
 
+          // console.log("Search Parameters:");
+          // console.log("Line Number:", lineNumber);
+          // console.log("Line Number Condition:", lineNumberCondition);
+          // console.log("Line Params:", lineParams);
+          // console.log("Product Code:", productCode);
+          // console.log("Product Code Characters:", productCodeChars);
+          // console.log("Product Code Params:", productCodeParams);
+          // console.log("CO Begin Date:", planData.CO_begin_date);
+          // console.log("CO End Date:", planData.CO_end_date);
           // Query the issue logger database
           const query = `
           SELECT 
@@ -1824,6 +1833,9 @@ app.get(
             ${timeRangeCondition}
           ORDER BY i.submission_time ASC`;
 
+          // console.log("Final SQL Query:", query);
+          // console.log("Query Parameters:", params);
+
           issueLoggerConnection.query(query, params, (err, results) => {
             if (err) {
               console.error("Error fetching downtime issues:", err);
@@ -1832,6 +1844,8 @@ app.get(
                 .json({ success: false, message: "Database error" });
             }
 
+            // console.log("Found issues:", results.length);
+            // console.log("First few issues:", results.slice(0, 3));
             res.json(results);
           });
         }
@@ -2743,6 +2757,310 @@ app.post(
     }
   }
 );
+
+// Add new endpoint to get machine preview
+app.get(
+  "/api/process5/machines-preview/:id_plan",
+  authenticateToken,
+  async (req, res) => {
+    const { id_plan } = req.params;
+
+    try {
+      // Get connection from pool
+      mysqlConnection.getConnection((err, connection) => {
+        if (err) {
+          console.error("Error getting connection:", err);
+          return res
+            .status(500)
+            .json({ success: false, message: "Database connection error" });
+        }
+
+        // Get both preparing and backup machines
+        Promise.all([
+          new Promise((resolve, reject) => {
+            connection.query(
+              "SELECT name_machine, quantity FROM tb_process_5_preparing_machine WHERE id_plan = ? ORDER BY name_machine ASC",
+              [id_plan],
+              (err, results) => {
+                if (err) reject(err);
+                else resolve({ type: "preparing", machines: results });
+              }
+            );
+          }),
+          new Promise((resolve, reject) => {
+            connection.query(
+              "SELECT name_machine, quantity FROM tb_process_5_backup_machine WHERE id_plan = ? ORDER BY name_machine ASC",
+              [id_plan],
+              (err, results) => {
+                if (err) reject(err);
+                else resolve({ type: "backup", machines: results });
+              }
+            );
+          }),
+          new Promise((resolve, reject) => {
+            connection.query(
+              "SELECT line, style FROM tb_plan WHERE id_plan = ?",
+              [id_plan],
+              (err, results) => {
+                if (err) reject(err);
+                else resolve(results[0]);
+              }
+            );
+          }),
+        ])
+          .then(([preparingMachines, backupMachines, planInfo]) => {
+            connection.release();
+            res.json({
+              success: true,
+              source_plan: planInfo,
+              preparing_machines: preparingMachines.machines,
+              backup_machines: backupMachines.machines,
+            });
+          })
+          .catch((error) => {
+            connection.release();
+            console.error("Error fetching machine preview:", error);
+            res.status(500).json({
+              success: false,
+              message: "Error fetching machine preview",
+              error: error.message,
+            });
+          });
+      });
+    } catch (error) {
+      console.error("Error in machine preview endpoint:", error);
+      res.status(500).json({
+        success: false,
+        message: "Server error",
+        error: error.message,
+      });
+    }
+  }
+);
+
+// Process 5 copy machines from another plan endpoint
+app.post("/api/process5/copy-machines", authenticateToken, async (req, res) => {
+  const { source_plan_id, target_plan_id } = req.body;
+  const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
+
+  try {
+    // Get connection from pool
+    mysqlConnection.getConnection((err, connection) => {
+      if (err) {
+        console.error("Error getting connection:", err);
+        return res
+          .status(500)
+          .json({ success: false, message: "Database connection error" });
+      }
+
+      connection.beginTransaction(async (err) => {
+        if (err) {
+          connection.release();
+          console.error("Error starting transaction:", err);
+          return res
+            .status(500)
+            .json({ success: false, message: "Transaction error" });
+        }
+
+        try {
+          // First check if source plan has any machines
+          const [hasMachines] = await Promise.all([
+            new Promise((resolve, reject) => {
+              connection.query(
+                `SELECT EXISTS (
+                  SELECT 1 FROM tb_process_5_preparing_machine WHERE id_plan = ?
+                  UNION
+                  SELECT 1 FROM tb_process_5_backup_machine WHERE id_plan = ?
+                ) as has_machines`,
+                [source_plan_id, source_plan_id],
+                (err, results) => {
+                  if (err) reject(err);
+                  else resolve(results[0].has_machines);
+                }
+              );
+            }),
+          ]);
+
+          if (!hasMachines) {
+            connection.release();
+            return res.status(400).json({
+              success: false,
+              message: "Kế hoạch nguồn không có dữ liệu máy móc để sao chép",
+            });
+          }
+
+          // Get source and target plan details for logging
+          const [sourcePlan, targetPlan] = await Promise.all([
+            new Promise((resolve, reject) => {
+              connection.query(
+                "SELECT line, style FROM tb_plan WHERE id_plan = ?",
+                [source_plan_id],
+                (err, results) => {
+                  if (err) reject(err);
+                  else resolve(results[0]);
+                }
+              );
+            }),
+            new Promise((resolve, reject) => {
+              connection.query(
+                "SELECT line, style FROM tb_plan WHERE id_plan = ?",
+                [target_plan_id],
+                (err, results) => {
+                  if (err) reject(err);
+                  else resolve(results[0]);
+                }
+              );
+            }),
+          ]);
+
+          // Get preparing machines from source plan
+          const preparingMachines = await new Promise((resolve, reject) => {
+            connection.query(
+              "SELECT * FROM tb_process_5_preparing_machine WHERE id_plan = ?",
+              [source_plan_id],
+              (err, results) => {
+                if (err) reject(err);
+                else resolve(results);
+              }
+            );
+          });
+
+          // Get backup machines from source plan
+          const backupMachines = await new Promise((resolve, reject) => {
+            connection.query(
+              "SELECT * FROM tb_process_5_backup_machine WHERE id_plan = ?",
+              [source_plan_id],
+              (err, results) => {
+                if (err) reject(err);
+                else resolve(results);
+              }
+            );
+          });
+
+          // Insert preparing machines for target plan
+          if (preparingMachines.length > 0) {
+            const preparingValues = preparingMachines.map((machine) => [
+              target_plan_id,
+              machine.id_process,
+              null, // Set adjust_date to null instead of copying machine.adjust_date
+              machine.SQL_oid_thiet_bi,
+              machine.name_machine,
+              machine.quantity,
+              machine.prepared,
+              machine.pass,
+              machine.fail,
+              machine.pass_rate,
+              machine.not_prepared,
+              machine.prepare_rate,
+              updated_by,
+            ]);
+
+            await new Promise((resolve, reject) => {
+              connection.query(
+                `INSERT INTO tb_process_5_preparing_machine 
+                (id_plan, id_process, adjust_date, SQL_oid_thiet_bi, name_machine, 
+                quantity, prepared, pass, fail, pass_rate, not_prepared, prepare_rate, updated_by) 
+                VALUES ?`,
+                [preparingValues],
+                (err) => {
+                  if (err) reject(err);
+                  else resolve();
+                }
+              );
+            });
+          }
+
+          // Insert backup machines for target plan
+          if (backupMachines.length > 0) {
+            const backupValues = backupMachines.map((machine) => [
+              target_plan_id,
+              machine.id_process,
+              null, // Set adjust_date to null instead of copying machine.adjust_date
+              machine.name_machine,
+              machine.quantity,
+              machine.prepared,
+              machine.pass,
+              machine.fail,
+              machine.pass_rate,
+              machine.not_prepared,
+              machine.prepare_rate,
+              updated_by,
+            ]);
+
+            await new Promise((resolve, reject) => {
+              connection.query(
+                `INSERT INTO tb_process_5_backup_machine 
+                (id_plan, id_process, adjust_date, name_machine, 
+                quantity, prepared, pass, fail, pass_rate, not_prepared, prepare_rate, updated_by) 
+                VALUES ?`,
+                [backupValues],
+                (err) => {
+                  if (err) reject(err);
+                  else resolve();
+                }
+              );
+            });
+          }
+
+          // Create log entry
+          const history_log = `${updated_by} vừa sao chép thông tin máy móc từ chuyền [${sourcePlan.line}], mã hàng [${sourcePlan.style}] sang chuyền [${targetPlan.line}], mã hàng [${targetPlan.style}]`;
+
+          await new Promise((resolve, reject) => {
+            connection.query(
+              "INSERT INTO tb_log (history_log) VALUES (?)",
+              [history_log],
+              (err) => {
+                if (err) reject(err);
+                else resolve();
+              }
+            );
+          });
+
+          // Update process rate
+          await new Promise((resolve, reject) => {
+            updateTotalPercentRate(target_plan_id, connection, (err) => {
+              if (err) reject(err);
+              else resolve();
+            });
+          });
+
+          // Commit transaction
+          await new Promise((resolve, reject) => {
+            connection.commit((err) => {
+              if (err) reject(err);
+              else resolve();
+            });
+          });
+
+          connection.release();
+          res.json({
+            success: true,
+            message: "Machines copied successfully",
+            preparing_count: preparingMachines.length,
+            backup_count: backupMachines.length,
+          });
+        } catch (error) {
+          return connection.rollback(() => {
+            connection.release();
+            console.error("Error during machine copy:", error);
+            res.status(500).json({
+              success: false,
+              message: "Error copying machines",
+              error: error.message,
+            });
+          });
+        }
+      });
+    });
+  } catch (error) {
+    console.error("Error in copy machines endpoint:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+});
 
 // Backup Machines POST endpoint
 app.post("/api/process5/backup-machines", authenticateToken, (req, res) => {
