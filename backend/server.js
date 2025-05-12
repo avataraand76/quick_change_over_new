@@ -4671,8 +4671,7 @@ app.get("/api/plans-for-calendar-of-anh-thu", (req, res) => {
   const query = `
     SELECT id_plan, line, style, plan_date, actual_date, total_percent_rate
     FROM tb_plan
-    WHERE inactive = 0
-    OR inactive IS NULL
+    WHERE inactive = 0 OR inactive IS NULL
     ORDER BY plan_date DESC
   `;
 
@@ -4761,11 +4760,11 @@ app.get("/api/count-so-lan-chuyen-doi", (req, res) => {
       style,
       plan_date,
       actual_date,
-      COUNT(id_plan) AS Planned_Changeover,
-      SUM(CASE WHEN actual_date IS NOT NULL THEN 1 ELSE 0 END) AS Actual_Changeover,
-      SUM(CASE WHEN actual_date IS NULL THEN 1 ELSE 0 END) AS Not_Yet_Changeover
+      COUNT(id_plan) AS Planned_Changeover,  -- Tổng số lần chuyển đổi đã được lên kế hoạch
+      SUM(CASE WHEN actual_date IS NOT NULL THEN 1 ELSE 0 END) AS Actual_Changeover, -- Đếm những chuyển đổi đã thực hiện
+      SUM(CASE WHEN actual_date IS NULL THEN 1 ELSE 0 END) AS Not_Yet_Changeover -- Đếm những chuyển đổi chưa thực hiện
     FROM tb_plan 
-    WHERE inactive = 0 OR inactive IS NULL
+    WHERE inactive = 0 OR inactive IS NULL -- Chỉ lấy dữ liệu còn hoạt động
     GROUP BY id_plan, line, style, plan_date, actual_date
     ORDER BY plan_date DESC;
   `;
@@ -4791,6 +4790,7 @@ app.get("/api/count-so-lan-chuyen-doi", (req, res) => {
       return res.json({ events: [] });
     }
 
+    // Khởi tạo biến thống kê cho từng xưởng
     const workshopStats = {
       1: { planned_changeover: 0, actual_changeover: 0, not_yet_changeover: 0 },
       2: { planned_changeover: 0, actual_changeover: 0, not_yet_changeover: 0 },
@@ -4798,12 +4798,16 @@ app.get("/api/count-so-lan-chuyen-doi", (req, res) => {
       4: { planned_changeover: 0, actual_changeover: 0, not_yet_changeover: 0 },
     };
 
+    // Duyệt qua từng kết quả trả về và xử lý
     const events = results.map((plan) => {
+      // Xác định xưởng tương ứng với line
       const workshop = getWorkshop(plan.line);
 
+      // Parse số liệu từ chuỗi sang số nguyên
       const actualChangeover = parseInt(plan.Actual_Changeover, 10) || 0;
       const notYetChangeover = parseInt(plan.Not_Yet_Changeover, 10) || 0;
 
+      // Cộng dồn số liệu vào từng xưởng tương ứng
       if (workshop) {
         workshopStats[workshop].planned_changeover += plan.Planned_Changeover;
         workshopStats[workshop].actual_changeover += actualChangeover;
@@ -4844,14 +4848,18 @@ app.get("/api/count-so-lan-chua-chuyen-doi", (req, res) => {
     CAST(COALESCE(p2.percent_rate, 0) AS DECIMAL(5,2)) AS process_2_percent,
     CAST(COALESCE(p3.percent_rate, 0) AS DECIMAL(5,2)) AS process_3_percent,
     CAST(COALESCE(p4.percent_rate, 0) AS DECIMAL(5,2)) AS process_4_percent,
-    CAST(ROUND(
-        COALESCE(
-            (COALESCE(b.pass_rate, 0) * 0.2) + (COALESCE(pr.pass_rate, 0) * 0.8),
-            (COALESCE(b.pass_rate, 0) * 0.2),
-            (COALESCE(pr.pass_rate, 0) * 0.8),
-            0
-        )
-    ) AS DECIMAL(5,2)) AS process_5_percent,
+    CAST(
+          ROUND(
+              (COALESCE(
+                  (SELECT AVG(prepare_rate)
+                  FROM tb_process_5_preparing_machine pr
+                  WHERE pr.id_plan = p.id_plan), 0) * 0.8) +
+              (COALESCE(
+                  (SELECT AVG(prepare_rate)
+                  FROM tb_process_5_backup_machine b
+                  WHERE b.id_plan = p.id_plan), 0) * 0.2)
+              , 2)
+          AS DECIMAL(5,2)) AS process_5_percent,
     CAST(COALESCE(p6.percent_rate, 0) AS DECIMAL(5,2)) AS process_6_percent,
     CAST(COALESCE(p7.percent_rate, 0) AS DECIMAL(5,2)) AS process_7_percent,
     CAST(COALESCE(p8.percent_rate, 0) AS DECIMAL(5,2)) AS process_8_percent
@@ -4872,9 +4880,7 @@ app.get("/api/count-so-lan-chua-chuyen-doi", (req, res) => {
   `;
 
   const getWorkshop = (line) => {
-    const lineNum = parseInt(line.toString().replace(/\D/g, ""));
-    if (isNaN(lineNum)) return null;
-
+    const lineNum = parseInt(line);
     if ((lineNum >= 1 && lineNum <= 10) || lineNum === 1001) return 1;
     if ((lineNum >= 11 && lineNum <= 20) || lineNum === 2001) return 2;
     if (lineNum >= 21 && lineNum <= 30) return 3;
@@ -4888,6 +4894,7 @@ app.get("/api/count-so-lan-chua-chuyen-doi", (req, res) => {
       return res.status(500).json({ error: "Database error" });
     }
 
+    // Ép kiểu các giá trị phần trăm từ chuỗi sang số
     const transformedResults = results.map((row) => {
       const process_1_percent = parseFloat(row.process_1_percent);
       const process_2_percent = parseFloat(row.process_2_percent);
@@ -4898,6 +4905,7 @@ app.get("/api/count-so-lan-chua-chuyen-doi", (req, res) => {
       const process_7_percent = parseFloat(row.process_7_percent);
       const process_8_percent = parseFloat(row.process_8_percent);
 
+      // Tính phần trăm trung bình của 8 công đoạn
       const avg_percent =
         (process_1_percent +
           process_2_percent +
@@ -4923,6 +4931,7 @@ app.get("/api/count-so-lan-chua-chuyen-doi", (req, res) => {
           process_7_percent: process_7_percent,
           process_8_percent: process_8_percent,
           avg_percent: Math.round(avg_percent),
+          // Phân loại trạng thái: "ready" nếu >= 97.5%, ngược lại là "notYetReady"
           status: avg_percent >= 97.5 ? "ready" : "notYetReady",
           workshop: getWorkshop(row.line),
         },
@@ -4936,47 +4945,41 @@ app.get("/api/count-so-lan-chua-chuyen-doi", (req, res) => {
 app.get("/api/get-prep-results-data", (req, res) => {
   const query = `
     SELECT DISTINCT
-        p.actual_date,
-        p.line,
-        p.style,
-        COALESCE(p1.percent_rate, 0) AS process_1_percent,
-        COALESCE(p2.percent_rate, 0) AS process_2_percent,
-        COALESCE(p3.percent_rate, 0) AS process_3_percent,
-        COALESCE(p4.percent_rate, 0) AS process_4_percent,
-        ROUND(
-            COALESCE(
-                (COALESCE(b.pass_rate, 0) * 0.2) + (COALESCE(pr.pass_rate, 0) * 0.8),
-                (COALESCE(b.pass_rate, 0) * 0.2),
-                (COALESCE(pr.pass_rate, 0) * 0.8),
-                0
-            )
-        ) AS process_5_percent,
-        COALESCE(p6.percent_rate, 0) AS process_6_percent,
-        COALESCE(p7.percent_rate, 0) AS process_7_percent,
-        COALESCE(p8.percent_rate, 0) AS process_8_percent
-    FROM 
-        tb_plan p
-    LEFT JOIN 
-        tb_process_1 p1 ON p.id_plan = p1.id_plan
-    LEFT JOIN 
-        tb_process_2 p2 ON p.id_plan = p2.id_plan
-    LEFT JOIN 
-        tb_process_3 p3 ON p.id_plan = p3.id_plan
-    LEFT JOIN 
-        tb_process_4 p4 ON p.id_plan = p4.id_plan
-    LEFT JOIN 
-        tb_process_6 p6 ON p.id_plan = p6.id_plan
-    LEFT JOIN 
-        tb_process_7 p7 ON p.id_plan = p7.id_plan
-    LEFT JOIN 
-        tb_process_8 p8 ON p.id_plan = p8.id_plan
-    LEFT JOIN 
-        tb_process_5_backup_machine b ON p.id_plan = b.id_plan
-    LEFT JOIN 
-        tb_process_5_preparing_machine pr ON p.id_plan = pr.id_plan
-    WHERE actual_date IS NOT NULL AND
-        (p.inactive = 0 OR p.inactive IS NULL)
-    ORDER BY p.actual_date DESC
+      p.id_plan,
+      p.actual_date,
+      p.line,
+      p.style,
+      -- Tỷ lệ hoàn thành từng công đoạn, mặc định là 0 nếu không có dữ liệu
+      CAST(COALESCE(p1.percent_rate, 0) AS DECIMAL(5,2)) AS process_1_percent,
+      CAST(COALESCE(p2.percent_rate, 0) AS DECIMAL(5,2)) AS process_2_percent,
+      CAST(COALESCE(p3.percent_rate, 0) AS DECIMAL(5,2)) AS process_3_percent,
+      CAST(COALESCE(p4.percent_rate, 0) AS DECIMAL(5,2)) AS process_4_percent,
+      CAST(
+          ROUND(
+              (COALESCE(
+                  (SELECT AVG(prepare_rate)
+                  FROM tb_process_5_preparing_machine pr
+                  WHERE pr.id_plan = p.id_plan), 0) * 0.8) +
+              (COALESCE(
+                  (SELECT AVG(prepare_rate)
+                  FROM tb_process_5_backup_machine b
+                  WHERE b.id_plan = p.id_plan), 0) * 0.2)
+              , 2)
+          AS DECIMAL(5,2)) AS process_5_percent,
+      CAST(COALESCE(p6.percent_rate, 0) AS DECIMAL(5,2)) AS process_6_percent,
+      CAST(COALESCE(p7.percent_rate, 0) AS DECIMAL(5,2)) AS process_7_percent,
+      CAST(COALESCE(p8.percent_rate, 0) AS DECIMAL(5,2)) AS process_8_percent
+    FROM tb_plan p
+    LEFT JOIN tb_process_1 p1 ON p.id_plan = p1.id_plan
+    LEFT JOIN tb_process_2 p2 ON p.id_plan = p2.id_plan
+    LEFT JOIN tb_process_3 p3 ON p.id_plan = p3.id_plan
+    LEFT JOIN tb_process_4 p4 ON p.id_plan = p4.id_plan
+    LEFT JOIN tb_process_6 p6 ON p.id_plan = p6.id_plan
+    LEFT JOIN tb_process_7 p7 ON p.id_plan = p7.id_plan
+    LEFT JOIN tb_process_8 p8 ON p.id_plan = p8.id_plan
+    WHERE p.actual_date IS NOT NULL
+      AND (p.inactive = 0 OR p.inactive IS NULL)
+    ORDER BY p.actual_date DESC;
   `;
 
   const getWorkshop = (line) => {
@@ -4996,6 +4999,7 @@ app.get("/api/get-prep-results-data", (req, res) => {
         .json({ error: "Database error", details: err.message });
     }
 
+    // Xử lý kết quả trả về: chuyển đổi, tính toán và phân loại
     const events = results.map((plan) => {
       const workshop = getWorkshop(plan.line);
       return {
@@ -5041,7 +5045,8 @@ app.get("/api/get-cot-copt-downtime-data", (req, res) => {
         c.target_of_COPT, c.COPT, 
         c.target_of_COT, c.COT
       FROM tb_plan p 
-      JOIN tb_co c ON p.id_plan = c.id_plan`,
+      JOIN tb_co c ON p.id_plan = c.id_plan
+			where CO_begin_date is not null and inactive is NULL or inactive=0`,
       (err, planResults) => {
         if (err) {
           console.error("Error fetching plan and CO data:", err);
@@ -5054,12 +5059,14 @@ app.get("/api/get-cot-copt-downtime-data", (req, res) => {
           return res.json([]);
         }
 
+        // Khai báo các biến tổng và mảng kết quả
         const finalResults = [];
         let completedQueries = 0;
         let globalDowntime = 0;
         let globalWasteMan = 0;
         let totalChangeovers = 0;
 
+        // Duyệt từng plan để truy vấn downtime tương ứng
         planResults.forEach((planData, index) => {
           const lineNumberStr = planData.line;
           const lineNumber = parseInt(lineNumberStr);
@@ -5068,32 +5075,12 @@ app.get("/api/get-cot-copt-downtime-data", (req, res) => {
           planData.line = lineNumber;
           planData.workshop = workshop;
 
+          // Tăng bộ đếm nếu có thời gian bắt đầu CO
           if (planData.CO_begin_date) {
             totalChangeovers++;
           }
 
-          // Nếu không có ngày bắt đầu hoặc kết thúc, và không có COT/COPT, bỏ qua record này
-          if (
-            (!planData.CO_begin_date || !planData.CO_end_date) &&
-            !planData.COT &&
-            !planData.COPT &&
-            !planData.target_of_COT &&
-            !planData.target_of_COPT
-          ) {
-            completedQueries++;
-            if (completedQueries === planResults.length) {
-              const validResults = finalResults.filter(Boolean);
-              res.json({
-                total_downtime_minutes_all: globalDowntime,
-                total_waste_man_all: Math.round(globalWasteMan * 100) / 100,
-                total_changeovers: totalChangeovers,
-                data: validResults,
-              });
-            }
-            return;
-          }
-
-          // Nếu không có ngày bắt đầu hoặc kết thúc, nhưng có COT/COPT, thêm vào kết quả với downtime = 0
+          // Nếu thiếu thời gian bắt đầu / kết thúc CO => không cần truy downtime
           if (!planData.CO_begin_date || !planData.CO_end_date) {
             finalResults[index] = {
               ...planData,
@@ -5102,6 +5089,8 @@ app.get("/api/get-cot-copt-downtime-data", (req, res) => {
               total_waste_man: 0,
             };
             completedQueries++;
+
+            // Nếu tất cả plan đã xử lý xong, trả kết quả về
             if (completedQueries === planResults.length) {
               const validResults = finalResults.filter(Boolean);
               res.json({
@@ -5114,9 +5103,11 @@ app.get("/api/get-cot-copt-downtime-data", (req, res) => {
             return;
           }
 
+          // Tạo điều kiện WHERE phù hợp với line
           let lineNumberCondition;
           let lineParams = [];
 
+          // Line đặc biệt: 2001 có thể là "20.01", "20.01A", "20.01B"
           if (lineNumber === 2001) {
             const formattedLineBase = "20.01";
             lineNumberCondition =
@@ -5131,6 +5122,7 @@ app.get("/api/get-cot-copt-downtime-data", (req, res) => {
             lineParams.push(`Tổ ${lineNumberStr}`);
           }
 
+          // Tạo điều kiện LIKE với từng ký tự của product code
           const productCode = planData.style;
           const productCodeChars = productCode.split("");
           const productCodeConditions = productCodeChars
@@ -5138,6 +5130,7 @@ app.get("/api/get-cot-copt-downtime-data", (req, res) => {
             .join(" OR ");
           const productCodeParams = productCodeChars.map((char) => `%${char}%`);
 
+          // Tạo điều kiện thời gian
           const timeRangeCondition =
             "AND submission_time >= ? AND end_time <= ?";
           const params = [
@@ -5147,6 +5140,7 @@ app.get("/api/get-cot-copt-downtime-data", (req, res) => {
             planData.CO_end_date,
           ];
 
+          // Truy vấn các issue downtime phù hợp với điều kiện
           const query = `
             SELECT 
               i.id_logged_issue,
@@ -5178,7 +5172,6 @@ app.get("/api/get-cot-copt-downtime-data", (req, res) => {
           issueLoggerConnection.query(query, params, (err, issueResults) => {
             if (err) {
               console.error("Error fetching downtime issues:", err);
-              // Nếu có lỗi khi query downtime nhưng có COT/COPT, vẫn giữ lại record với downtime = 0
               finalResults[index] = {
                 ...planData,
                 downtime_issues: [],
@@ -5186,6 +5179,7 @@ app.get("/api/get-cot-copt-downtime-data", (req, res) => {
                 total_waste_man: 0,
               };
             } else {
+              // Tính toán thêm "waste man" từ downtime: downtime / 535 phút
               const issuesWithWaste = issueResults.map((issue) => {
                 const downtime = issue.downtime_minutes || 0;
                 const wasteMan = Math.round((downtime / 535) * 100) / 100;
@@ -5208,6 +5202,7 @@ app.get("/api/get-cot-copt-downtime-data", (req, res) => {
               globalDowntime += totalDowntime;
               globalWasteMan += totalWasteMan;
 
+              // Ghi lại kết quả
               finalResults[index] = {
                 ...planData,
                 downtime_issues: issuesWithWaste,
@@ -5215,8 +5210,9 @@ app.get("/api/get-cot-copt-downtime-data", (req, res) => {
                 total_waste_man: Math.round(totalWasteMan * 100) / 100,
               };
             }
-
             completedQueries++;
+
+            // Khi tất cả truy vấn con đã xong -> gửi toàn bộ kết quả
             if (completedQueries === planResults.length) {
               const validResults = finalResults.filter(Boolean);
               res.json({
@@ -5247,21 +5243,25 @@ app.get("/api/get-ramp-up-data", (req, res) => {
       tb_co.CO_begin_date, 
       p.line, 
       p.style,
-      COALESCE(p1.percent_rate, 0) AS process_1_percent,
-      COALESCE(p2.percent_rate, 0) AS process_2_percent,
-      COALESCE(p3.percent_rate, 0) AS process_3_percent,
-      COALESCE(p4.percent_rate, 0) AS process_4_percent,
-      ROUND(
-          COALESCE(
-              (COALESCE(b.pass_rate, 0) * 0.2) + (COALESCE(pr.pass_rate, 0) * 0.8),
-              (COALESCE(b.pass_rate, 0) * 0.2),
-              (COALESCE(pr.pass_rate, 0) * 0.8),
-              0
-          )
-      ) AS process_5_percent,
-      COALESCE(p6.percent_rate, 0) AS process_6_percent,
-      COALESCE(p7.percent_rate, 0) AS process_7_percent,
-      COALESCE(p8.percent_rate, 0) AS process_8_percent
+      CAST(COALESCE(p1.percent_rate, 0) AS DECIMAL(5,2)) AS process_1_percent,
+      CAST(COALESCE(p2.percent_rate, 0) AS DECIMAL(5,2)) AS process_2_percent,
+      CAST(COALESCE(p3.percent_rate, 0) AS DECIMAL(5,2)) AS process_3_percent,
+      CAST(COALESCE(p4.percent_rate, 0) AS DECIMAL(5,2)) AS process_4_percent,
+      CAST(
+          ROUND(
+              (COALESCE(
+                  (SELECT AVG(prepare_rate)
+                  FROM tb_process_5_preparing_machine pr
+                  WHERE pr.id_plan = p.id_plan), 0) * 0.8) +
+              (COALESCE(
+                  (SELECT AVG(prepare_rate)
+                  FROM tb_process_5_backup_machine b
+                  WHERE b.id_plan = p.id_plan), 0) * 0.2)
+              , 2)
+          AS DECIMAL(5,2)) AS process_5_percent,
+      CAST(COALESCE(p6.percent_rate, 0) AS DECIMAL(5,2)) AS process_6_percent,
+      CAST(COALESCE(p7.percent_rate, 0) AS DECIMAL(5,2)) AS process_7_percent,
+      CAST(COALESCE(p8.percent_rate, 0) AS DECIMAL(5,2)) AS process_8_percent
     FROM tb_plan p
     JOIN tb_co ON p.id_plan = tb_co.id_plan
     LEFT JOIN tb_process_1 p1 ON p.id_plan = p1.id_plan
@@ -5299,19 +5299,22 @@ app.get("/api/get-ramp-up-data", (req, res) => {
       let completed = 0;
 
       rows.forEach((row, index) => {
-        const lineNum = parseInt(row.line?.match(/\d+/)?.[0] || 0);
+        const line = row.line;
+        const lineNum = parseInt(line);
 
-        const getWorkshop = (line) => {
-          const num = parseInt(line);
-          if ((num >= 1 && num <= 10) || num === 1001) return 1;
-          if ((num >= 11 && num <= 20) || num === 2001) return 2;
-          if (num >= 21 && num <= 30) return 3;
-          if (num >= 31 && num <= 40) return 4;
+        const getWorkshop = (lineNumber) => {
+          if ((lineNumber >= 1 && lineNumber <= 10) || lineNumber === 1001)
+            return 1;
+          if ((lineNumber >= 11 && lineNumber <= 20) || lineNumber === 2001)
+            return 2;
+          if (lineNumber >= 21 && lineNumber <= 30) return 3;
+          if (lineNumber >= 31 && lineNumber <= 40) return 4;
           return null;
         };
 
         const currentWorkshop = getWorkshop(lineNum);
 
+        // Nếu truyền workshop và không trùng, bỏ qua record này
         if (filterWorkshop && currentWorkshop !== filterWorkshop) {
           completed++;
           if (completed === rows.length) {
@@ -5327,7 +5330,7 @@ app.get("/api/get-ramp-up-data", (req, res) => {
           ? new Date(row.CO_begin_date)
           : null;
 
-        // Calculate 8-step average
+        // Tính trung bình 8 bước
         const eightStepAvg = Math.round(
           (Number(row.process_1_percent) +
             Number(row.process_2_percent) +
@@ -5349,9 +5352,10 @@ app.get("/api/get-ramp-up-data", (req, res) => {
           start.setDate(start.getDate() + 1);
         }
 
-        const effRest = [];
+        const effRest = []; // hiệu suất các ngày sau CO
         let subCompleted = 0;
 
+        // Chỉ lấy 4 ngày đầu để kiểm tra hiệu suất sau CO
         dates.slice(0, 4).forEach((d, i) => {
           const dateStr = d.toISOString().split("T")[0];
           const query = `SELECT line${lineNum} FROM BaoCao_NangSuat_Ngay WHERE CAST(Ngay AS DATE) = '${dateStr}' ORDER BY STT`;
@@ -5363,6 +5367,8 @@ app.get("/api/get-ramp-up-data", (req, res) => {
             } else {
               const records = result.recordset;
               const first = records[0]?.[`line${lineNum}`];
+
+              // Nếu dòng đầu tiên chứa mã hàng đúng, lấy hiệu suất ở dòng 20 (dòng 19)
               if (first && first.includes(style)) {
                 effRest[i] = parseInt(records[19]?.[`line${lineNum}`]) || 0;
               } else {
@@ -5372,13 +5378,14 @@ app.get("/api/get-ramp-up-data", (req, res) => {
 
             subCompleted++;
             if (subCompleted === 4) {
+              // Khi đã xử lý xong 4 ngày, thêm vào kết quả
               results[index] = {
                 line: lineNum,
                 style,
                 coBeginDate,
                 workshop: currentWorkshop,
-                eff: [eff1, ...effRest],
-                prep: eightStepAvg,
+                eff: [eff1, ...effRest], // eff1 + 4 ngày sau
+                prep: eightStepAvg, // trung bình phần trăm 8 bước chuẩn bị
               };
 
               completed++;
