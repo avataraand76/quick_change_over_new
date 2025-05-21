@@ -619,7 +619,7 @@ app.get("/api/higmf-lines-styles", authenticateToken, async (req, res) => {
           plan_date: record.plan_date ? formatDate(record.plan_date) : null,
           SAM:
             hiproResult.recordset.length > 0
-              ? parseInt(hiproResult.recordset[0].SAM) || 0
+              ? (parseInt(hiproResult.recordset[0].SAM) || 0) / 60
               : 0,
           DinhMuc:
             hiproResult.recordset.length > 0
@@ -4157,11 +4157,15 @@ app.get("/api/users/search", authenticateToken, async (req, res) => {
           bp.ten_bo_phan
         FROM sync_nhan_vien nv
         LEFT JOIN sync_bo_phan bp ON nv.id_bo_phan = bp.id
+        LEFT JOIN sync_phong_ban pb ON bp.id_phong_ban = pb.id
         WHERE (${whereConditions})
         AND bp.ten_bo_phan NOT LIKE '%NGHI VIEC%'
         AND bp.ten_bo_phan NOT LIKE '%NGHI DAI HAN%'
         AND bp.ten_bo_phan NOT LIKE '%NV%'
+        AND bp.ten_bo_phan NOT LIKE '%THAI SAN%'
         AND bp.id_bo_phan NOT LIKE '%NV%'
+        AND pb.id_phong_ban NOT LIKE '%NGHI VIEC%'
+        AND pb.ten_phong_ban NOT LIKE '%NGHI VIEC%'
       `;
 
       dataHiTimesheetConnection.query(query, searchParams, (err, results) => {
