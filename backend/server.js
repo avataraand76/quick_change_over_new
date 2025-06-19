@@ -1,6 +1,7 @@
 // backend/server.js
 
 const express = require("express");
+const router = express.Router();
 const sql = require("mssql");
 const mysql = require("mysql2");
 const cors = require("cors");
@@ -8,7 +9,7 @@ const multer = require("multer");
 const { google } = require("googleapis");
 const { Readable } = require("stream");
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const bodyParser = require("body-parser");
 require("dotenv").config();
 

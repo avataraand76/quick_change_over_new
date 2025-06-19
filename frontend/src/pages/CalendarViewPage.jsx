@@ -38,9 +38,10 @@ const StyledDialog = styled(Dialog)(({ theme }) => ({
   "& .MuiDialog-paper": {
     borderRadius: 16,
     padding: 0,
-    minWidth: theme.breakpoints.down("sm") ? "95%" : 800,
-    maxWidth: 1000,
-    width: "90%",
+    minWidth: theme.breakpoints.down("sm") ? "95%" : 1000,
+    maxWidth: 1400,
+    width: "95%",
+    maxHeight: "90vh",
     overflow: "hidden",
   },
 }));
@@ -52,6 +53,9 @@ const CalendarViewPage = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedWorkshops, setSelectedWorkshops] = useState([]);
+  const [processRates, setProcessRates] = useState([]);
+  const [processes, setProcesses] = useState([]);
+  const [loadingProcessDetails, setLoadingProcessDetails] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const navigate = useNavigate();
@@ -312,28 +316,44 @@ const CalendarViewPage = () => {
       </Box>
     );
 
-  const handleEventClick = (clickInfo) => {
-    setSelectedEvent({
+  const handleEventClick = async (clickInfo) => {
+    const eventData = {
       id: clickInfo.event.id,
       title: clickInfo.event.title,
       line: clickInfo.event.extendedProps.line,
       style: clickInfo.event.extendedProps.style,
       start: clickInfo.event.start,
       end: clickInfo.event.end,
-
-      /* để tạm */
       plan_date: clickInfo.event.extendedProps.plan_date,
-      /* để tạm */
-
       actual_date: clickInfo.event.extendedProps.actual_date,
       total_percent_rate: clickInfo.event.extendedProps.total_percent_rate || 0,
-    });
+    };
+
+    setSelectedEvent(eventData);
     setOpenDialog(true);
+
+    // Fetch process details
+    setLoadingProcessDetails(true);
+    try {
+      const [processesResponse, processRatesResponse] = await Promise.all([
+        API.getProcesses(),
+        API.getProcessRates(clickInfo.event.id),
+      ]);
+      setProcesses(processesResponse);
+      setProcessRates(processRatesResponse);
+    } catch (error) {
+      console.error("Error fetching process details:", error);
+    } finally {
+      setLoadingProcessDetails(false);
+    }
   };
 
   const handleDialogClose = () => {
     setOpenDialog(false);
     setSelectedEvent(null);
+    setProcesses([]);
+    setProcessRates([]);
+    setLoadingProcessDetails(false);
   };
 
   const handleConfirmNavigation = () => {
@@ -526,7 +546,6 @@ const CalendarViewPage = () => {
                       multiMonthMaxColumns: 2,
                     },
                   }}
-                  hiddenDays={[0]}
                   events={filteredEvents}
                   eventClick={handleEventClick}
                   eventContent={renderEventContent}
@@ -537,6 +556,76 @@ const CalendarViewPage = () => {
                   firstDay={1}
                   nowIndicator={true}
                   eventDisplay="block"
+                  // dayHeaderContent={(arg) => {
+                  //   // Nếu là Chủ nhật (0)
+                  //   if (arg.date.getDay() === 0) {
+                  //     return {
+                  //       html: '<div style="font-weight: bold;">Total</div>',
+                  //     };
+                  //   }
+                  //   // Các ngày khác giữ nguyên định dạng mặc định
+                  //   return arg.text;
+                  // }}
+                  // dayCellDidMount={(arg) => {
+                  //   // Nếu là chủ nhật (0)
+                  //   if (arg.date.getDay() === 0) {
+                  //     // Ẩn số ngày
+                  //     const dateNumber = arg.el.querySelector(
+                  //       ".fc-daygrid-day-number"
+                  //     );
+                  //     if (dateNumber) {
+                  //       dateNumber.style.display = "none";
+                  //     }
+
+                  //     // Ẩn container chứa các sự kiện
+                  //     const eventsContainer = arg.el.querySelector(
+                  //       ".fc-daygrid-day-events"
+                  //     );
+                  //     if (eventsContainer) {
+                  //       eventsContainer.style.display = "none";
+                  //     }
+
+                  //     const startOfWeek = new Date(arg.date);
+                  //     startOfWeek.setDate(startOfWeek.getDate() - 6); // Lấy thứ 2 của tuần đó
+                  //     const endOfWeek = new Date(arg.date);
+                  //     endOfWeek.setHours(23, 59, 59, 999);
+
+                  //     // Đếm số sự kiện trong tuần (từ thứ 2 đến thứ 7, loại bỏ chủ nhật)
+                  //     const weekEvents = filteredEvents.filter((event) => {
+                  //       const eventDate = new Date(event.start);
+                  //       const dayOfWeek = eventDate.getDay(); // 0 = Chủ nhật, 1 = Thứ 2, ..., 6 = Thứ 7
+
+                  //       // Chỉ tính các ngày từ thứ 2 (1) đến thứ 7 (6), loại bỏ chủ nhật (0)
+                  //       return (
+                  //         eventDate >= startOfWeek &&
+                  //         eventDate <= endOfWeek &&
+                  //         dayOfWeek !== 0
+                  //       );
+                  //     });
+
+                  //     // Tạo và thêm element hiển thị tổng
+                  //     const totalContainer = document.createElement("div");
+                  //     totalContainer.style.height = "100%";
+                  //     totalContainer.style.width = "100%";
+                  //     totalContainer.style.display = "flex";
+                  //     totalContainer.style.alignItems = "center";
+                  //     totalContainer.style.justifyContent = "center";
+                  //     totalContainer.style.backgroundColor = "#f5f5f5";
+                  //     totalContainer.style.position = "absolute";
+                  //     totalContainer.style.top = "0";
+                  //     totalContainer.style.left = "0";
+                  //     totalContainer.innerHTML = `<span style="font-weight: bold; color: red; font-size: ${
+                  //       isMobile ? "12px" : "24px"
+                  //     };">${weekEvents.length}</span>`;
+
+                  //     // Thêm style cho cột chủ nhật
+                  //     arg.el.style.backgroundColor = "#f5f5f5";
+                  //     arg.el.style.borderLeft = "1px solid #ddd";
+                  //     arg.el.style.position = "relative";
+
+                  //     arg.el.appendChild(totalContainer);
+                  //   }
+                  // }}
                 />
               </Box>
             </>
@@ -584,217 +673,218 @@ const CalendarViewPage = () => {
           )}
         </DialogTitle>
 
-        <DialogContent sx={{ p: isMobile ? 2 : 3 }}>
+        <DialogContent
+          sx={{
+            p: isMobile ? 1.5 : 3,
+            overflow: isMobile ? "auto" : "hidden",
+            maxHeight: isMobile ? "calc(100vh - 200px)" : "70vh",
+          }}
+        >
           {selectedEvent && (
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <Box
+              sx={{
+                display: "flex",
+                gap: isMobile ? 2 : 3,
+                height: isMobile ? "auto" : "100%",
+                flexDirection: isMobile ? "column" : "row",
+                minHeight: isMobile ? "auto" : "400px",
+              }}
+            >
+              {/* Left column - Basic info */}
               <Box
                 sx={{
+                  flex: 1,
                   display: "flex",
-                  gap: 2,
-                  mt: isMobile ? 1 : "24px",
-                  flexDirection: isMobile ? "column" : "row",
+                  flexDirection: "column",
+                  gap: isMobile ? 1 : 1.5,
                 }}
               >
+                <Typography
+                  variant="h6"
+                  color="primary"
+                  sx={{ fontWeight: 600 }}
+                >
+                  Thông tin cơ bản
+                </Typography>
+
+                {/* Compact info boxes */}
                 <Box
                   sx={{
-                    flex: 1,
                     display: "flex",
-                    alignItems: "center",
-                    gap: 2,
-                    p: isMobile ? 1.5 : 2,
-                    bgcolor: theme.palette.grey[50],
-                    borderRadius: 2,
-                    border: `1px solid ${theme.palette.grey[200]}`,
-                    transition: "all 0.2s ease",
-                    "&:hover": {
-                      bgcolor: theme.palette.grey[100],
-                      borderColor: theme.palette.grey[300],
-                    },
+                    gap: isMobile ? 1 : 1.5,
+                    flexDirection: isMobile ? "column" : "row",
                   }}
                 >
-                  <FormatListNumberedIcon
-                    color="primary"
-                    sx={{ fontSize: isMobile ? 24 : 28 }}
-                  />
-                  <Box>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ mb: 0.5 }}
+                  <Box
+                    sx={{
+                      flex: 1,
+                      p: isMobile ? 1 : 1.5,
+                      bgcolor: theme.palette.grey[50],
+                      borderRadius: 2,
+                      border: `1px solid ${theme.palette.grey[200]}`,
+                      minHeight: isMobile ? "70px" : "100px",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 0.5,
+                      }}
                     >
-                      Chuyền sản xuất
-                    </Typography>
-                    <Typography
-                      variant={isMobile ? "h6" : "h5"}
-                      sx={{ fontWeight: 600 }}
-                    >
+                      <FormatListNumberedIcon
+                        color="primary"
+                        sx={{ fontSize: 18 }}
+                      />
+                      <Typography variant="body2" color="text.secondary">
+                        Chuyền
+                      </Typography>
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
                       {selectedEvent.line}
                     </Typography>
                   </Box>
-                </Box>
 
-                <Box
-                  sx={{
-                    flex: 1,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 2,
-                    p: isMobile ? 1.5 : 2,
-                    bgcolor: theme.palette.grey[50],
-                    borderRadius: 2,
-                    border: `1px solid ${theme.palette.grey[200]}`,
-                    transition: "all 0.2s ease",
-                    "&:hover": {
-                      bgcolor: theme.palette.grey[100],
-                      borderColor: theme.palette.grey[300],
-                    },
-                  }}
-                >
-                  <InventoryIcon
-                    color="primary"
-                    sx={{ fontSize: isMobile ? 24 : 28 }}
-                  />
-                  <Box>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ mb: 0.5 }}
+                  <Box
+                    sx={{
+                      flex: 1,
+                      p: 1.5,
+                      bgcolor: theme.palette.grey[50],
+                      borderRadius: 2,
+                      border: `1px solid ${theme.palette.grey[200]}`,
+                      minHeight: "100px",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 0.5,
+                      }}
                     >
-                      Mã hàng
-                    </Typography>
-                    <Typography
-                      variant={isMobile ? "h6" : "h5"}
-                      sx={{ fontWeight: 600 }}
-                    >
+                      <InventoryIcon color="primary" sx={{ fontSize: 18 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        Mã hàng
+                      </Typography>
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
                       {selectedEvent.style}
                     </Typography>
                   </Box>
                 </Box>
-              </Box>
 
-              <Box
-                sx={{
-                  display: "flex",
-                  gap: 2,
-                  flexDirection: isMobile ? "column" : "row",
-                }}
-              >
+                {/* Date info */}
                 <Box
                   sx={{
-                    flex: 1,
                     display: "flex",
-                    alignItems: "center",
-                    gap: 2,
-                    p: isMobile ? 1.5 : 2,
-                    bgcolor: theme.palette.grey[50],
-                    borderRadius: 2,
-                    border: `1px solid ${theme.palette.grey[200]}`,
-                    transition: "all 0.2s ease",
-                    "&:hover": {
-                      bgcolor: theme.palette.grey[100],
-                      borderColor: theme.palette.grey[300],
-                    },
+                    gap: isMobile ? 1 : 1.5,
+                    flexDirection: isMobile ? "column" : "row",
                   }}
                 >
-                  <EventIcon
-                    color="primary"
-                    sx={{ fontSize: isMobile ? 24 : 28 }}
-                  />
-                  <Box>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ mb: 0.5 }}
+                  <Box
+                    sx={{
+                      flex: 1,
+                      p: isMobile ? 1 : 1.5,
+                      bgcolor: theme.palette.grey[50],
+                      borderRadius: 2,
+                      border: `1px solid ${theme.palette.grey[200]}`,
+                      minHeight: isMobile ? "70px" : "100px",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 0.5,
+                      }}
                     >
-                      Ngày dự kiến
-                    </Typography>
-                    <Typography
-                      variant={isMobile ? "body1" : "h6"}
-                      sx={{ fontWeight: 600 }}
-                    >
+                      <EventIcon color="primary" sx={{ fontSize: 18 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        Ngày dự kiến
+                      </Typography>
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
                       {formatDateTime(selectedEvent.start) || "Chưa có"}
-
-                      {/* để tạm */}
-                      {/* {formatDateTime(selectedEvent.plan_date) || "Chưa có"} */}
-                      {/* để tạm */}
                     </Typography>
                   </Box>
-                </Box>
 
-                <Box
-                  sx={{
-                    flex: 1,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 2,
-                    p: isMobile ? 1.5 : 2,
-                    bgcolor: theme.palette.grey[50],
-                    borderRadius: 2,
-                    border: `1px solid ${theme.palette.grey[200]}`,
-                    transition: "all 0.2s ease",
-                    "&:hover": {
-                      bgcolor: theme.palette.grey[100],
-                      borderColor: theme.palette.grey[300],
-                    },
-                  }}
-                >
-                  <EventIcon
-                    color="primary"
-                    sx={{ fontSize: isMobile ? 24 : 28 }}
-                  />
-                  <Box>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ mb: 0.5 }}
+                  <Box
+                    sx={{
+                      flex: 1,
+                      p: isMobile ? 1 : 1.5,
+                      bgcolor: theme.palette.grey[50],
+                      borderRadius: 2,
+                      border: `1px solid ${theme.palette.grey[200]}`,
+                      minHeight: isMobile ? "70px" : "100px",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 0.5,
+                      }}
                     >
-                      Ngày thực hiện
-                    </Typography>
-                    <Typography
-                      variant={isMobile ? "body1" : "h6"}
-                      sx={{ fontWeight: 600 }}
-                    >
+                      <EventIcon color="primary" sx={{ fontSize: 18 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        Ngày thực hiện
+                      </Typography>
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
                       {formatDateTime(selectedEvent.actual_date) || "Chưa có"}
                     </Typography>
                   </Box>
                 </Box>
-              </Box>
 
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 2,
-                  p: isMobile ? 1.5 : 2,
-                  bgcolor: theme.palette.grey[50],
-                  borderRadius: 2,
-                  border: `1px solid ${theme.palette.grey[200]}`,
-                  transition: "all 0.2s ease",
-                  "&:hover": {
-                    bgcolor: theme.palette.grey[100],
-                    borderColor: theme.palette.grey[300],
-                  },
-                }}
-              >
-                <PercentIcon
-                  color="primary"
-                  sx={{ fontSize: isMobile ? 24 : 28 }}
-                />
-                <Box sx={{ width: "100%" }}>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 0.5 }}
+                {/* Overall progress */}
+                <Box
+                  sx={{
+                    p: isMobile ? 1 : 1.5,
+                    bgcolor: theme.palette.grey[50],
+                    borderRadius: 2,
+                    border: `1px solid ${theme.palette.grey[200]}`,
+                    minHeight: isMobile ? "70px" : "100px",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      mb: 1,
+                    }}
                   >
-                    Tiến độ hoàn thành
-                  </Typography>
+                    <PercentIcon color="primary" sx={{ fontSize: 18 }} />
+                    <Typography variant="body2" color="text.secondary">
+                      Tiến độ hoàn thành tổng
+                    </Typography>
+                  </Box>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                     <Box sx={{ flex: 1 }}>
                       <LinearProgress
                         variant="determinate"
                         value={selectedEvent.total_percent_rate}
                         sx={{
-                          height: isMobile ? 6 : 8,
+                          height: 8,
                           borderRadius: 4,
                           backgroundColor: "#e0e0e0",
                           "& .MuiLinearProgress-bar": {
@@ -806,10 +896,10 @@ const CalendarViewPage = () => {
                       />
                     </Box>
                     <Typography
-                      variant={isMobile ? "h6" : "h5"}
+                      variant="h6"
                       sx={{
                         fontWeight: 600,
-                        minWidth: 60,
+                        minWidth: 50,
                         textAlign: "right",
                         color: getProgressColor(
                           selectedEvent.total_percent_rate
@@ -819,6 +909,112 @@ const CalendarViewPage = () => {
                       {selectedEvent.total_percent_rate}%
                     </Typography>
                   </Box>
+                </Box>
+              </Box>
+
+              {/* Right column - Process details */}
+              <Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                <Typography
+                  variant="h6"
+                  color="primary"
+                  sx={{ fontWeight: 600, mb: isMobile ? 1 : 1.5 }}
+                >
+                  Chi tiết quy trình
+                </Typography>
+
+                <Box
+                  sx={{
+                    flex: 1,
+                    bgcolor: theme.palette.grey[50],
+                    borderRadius: 2,
+                    border: `1px solid ${theme.palette.grey[200]}`,
+                    p: isMobile ? 1 : 1.5,
+                    overflow: isMobile ? "visible" : "auto",
+                    maxHeight: isMobile ? "none" : "375px",
+                  }}
+                >
+                  {loadingProcessDetails ? (
+                    <Box
+                      sx={{ display: "flex", justifyContent: "center", py: 3 }}
+                    >
+                      <CircularProgress size={24} />
+                    </Box>
+                  ) : processes.length > 0 ? (
+                    <Box
+                      sx={{ display: "flex", flexDirection: "column", gap: 1 }}
+                    >
+                      {processes.map((process, index) => {
+                        const rateObj = processRates.find(
+                          (rate) => rate.id_process === process.id_process
+                        );
+                        const rate = rateObj ? rateObj.percent_rate : 0;
+
+                        return (
+                          <Box
+                            key={process.id_process}
+                            sx={{
+                              p: isMobile ? 1 : 1.5,
+                              bgcolor: "white",
+                              borderRadius: 1,
+                              border: "1px solid #e0e0e0",
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                mb: 0.5,
+                              }}
+                            >
+                              <Typography
+                                variant={isMobile ? "caption" : "body2"}
+                                sx={{
+                                  fontWeight: 500,
+                                  flex: 1,
+                                  fontSize: isMobile ? "0.75rem" : "0.875rem",
+                                }}
+                              >
+                                {index + 1}. {process.name_process}
+                              </Typography>
+                              <Typography
+                                variant={isMobile ? "caption" : "body2"}
+                                sx={{
+                                  fontWeight: 600,
+                                  color: getProgressColor(rate),
+                                  minWidth: isMobile ? 30 : 40,
+                                  textAlign: "right",
+                                  fontSize: isMobile ? "0.75rem" : "0.875rem",
+                                }}
+                              >
+                                {rate}%
+                              </Typography>
+                            </Box>
+                            <LinearProgress
+                              variant="determinate"
+                              value={rate}
+                              sx={{
+                                height: 6,
+                                borderRadius: 3,
+                                backgroundColor: "#f0f0f0",
+                                "& .MuiLinearProgress-bar": {
+                                  backgroundColor: getProgressColor(rate),
+                                },
+                              }}
+                            />
+                          </Box>
+                        );
+                      })}
+                    </Box>
+                  ) : (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ textAlign: "center", py: 3, fontStyle: "italic" }}
+                    >
+                      Không có thông tin quy trình
+                    </Typography>
+                  )}
                 </Box>
               </Box>
             </Box>

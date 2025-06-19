@@ -13,7 +13,7 @@ if (window.location.hostname === "localhost") {
 //////local host//////
 
 //////VLH//////
-// let API_URL = "https://svqco.vietlonghung.com.vn";
+// let API_URL = "https://sveffmachine.vietlonghung.com.vn/api/qco";
 //////VLH//////
 
 //////CT//////
