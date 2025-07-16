@@ -514,7 +514,8 @@ app.get("/api/higmf-lines-styles", authenticateToken, async (req, res) => {
               kht.SoLuong,
               kht.NgayVaoChuyenKeHoachBatDau,
               kht.NgayVaoChuyenKeHoachKetThuc,
-              dh.MaChungLoai,
+              poct.MaChungLoai AS MaChungLoaiCon,
+              cltp.TenChungLoaiTiengAnh,
               kh.TenNgan,
               ROW_NUMBER() OVER (PARTITION BY dh.MaHang, cc.TenCum
                                 ORDER BY kht.NgayVaoChuyenKeHoachBatDau ASC,
@@ -525,6 +526,7 @@ app.get("/api/higmf-lines-styles", authenticateToken, async (req, res) => {
           LEFT JOIN [eGMF].[dbo].[OMM_KeHoachThang] kht ON kht.CTPOId = poct.POCTId
           LEFT JOIN [eGMF].[dbo].[Lib_CumChuyen] cc ON kht.ChuyenId = cc.CumId
           LEFT JOIN [eGMF].[dbo].[Lib_KhachHang] kh ON dh.KHId = kh.KHId
+          LEFT JOIN [eGMF].[dbo].[Lib_ChungLoaiTP] cltp ON cltp.MaChungLoai = poct.MaChungLoai
           WHERE
               cc.CumId IS NOT NULL
               AND kht.NgayVaoChuyenKeHoachBatDau IS NOT NULL
@@ -539,7 +541,8 @@ app.get("/api/higmf-lines-styles", authenticateToken, async (req, res) => {
               SoLuong,
               NgayVaoChuyenKeHoachBatDau,
               NgayVaoChuyenKeHoachKetThuc,
-              MaChungLoai,
+              MaChungLoaiCon,
+              TenChungLoaiTiengAnh,
               TenNgan,
               RowNum,
               LAG(NgayVaoChuyenKeHoachBatDau) OVER (PARTITION BY MaHang, TenCum
@@ -557,14 +560,17 @@ app.get("/api/higmf-lines-styles", authenticateToken, async (req, res) => {
               SoLuong,
               NgayVaoChuyenKeHoachBatDau,
               NgayVaoChuyenKeHoachKetThuc,
-              CASE RIGHT(MaChungLoai, 1)
-                  WHEN 'J' THEN 'JACKET'
-                  WHEN 'V' THEN 'VEST'
-                  WHEN 'P' THEN 'PANTS'
-                  WHEN 'S' THEN 'SHORTS'
-                  WHEN 'K' THEN 'SKIRT'
+              MaChungLoaiCon,
+              CASE
+                  WHEN TenChungLoaiTiengAnh LIKE '%PANT%' THEN 'PANTS'
+                  WHEN TenChungLoaiTiengAnh LIKE '%VEST%' THEN 'VEST'
+                  WHEN TenChungLoaiTiengAnh LIKE '%SHORT%' THEN 'SHORTS'
+                  WHEN TenChungLoaiTiengAnh LIKE '%SKIRT%' THEN 'SKIRT'
+                  WHEN TenChungLoaiTiengAnh LIKE '%SUIT%' THEN 'SUIT'
+                  WHEN TenChungLoaiTiengAnh LIKE '%TOP%' THEN 'TOP'
+                  WHEN TenChungLoaiTiengAnh LIKE '%JACKET%' OR TenChungLoaiTiengAnh LIKE '%JKT%' THEN 'JACKET'
                   ELSE 'undefined'
-              END AS MaChungLoai,
+              END AS TenChungLoaiTiengAnh,
               TenNgan
           FROM FilteredData
           WHERE
@@ -581,7 +587,8 @@ app.get("/api/higmf-lines-styles", authenticateToken, async (req, res) => {
           TenCum as line,
           SoLuong as quantity,
           NgayVaoChuyenKeHoachBatDau as plan_date,
-          MaChungLoai as production_style,
+          MaChungLoaiCon as sub_style,
+          TenChungLoaiTiengAnh as production_style,
           TenNgan as buyer
       FROM FinalFiltered
       ORDER BY TenCum, NgayVaoChuyenKeHoachBatDau ASC
@@ -2499,12 +2506,64 @@ app.get(
   }
 );
 
+// Get available processes from Hi-Line for a specific line and style
+app.get(
+  "/api/process5/hiline-processes/:line/:style",
+  authenticateToken,
+  async (req, res) => {
+    const { line, style } = req.params;
+
+    try {
+      // Execute query to get available processes
+      const result = await hiproPool
+        .request()
+        .input("mahang", sql.VarChar, style)
+        .input("chuyen", sql.VarChar, line).query(`
+          SELECT DISTINCT
+            qtcn.SoPhieu as [so_phieu],
+            clsp.TenChungLoai as [ten_chung_loai]
+          FROM [HiPro].[dbo].[ChiTietPhieuYeuCauThietBiCongCuSanXuat] ctp
+          LEFT JOIN [HiPro].[dbo].[PhieuYeuCauThietBiCongCuSanXuat] p
+            ON ctp.idPhieu = p.id
+          LEFT JOIN [HiPro].[dbo].[NV_SoDoChuyen] sdc
+            ON p.OidSoDoChuyen = sdc.Oid
+          LEFT JOIN [HiPro].[dbo].[NV_QuiTrinhCongNghe] qtcn 
+            ON sdc.QuiTrinh = qtcn.Oid
+          LEFT JOIN [HiPro].[dbo].[DM_ChungLoaiSanPham] clsp
+            ON qtcn.ChungLoaiChiTiet = clsp.Oid
+          LEFT JOIN [HiPro].[dbo].[DM_SanPham] sp 
+            ON qtcn.SanPham = sp.Oid
+          LEFT JOIN [HiPro].[dbo].[pro_chuyen] c
+            ON c.oid_mapping = sdc.Chuyen
+          WHERE sp.MaSanPham = @mahang 
+            AND c.stt = @chuyen
+            AND ctp.ThietBi IS NOT NULL
+            AND ctp.SoLuongTrenSDC != 0
+          ORDER BY qtcn.SoPhieu ASC
+        `);
+
+      // Return the list of processes
+      res.json({
+        success: true,
+        processes: result.recordset || [],
+      });
+    } catch (error) {
+      console.error("Error fetching Hi-Line processes:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error fetching processes from Hi-Line",
+        error: error.message,
+      });
+    }
+  }
+);
+
 // Process 5 Hi-Line data synchronization endpoint
 app.post(
   "/api/process5/sync-machines-from-hiline",
   authenticateToken,
   async (req, res) => {
-    const { id_plan, line, style } = req.body;
+    const { id_plan, line, style, so_phieu } = req.body;
 
     // Get user info from token for logging
     const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
@@ -2517,26 +2576,29 @@ app.post(
       const result = await hiproPool
         .request()
         .input("mahang", sql.VarChar, style)
-        .input("chuyen", sql.VarChar, line).query(`
+        .input("chuyen", sql.VarChar, line)
+        .input("so_phieu", sql.VarChar, so_phieu).query(`
           SELECT DISTINCT
             ctp.ThietBi as [oid_thietbi],
             cltb.TenChungLoai as [ten_may],
-            ctp.SoLuongTrenSDC as [so_luong_may]
+            ctp.SoLuongTrenSDC as [so_luong_may],
+            qtcn.SoPhieu as [so_phieu]
           FROM [HiPro].[dbo].[ChiTietPhieuYeuCauThietBiCongCuSanXuat] ctp
-          INNER JOIN [HiPro].[dbo].[PhieuYeuCauThietBiCongCuSanXuat] p
+          LEFT JOIN [HiPro].[dbo].[PhieuYeuCauThietBiCongCuSanXuat] p
             ON ctp.idPhieu = p.id
-          INNER JOIN [HiPro].[dbo].[NV_SoDoChuyen] sdc
+          LEFT JOIN [HiPro].[dbo].[NV_SoDoChuyen] sdc
             ON p.OidSoDoChuyen = sdc.Oid
-          INNER JOIN [HiPro].[dbo].[NV_QuiTrinhCongNghe] qtcn 
+          LEFT JOIN [HiPro].[dbo].[NV_QuiTrinhCongNghe] qtcn 
             ON sdc.QuiTrinh = qtcn.Oid
-          INNER JOIN [HiPro].[dbo].[DM_SanPham] sp 
+          LEFT JOIN [HiPro].[dbo].[DM_SanPham] sp 
             ON qtcn.SanPham = sp.Oid
-          INNER JOIN [HiPro].[dbo].[pro_chuyen] c
+          LEFT JOIN [HiPro].[dbo].[pro_chuyen] c
             ON c.oid_mapping = sdc.Chuyen
           LEFT JOIN [HiPro].[dbo].[DM_ChungLoaiThietBi] cltb
             ON ctp.ThietBi = cltb.Oid
           WHERE sp.MaSanPham = @mahang 
             AND c.stt = @chuyen
+            AND qtcn.SoPhieu = @so_phieu
             AND ctp.ThietBi IS NOT NULL
             AND ctp.SoLuongTrenSDC != 0
           ORDER BY cltb.TenChungLoai ASC

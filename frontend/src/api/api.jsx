@@ -6,7 +6,7 @@ import axios from "axios";
 let API_URL = "";
 
 if (window.location.hostname === "localhost") {
-  API_URL = "http://localhost:8081"; // localhost
+  API_URL = "http://localhost:8081/api/qco"; // localhost
 } else if (window.location.hostname === "192.168.1.61") {
   API_URL = "http://192.168.1.61:8081"; // for mobile test
 }
@@ -17,7 +17,7 @@ if (window.location.hostname === "localhost") {
 //////VLH//////
 
 //////CT//////
-// let API_URL = "https://svqco.congtien.com.vn";
+// let API_URL = "https://svquanlydungcukimloai.congtien.com.vn/api/qco";
 //////CT//////
 
 // Tạo một instance của axios
@@ -432,8 +432,21 @@ let API = {
     }
   },
 
+  // Get available processes from Hi-Line
+  getHiLineProcesses: async (line, style) => {
+    try {
+      const response = await httpConnect.get(
+        `/api/process5/hiline-processes/${line}/${style}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching Hi-Line processes:", error);
+      throw error;
+    }
+  },
+
   // Process 5 Hi-Line data synchronization
-  syncProcess5MachinesFromHiLine: async (id_plan, line, style) => {
+  syncProcess5MachinesFromHiLine: async (id_plan, line, style, so_phieu) => {
     try {
       const response = await httpConnect.post(
         `/api/process5/sync-machines-from-hiline`,
@@ -441,6 +454,7 @@ let API = {
           id_plan,
           line,
           style,
+          so_phieu,
         }
       );
       return response.data;

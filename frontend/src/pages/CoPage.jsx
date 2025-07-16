@@ -249,6 +249,10 @@ const CoPage = () => {
         return "30";
       case "VEST":
         return "30";
+      case "TOP":
+        return "30";
+      case "SUIT":
+        return "30";
       case "PANTS":
         return "20";
       case "SHORTS":

@@ -529,20 +529,22 @@ const CalendarViewPage = () => {
                   views={{
                     listDay: {
                       buttonText: "Day",
-                      hiddenDays: [0],
+                      // hiddenDays: [0],
                       displayEventTime: false,
                     },
                     dayGridWeek: {
                       buttonText: "Week",
-                      hiddenDays: [0],
+                      // hiddenDays: [0],
                     },
                     dayGridMonth: {
                       buttonText: "Month",
-                      hiddenDays: [0],
+                      // hiddenDays: [0],
+                      fixedWeekCount: false,
+                      showNonCurrentDates: false,
                     },
                     multiMonthYear: {
                       buttonText: "Year",
-                      hiddenDays: [0],
+                      // hiddenDays: [0],
                       multiMonthMaxColumns: 2,
                     },
                   }}

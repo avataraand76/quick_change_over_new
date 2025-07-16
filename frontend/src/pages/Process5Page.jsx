@@ -106,6 +106,12 @@ const Process5Page = () => {
   const [syncResult, setSyncResult] = useState(null);
   const [syncLoading, setSyncLoading] = useState(false);
 
+  // Add state for process selection dialog
+  const [processSelectionDialog, setProcessSelectionDialog] = useState(false);
+  const [availableProcesses, setAvailableProcesses] = useState([]);
+  const [selectedProcess, setSelectedProcess] = useState(null);
+  const [processesLoading, setProcessesLoading] = useState(false);
+
   // Add state for overdue check
   const [isOverdue, setIsOverdue] = useState(false);
 
@@ -824,14 +830,53 @@ const Process5Page = () => {
     }
   };
 
-  // Add function to handle sync with Hi-Line
-  const handleSyncWithHiLine = async () => {
+  // Add function to handle opening process selection dialog
+  const handleOpenProcessSelection = async () => {
+    try {
+      setProcessesLoading(true);
+      setProcessSelectionDialog(true);
+
+      const result = await API.getHiLineProcesses(plan?.line, plan?.style);
+      if (result.success) {
+        setAvailableProcesses(result.processes);
+      } else {
+        setAvailableProcesses([]);
+        setSyncResult({
+          success: false,
+          message: "Không thể lấy danh sách quy trình từ Hi-Line",
+        });
+        setSyncDialog(true);
+        setProcessSelectionDialog(false);
+      }
+    } catch (error) {
+      console.error("Error fetching processes:", error);
+      setAvailableProcesses([]);
+      setSyncResult({
+        success: false,
+        message:
+          "Lỗi khi lấy danh sách quy trình: " +
+          (error.message || "Không xác định"),
+      });
+      setSyncDialog(true);
+      setProcessSelectionDialog(false);
+    } finally {
+      setProcessesLoading(false);
+    }
+  };
+
+  // Add function to handle sync with Hi-Line after process selection
+  const handleSyncWithSelectedProcess = async () => {
+    if (!selectedProcess) return;
+
     try {
       setSyncLoading(true);
+      setProcessSelectionDialog(false);
+
       const result = await API.syncProcess5MachinesFromHiLine(
         id,
         plan?.line,
-        plan?.style
+        plan?.style,
+        selectedProcess.so_phieu
       );
       setSyncResult(result);
       setSyncDialog(true);
@@ -851,6 +896,9 @@ const Process5Page = () => {
           setProcessInfo(process5Rate);
         }
       }
+
+      // Reset selection
+      setSelectedProcess(null);
     } catch (error) {
       console.error("Error syncing with Hi-Line:", error);
       setSyncResult({
@@ -859,6 +907,7 @@ const Process5Page = () => {
           "Lỗi khi đồng bộ dữ liệu: " + (error.message || "Không xác định"),
       });
       setSyncDialog(true);
+      setSelectedProcess(null);
     } finally {
       setSyncLoading(false);
     }
@@ -1291,7 +1340,7 @@ const Process5Page = () => {
                   <Button
                     variant="contained"
                     startIcon={<SyncIcon />}
-                    onClick={handleSyncWithHiLine}
+                    onClick={handleOpenProcessSelection}
                     disabled={syncLoading || !hasPermission /* || isOverdue */}
                     fullWidth={isMobile}
                     sx={{
@@ -2099,6 +2148,99 @@ const Process5Page = () => {
         <DialogActions>
           <Button onClick={handleCloseSyncDialog} color="primary">
             Đóng
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Process Selection Dialog */}
+      <Dialog
+        open={processSelectionDialog}
+        onClose={() => {
+          setProcessSelectionDialog(false);
+          setSelectedProcess(null);
+        }}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            margin: isMobile ? 2 : "auto",
+            width: isMobile ? "calc(100% - 32px)" : undefined,
+          },
+        }}
+      >
+        <DialogTitle>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <SyncIcon sx={{ mr: 1 }} />
+            Chọn quy trình để đồng bộ dữ liệu
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary" paragraph>
+            Chọn quy trình từ Hi-Line để đồng bộ dữ liệu máy móc cho chuyền{" "}
+            {plan?.line} - {plan?.style}
+          </Typography>
+
+          {processesLoading ? (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
+              <CircularProgress />
+            </Box>
+          ) : availableProcesses.length > 0 ? (
+            <FormControl fullWidth variant="outlined">
+              <InputLabel>Chọn quy trình từ Hi-Line</InputLabel>
+              <Select
+                value={selectedProcess?.so_phieu || ""}
+                onChange={(event) => {
+                  const process = availableProcesses.find(
+                    (p) => p.so_phieu === event.target.value
+                  );
+                  setSelectedProcess(process || null);
+                }}
+                label="Chọn quy trình từ Hi-Line"
+              >
+                {availableProcesses.map((process) => (
+                  <MenuItem key={process.so_phieu} value={process.so_phieu}>
+                    <Box>
+                      <Typography variant="body1" fontWeight="medium">
+                        {process.so_phieu}
+                      </Typography>
+                      {process.ten_chung_loai && (
+                        <Typography variant="body2" color="primary">
+                          {process.ten_chung_loai}
+                        </Typography>
+                      )}
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          ) : (
+            <Typography
+              color="text.secondary"
+              sx={{ textAlign: "center", py: 3 }}
+            >
+              Không tìm thấy quy trình nào từ Hi-Line
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setProcessSelectionDialog(false);
+              setSelectedProcess(null);
+            }}
+          >
+            Hủy
+          </Button>
+          <Button
+            onClick={handleSyncWithSelectedProcess}
+            variant="contained"
+            color="primary"
+            disabled={!selectedProcess || syncLoading}
+            startIcon={
+              syncLoading ? <CircularProgress size={20} /> : <SyncIcon />
+            }
+          >
+            {syncLoading ? "Đang đồng bộ..." : "Đồng bộ"}
           </Button>
         </DialogActions>
       </Dialog>
