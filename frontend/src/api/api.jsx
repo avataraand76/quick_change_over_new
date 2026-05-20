@@ -2,23 +2,8 @@
 
 import axios from "axios";
 
-//////local host//////
-let API_URL = "";
-
-if (window.location.hostname === "localhost") {
-  API_URL = "http://localhost:8081/api/qco"; // localhost
-} else if (window.location.hostname === "192.168.1.61") {
-  API_URL = "http://192.168.1.61:8081"; // for mobile test
-}
-//////local host//////
-
-//////VLH//////
-// let API_URL = "https://sveffmachine.vietlonghung.com.vn/api/qco";
-//////VLH//////
-
-//////CT//////
-// let API_URL = "https://svquanlydungcukimloai.congtien.com.vn/api/qco";
-//////CT//////
+// Get API URL from environment variables
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
 
 // Tạo một instance của axios
 const httpConnect = axios.create({
@@ -432,12 +417,12 @@ let API = {
     }
   },
 
-  // Get available processes from Hi-Line
-  getHiLineProcesses: async (line, style) => {
+  // Get available processes from Hi-Line, optionally filtered by ma_hang
+  getHiLineProcesses: async (ma_hang) => {
     try {
-      const response = await httpConnect.get(
-        `/api/process5/hiline-processes/${line}/${style}`
-      );
+      const response = await httpConnect.get(`/api/process5/hiline-processes`, {
+        params: ma_hang ? { ma_hang } : undefined,
+      });
       return response.data;
     } catch (error) {
       console.error("Error fetching Hi-Line processes:", error);
@@ -446,14 +431,12 @@ let API = {
   },
 
   // Process 5 Hi-Line data synchronization
-  syncProcess5MachinesFromHiLine: async (id_plan, line, style, so_phieu) => {
+  syncProcess5MachinesFromHiLine: async (id_plan, so_phieu) => {
     try {
       const response = await httpConnect.post(
         `/api/process5/sync-machines-from-hiline`,
         {
           id_plan,
-          line,
-          style,
           so_phieu,
         }
       );
@@ -595,6 +578,33 @@ let API = {
       return response.data;
     } catch (error) {
       console.error("Error fetching process roles:", error);
+      throw error;
+    }
+  },
+
+  // Lấy danh sách ngày nghỉ / ngày lễ trong năm từ HiGMF (Lib_NgayNghi_ChiTiet)
+  getHolidays: async (year) => {
+    try {
+      const url = year ? `/api/holidays?year=${year}` : `/api/holidays`;
+      const response = await httpConnect.get(url);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching holidays:", error);
+      throw error;
+    }
+  },
+
+  // Get all versions by month
+  getVersionsByMonth: async (month = null) => {
+    try {
+      let url = `/api/versions`;
+      if (month) {
+        url += `?month=${month}`;
+      }
+      const response = await httpConnect.get(url);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching versions by month:", error);
       throw error;
     }
   },

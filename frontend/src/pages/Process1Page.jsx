@@ -45,6 +45,11 @@ import {
 } from "@mui/icons-material";
 import API from "../api/api";
 import PermissionCheck from "../components/PermissionCheck";
+import {
+  useHolidays,
+  checkIsOverdue as checkIsOverdueUtil,
+  calculateDeadlineDate as calculateDeadlineDateUtil,
+} from "../utils/deadline";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 
@@ -89,22 +94,15 @@ const Process1Page = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
-  // New function to check if a process is overdue
-  const checkIsOverdue = useCallback((actualDate, planDate, deadline) => {
-    if (!deadline) return false;
-    if (!actualDate && !planDate) return false;
+  // Lấy danh sách ngày nghỉ/ngày lễ để loại trừ khi tính hạn chót
+  const holidaySet = useHolidays(plan?.actual_date || plan?.plan_date);
 
-    // Sử dụng actual_date nếu có, nếu không thì dùng plan_date
-    const dateToUse = actualDate || planDate;
-    const baseDateTime = new Date(dateToUse);
-    const deadlineDate = new Date(baseDateTime);
-    deadlineDate.setDate(deadlineDate.getDate() - deadline);
-
-    // Đặt thời gian của deadlineDate thành 23:59:59
-    deadlineDate.setHours(23, 59, 59, 999);
-
-    return new Date() > deadlineDate;
-  }, []);
+  // Kiểm tra quá hạn (bỏ qua chủ nhật và ngày lễ khi tính ngày hạn chót)
+  const checkIsOverdue = useCallback(
+    (actualDate, planDate, deadline) =>
+      checkIsOverdueUtil(actualDate, planDate, deadline, holidaySet),
+    [holidaySet]
+  );
 
   // Fetch documentation files
   const fetchDocumentationFiles = useCallback(async () => {
@@ -176,44 +174,18 @@ const Process1Page = () => {
     fetchData();
   }, [id, fetchDocumentationFiles, fetchA3DocumentationFiles, checkIsOverdue]);
 
-  // Calculate deadline date based on actual_date and deadline days
+  // Tính ngày hạn chót (loại trừ chủ nhật và ngày nghỉ/ngày lễ)
   const calculateDeadlineDate = (
     actualDateString,
     planDateString,
     deadlineDays
-  ) => {
-    if (
-      deadlineDays === null ||
-      deadlineDays === undefined ||
-      deadlineDays === ""
-    ) {
-      return "-";
-    }
-
-    // Sử dụng actual_date nếu có, nếu không thì dùng plan_date
-    const dateToUse = actualDateString || planDateString;
-    if (!dateToUse) return "-";
-
-    // Parse the date
-    const baseDate = new Date(dateToUse);
-    // Only use the date part (ignore time)
-    const dateOnly = new Date(
-      baseDate.getFullYear(),
-      baseDate.getMonth(),
-      baseDate.getDate()
+  ) =>
+    calculateDeadlineDateUtil(
+      actualDateString,
+      planDateString,
+      deadlineDays,
+      holidaySet
     );
-
-    // Subtract the deadline days
-    const deadlineDate = new Date(dateOnly);
-    deadlineDate.setDate(dateOnly.getDate() - parseInt(deadlineDays));
-
-    // Format the deadline date as DD/MM/YYYY
-    const day = String(deadlineDate.getDate()).padStart(2, "0");
-    const month = String(deadlineDate.getMonth() + 1).padStart(2, "0");
-    const year = deadlineDate.getFullYear();
-
-    return `${day}/${month}/${year}`;
-  };
 
   const getProgressColor = (value) => {
     if (value < 30) return "#f44336"; // red
@@ -620,7 +592,7 @@ const Process1Page = () => {
 
         <CardContent sx={{ padding: isMobile ? 2 : 3 }}>
           <Grid container spacing={isMobile ? 2 : 3}>
-            <Grid item xs={12} md={6}>
+            <Grid item size={{ xs: 12, md: 6 }}>
               <Card variant="outlined" sx={{ height: "100%" }}>
                 <CardContent>
                   <Typography variant="h6" color="primary" gutterBottom>
@@ -640,7 +612,7 @@ const Process1Page = () => {
               </Card>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid item size={{ xs: 12, md: 6 }}>
               <Card variant="outlined" sx={{ height: "100%" }}>
                 <CardContent>
                   <Typography variant="h6" color="primary" gutterBottom>
@@ -774,7 +746,7 @@ const Process1Page = () => {
 
         <CardContent sx={{ padding: isMobile ? 2 : 3 }}>
           <Grid container spacing={isMobile ? 2 : 3}>
-            <Grid item xs={12} md={6}>
+            <Grid item size={{ xs: 12, md: 6 }}>
               <Card variant="outlined" sx={{ height: "100%" }}>
                 <CardContent>
                   <Typography variant="h6" color="primary" gutterBottom>
@@ -795,7 +767,7 @@ const Process1Page = () => {
               </Card>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid item size={{ xs: 12, md: 6 }}>
               <Card variant="outlined" sx={{ height: "100%" }}>
                 <CardContent>
                   <Typography variant="h6" color="primary" gutterBottom>
@@ -871,7 +843,7 @@ const Process1Page = () => {
             <CardContent sx={{ padding: isMobile ? 2 : 3 }}>
               <Grid container spacing={isMobile ? 2 : 3}>
                 {/* Evidence Documentation Section */}
-                <Grid item xs={12} md={isMobile ? 12 : 6}>
+                <Grid item size={{ xs: 12, md: isMobile ? 12 : 6 }}>
                   <Card variant="outlined" sx={{ height: "100%" }}>
                     <CardContent>
                       <Typography variant="h6" color="primary" gutterBottom>
@@ -1122,7 +1094,7 @@ const Process1Page = () => {
                 </Grid>
 
                 {/* A3 Documentation Section */}
-                <Grid item xs={12} md={isMobile ? 12 : 6}>
+                <Grid item size={{ xs: 12, md: isMobile ? 12 : 6 }}>
                   <Card variant="outlined" sx={{ height: "100%" }}>
                     <CardContent>
                       <Typography variant="h6" color="primary" gutterBottom>

@@ -188,6 +188,20 @@ const Navbar = () => {
           </Button> */}
           <Button
             color="inherit"
+            component={Link}
+            to="/version-history"
+            startIcon={<i className="fas fa-history" />}
+            sx={{
+              borderRadius: "15px",
+              "&:hover": {
+                backgroundColor: "rgba(255, 255, 255, 0.1)",
+              },
+            }}
+          >
+            Lịch sử cập nhật
+          </Button>
+          <Button
+            color="inherit"
             component="a"
             href="https://docs.google.com/document/d/1nySjp3VF5kBBTdaDGO8Xhq3AT45z8S8yMTQ08_jRenE/edit?usp=sharing"
             target="_blank"
@@ -291,6 +305,14 @@ const Navbar = () => {
               <i className="fas fa-chart-bar" style={{ marginRight: 8 }} />
               Báo cáo
             </MenuItem> */}
+            <MenuItem
+              component={Link}
+              to="/version-history"
+              onClick={handleClose}
+            >
+              <i className="fas fa-history" style={{ marginRight: 8 }} />
+              Lịch sử cập nhật
+            </MenuItem>
             <MenuItem
               component="a"
               href="https://drive.google.com/file/d/1a2pABLGmp4h6j98objZ-R5-nASF5CZJE/view?usp=sharing"

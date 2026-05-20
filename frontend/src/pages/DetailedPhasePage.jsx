@@ -42,6 +42,10 @@ import {
 import API from "../api/api";
 import NotificationDialog from "../components/NotificationDialog";
 import PermissionCheck from "../components/PermissionCheck";
+import {
+  useHolidays,
+  calculateDeadlineDate as calculateDeadlineDateUtil,
+} from "../utils/deadline";
 
 const DetailedPhasePage = () => {
   const { id } = useParams();
@@ -56,6 +60,8 @@ const DetailedPhasePage = () => {
   const [loadingWorkSteps, setLoadingWorkSteps] = useState({});
   const [processRoles, setProcessRoles] = useState({});
   const navigate = useNavigate();
+  // Lấy danh sách ngày nghỉ/ngày lễ để loại trừ khi tính hạn chót
+  const holidaySet = useHolidays(plan?.actual_date || plan?.plan_date);
   const [notification, setNotification] = useState({
     open: false,
     title: "",
@@ -130,44 +136,18 @@ const DetailedPhasePage = () => {
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
-  // Calculate deadline date based on actual_date and deadline days
+  // Tính ngày hạn chót (loại trừ chủ nhật và ngày nghỉ/ngày lễ)
   const calculateDeadlineDate = (
     actualDateString,
     planDateString,
     deadlineDays
-  ) => {
-    if (
-      deadlineDays === null ||
-      deadlineDays === undefined ||
-      deadlineDays === ""
-    ) {
-      return "-";
-    }
-
-    // Sử dụng actual_date nếu có, nếu không thì dùng plan_date
-    const dateToUse = actualDateString || planDateString;
-    if (!dateToUse) return "-";
-
-    // Parse the date
-    const baseDate = new Date(dateToUse);
-    // Only use the date part (ignore time)
-    const dateOnly = new Date(
-      baseDate.getFullYear(),
-      baseDate.getMonth(),
-      baseDate.getDate()
+  ) =>
+    calculateDeadlineDateUtil(
+      actualDateString,
+      planDateString,
+      deadlineDays,
+      holidaySet
     );
-
-    // Subtract the deadline days
-    const deadlineDate = new Date(dateOnly);
-    deadlineDate.setDate(dateOnly.getDate() - parseInt(deadlineDays));
-
-    // Format the deadline date as DD/MM/YYYY
-    const day = String(deadlineDate.getDate()).padStart(2, "0");
-    const month = String(deadlineDate.getMonth() + 1).padStart(2, "0");
-    const year = deadlineDate.getFullYear();
-
-    return `${day}/${month}/${year}`;
-  };
 
   const handleUpdate = async () => {
     const updatedPlan = {
@@ -476,14 +456,14 @@ const DetailedPhasePage = () => {
 
         <CardContent sx={{ padding: isMobile ? 2 : 3 }}>
           <Grid container spacing={isMobile ? 2 : 3}>
-            <Grid item xs={12} md={6}>
+            <Grid item size={{ xs: 12, md: 6 }}>
               <Card variant="outlined" sx={{ height: "100%" }}>
                 <CardContent>
                   <Typography variant="h6" color="primary" gutterBottom>
                     Thông Tin Cơ Bản
                   </Typography>
                   <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
+                    <Grid item size={{ xs: 12, sm: 6 }}>
                       <TextField
                         label="Chuyền"
                         value={`Chuyền ${plan.line || ""}`}
@@ -495,7 +475,7 @@ const DetailedPhasePage = () => {
                         sx={{ mb: 2 }}
                       />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid item size={{ xs: 12, sm: 6 }}>
                       <TextField
                         label="Mã Hàng"
                         value={plan.style || ""}
@@ -512,7 +492,7 @@ const DetailedPhasePage = () => {
               </Card>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid item size={{ xs: 12, md: 6 }}>
               <Card variant="outlined" sx={{ height: "100%" }}>
                 <CardContent>
                   <Typography variant="h6" color="primary" gutterBottom>
@@ -551,14 +531,14 @@ const DetailedPhasePage = () => {
               </Card>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid item size={{ xs: 12 }}>
               <Card variant="outlined">
                 <CardContent>
                   <Typography variant="h6" color="primary" gutterBottom>
                     Thời Gian
                   </Typography>
                   <Grid container spacing={3}>
-                    <Grid item xs={12} md={6}>
+                    <Grid item size={{ xs: 12, md: 6 }}>
                       <PermissionCheck
                         requiredRole={[1, 3]}
                         renderContent={(hasPermission) => (
@@ -583,7 +563,7 @@ const DetailedPhasePage = () => {
                         )}
                       />
                     </Grid>
-                    <Grid item xs={12} md={6}>
+                    <Grid item size={{ xs: 12, md: 6 }}>
                       <PermissionCheck
                         requiredRole={[1, 3]}
                         renderContent={(hasPermission) => (

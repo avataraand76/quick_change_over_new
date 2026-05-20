@@ -11,16 +11,16 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "bcryptjs": "^3.0.2",
-    "cors": "^2.8.5",
-    "dotenv": "^16.5.0",
-    "express": "^5.1.0",
-    "googleapis": "^150.0.1",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "googleapis": "^153.0.0",
     "mssql": "^11.0.1",
-    "multer": "^2.0.1",
-    "mysql2": "^3.14.1"
+    "multer": "^2.1.1",
+    "mysql2": "^3.22.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10"
+    "nodemon": "^3.1.14"
   }
 }

@@ -523,7 +523,7 @@ const AdminPage = () => {
         <DialogContent dividers>
           <Grid container spacing={2}>
             {/* Quyền trực tiếp */}
-            <Grid item xs={12}>
+            <Grid item size={{ xs: 12 }}>
               <Typography
                 variant="subtitle1"
                 gutterBottom
@@ -539,9 +539,7 @@ const AdminPage = () => {
                   {permissions.map((permission) => (
                     <Grid
                       item
-                      xs={12}
-                      sm={6}
-                      md={4}
+                      size={{ xs: 12, sm: 6, md: 4 }}
                       key={permission.id_permission}
                     >
                       <FormControlLabel
@@ -584,7 +582,7 @@ const AdminPage = () => {
             </Grid>
 
             {/* Vai trò */}
-            <Grid item xs={12}>
+            <Grid item size={{ xs: 12 }}>
               <Typography
                 variant="subtitle1"
                 gutterBottom
@@ -598,7 +596,11 @@ const AdminPage = () => {
               >
                 <Grid container spacing={1}>
                   {roles.map((role) => (
-                    <Grid item xs={12} sm={6} md={4} key={role.id_role}>
+                    <Grid
+                      item
+                      size={{ xs: 12, sm: 6, md: 4 }}
+                      key={role.id_role}
+                    >
                       <FormControlLabel
                         control={
                           <Checkbox
@@ -636,7 +638,7 @@ const AdminPage = () => {
             </Grid>
 
             {/* Bộ phận */}
-            <Grid item xs={12}>
+            <Grid item size={{ xs: 12 }}>
               <Typography
                 variant="subtitle1"
                 gutterBottom
@@ -650,7 +652,11 @@ const AdminPage = () => {
               >
                 <Grid container spacing={1}>
                   {workshops.map((workshop) => (
-                    <Grid item xs={12} sm={6} md={4} key={workshop.id_workshop}>
+                    <Grid
+                      item
+                      size={{ xs: 12, sm: 6, md: 4 }}
+                      key={workshop.id_workshop}
+                    >
                       <FormControlLabel
                         control={
                           <Checkbox

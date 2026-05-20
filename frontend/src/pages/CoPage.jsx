@@ -121,7 +121,7 @@ const CoPage = () => {
           </Typography>
 
           <Grid container spacing={1}>
-            <Grid item xs={6}>
+            <Grid item size={{ xs: 6 }}>
               <Typography variant="caption" color="textSecondary">
                 Thời gian bắt đầu
               </Typography>
@@ -130,7 +130,7 @@ const CoPage = () => {
               </Typography>
             </Grid>
 
-            <Grid item xs={6}>
+            <Grid item size={{ xs: 6 }}>
               <Typography variant="caption" color="textSecondary">
                 Vị trí
               </Typography>
@@ -139,7 +139,7 @@ const CoPage = () => {
               </Typography>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid item size={{ xs: 12 }}>
               <Typography variant="caption" color="textSecondary">
                 Phạm vi vấn đề
               </Typography>
@@ -150,7 +150,7 @@ const CoPage = () => {
 
             {issue.machine_type && (
               <>
-                <Grid item xs={12}>
+                <Grid item size={{ xs: 12 }}>
                   <Typography variant="caption" color="textSecondary">
                     Loại máy
                   </Typography>
@@ -159,7 +159,7 @@ const CoPage = () => {
                   </Typography>
                 </Grid>
 
-                <Grid item xs={12}>
+                <Grid item size={{ xs: 12 }}>
                   <Typography variant="caption" color="textSecondary">
                     Mã thiết bị
                   </Typography>
@@ -170,7 +170,7 @@ const CoPage = () => {
               </>
             )}
 
-            <Grid item xs={12}>
+            <Grid item size={{ xs: 12 }}>
               <Typography variant="caption" color="textSecondary">
                 Mô tả lỗi
               </Typography>
@@ -179,7 +179,7 @@ const CoPage = () => {
               </Typography>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid item size={{ xs: 12 }}>
               <Typography variant="caption" color="textSecondary">
                 Giải pháp
               </Typography>
@@ -188,7 +188,7 @@ const CoPage = () => {
               </Typography>
             </Grid>
 
-            <Grid item xs={6}>
+            <Grid item size={{ xs: 6 }}>
               <Typography variant="caption" color="textSecondary">
                 Thời gian kết thúc
               </Typography>
@@ -197,7 +197,7 @@ const CoPage = () => {
               </Typography>
             </Grid>
 
-            <Grid item xs={6}>
+            <Grid item size={{ xs: 6 }}>
               <Typography variant="caption" color="textSecondary">
                 Thời gian Downtime
               </Typography>
@@ -206,7 +206,7 @@ const CoPage = () => {
               </Typography>
             </Grid>
 
-            <Grid item xs={6}>
+            <Grid item size={{ xs: 6 }}>
               <Typography variant="caption" color="textSecondary">
                 {/* Trạng thái:{" "} */}
               </Typography>
@@ -663,7 +663,7 @@ const CoPage = () => {
               Thông tin chuyền/mã hàng
             </Typography>
             <Grid container spacing={isMobile ? 2 : 3}>
-              <Grid item xs={12} sm={6}>
+              <Grid item size={{ xs: 12, sm: 6 }}>
                 <TextField
                   label="Chuyền"
                   value={`Chuyền ${plan.line || ""}`}
@@ -675,7 +675,7 @@ const CoPage = () => {
                   sx={{ mb: 2, backgroundColor: "#ffffcc" }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item size={{ xs: 12, sm: 6 }}>
                 <TextField
                   label="Mã Hàng"
                   value={plan.style || ""}
@@ -687,7 +687,7 @@ const CoPage = () => {
                   sx={{ mb: 2, backgroundColor: "#ffffcc" }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item size={{ xs: 12, sm: 6 }}>
                 <TextField
                   label="Loại"
                   value={coData.production_style || ""}
@@ -699,7 +699,7 @@ const CoPage = () => {
                   sx={{ mb: 2, backgroundColor: "#ffffcc" }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item size={{ xs: 12, sm: 6 }}>
                 <TextField
                   label="Khách Hàng"
                   value={coData.buyer || ""}
@@ -719,7 +719,7 @@ const CoPage = () => {
               Thời gian chuyển đổi
             </Typography>
             <Grid container spacing={isMobile ? 2 : 3}>
-              <Grid item xs={12} sm={4}>
+              <Grid item size={{ xs: 12, sm: 4 }}>
                 <PermissionCheck
                   requiredRole={[1]}
                   renderContent={(hasPermission) => (
@@ -745,7 +745,7 @@ const CoPage = () => {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item size={{ xs: 12, sm: 4 }}>
                 <PermissionCheck
                   requiredRole={[1]}
                   renderContent={(hasPermission) => (
@@ -771,7 +771,7 @@ const CoPage = () => {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item size={{ xs: 12, sm: 4 }}>
                 <PermissionCheck
                   requiredRole={[1]}
                   renderContent={(hasPermission) => (
@@ -807,7 +807,7 @@ const CoPage = () => {
               Thông tin sản xuất
             </Typography>
             <Grid container spacing={isMobile ? 2 : 3}>
-              <Grid item xs={12} sm={6}>
+              <Grid item size={{ xs: 12, sm: 6 }}>
                 <PermissionCheck
                   requiredRole={[1]}
                   renderContent={(hasPermission) => (
@@ -833,7 +833,7 @@ const CoPage = () => {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item size={{ xs: 12, sm: 6 }}>
                 <PermissionCheck
                   requiredRole={[1]}
                   renderContent={(hasPermission) => (
@@ -870,7 +870,7 @@ const CoPage = () => {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item size={{ xs: 12, sm: 4 }}>
                 <PermissionCheck
                   requiredRole={[1]}
                   renderContent={(hasPermission) => (
@@ -896,7 +896,7 @@ const CoPage = () => {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item size={{ xs: 12, sm: 4 }}>
                 <PermissionCheck
                   requiredRole={[1]}
                   renderContent={(hasPermission) => (
@@ -925,7 +925,7 @@ const CoPage = () => {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item size={{ xs: 12, sm: 4 }}>
                 <PermissionCheck
                   requiredRole={[1]}
                   renderContent={(hasPermission) => (
@@ -951,7 +951,7 @@ const CoPage = () => {
               Mục tiêu chuyển đổi
             </Typography>
             <Grid container spacing={isMobile ? 2 : 3}>
-              <Grid item xs={12} sm={3}>
+              <Grid item size={{ xs: 12, sm: 3 }}>
                 <TextField
                   label="Mục tiêu COPT"
                   name="target_of_COPT"
@@ -964,7 +964,7 @@ const CoPage = () => {
                   sx={{ mb: 2, backgroundColor: "#ffffcc" }}
                 />
               </Grid>
-              <Grid item xs={12} sm={3}>
+              <Grid item size={{ xs: 12, sm: 3 }}>
                 <TextField
                   label="COPT (Thời gian chuyển đổi trong)"
                   name="COPT"
@@ -977,7 +977,7 @@ const CoPage = () => {
                   sx={{ mb: 2, backgroundColor: "#ffffcc" }}
                 />
               </Grid>
-              <Grid item xs={12} sm={3}>
+              <Grid item size={{ xs: 12, sm: 3 }}>
                 <TextField
                   label="Mục tiêu COT"
                   name="target_of_COT"
@@ -990,7 +990,7 @@ const CoPage = () => {
                   sx={{ mb: 2, backgroundColor: "#ffffcc" }}
                 />
               </Grid>
-              <Grid item xs={12} sm={3}>
+              <Grid item size={{ xs: 12, sm: 3 }}>
                 <TextField
                   label="COT (Thời gian chuyển đổi)"
                   name="COT"
@@ -1124,7 +1124,7 @@ const CoPage = () => {
                   }}
                 >
                   <Typography variant="h6" fontWeight="medium" gutterBottom>
-                    Tổng số sự cố
+                    Tổng số vấn đề
                   </Typography>
                   <Typography variant="h4" fontWeight="bold">
                     {downtimeIssues.length}
@@ -1199,7 +1199,11 @@ const CoPage = () => {
                       }
 
                       return (
-                        <Grid item xs={12} sm={6} md={4} key={category.name}>
+                        <Grid
+                          item
+                          size={{ xs: 12, sm: 6, md: 4 }}
+                          key={category.name}
+                        >
                           <Paper
                             elevation={3}
                             sx={{

@@ -27,6 +27,7 @@ import Process6Page from "./pages/Process6Page";
 import Process7Page from "./pages/Process7Page";
 import Process8Page from "./pages/Process8Page";
 import AdminPage from "./pages/AdminPage";
+import VersionHistory from "./pages/VersionHistory";
 import PermissionCheck from "./components/PermissionCheck";
 
 // ScrollToTop component to ensure all page navigations scroll to the top
@@ -113,6 +114,10 @@ function App() {
           element={
             <PrivateRoute element={<AdminPage />} requiredPermission={1} />
           }
+        />
+        <Route
+          path="/version-history"
+          element={<PrivateRoute element={<VersionHistory />} />}
         />
         {/* Process Routes */}
         <Route

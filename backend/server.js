@@ -647,6 +647,41 @@ app.get("/api/higmf-lines-styles", authenticateToken, async (req, res) => {
   }
 });
 
+// API lấy danh sách ngày nghỉ / ngày lễ trong năm hiện tại từ HiGMF
+app.get("/api/holidays", authenticateToken, async (req, res) => {
+  try {
+    const yearParam = parseInt(req.query.year, 10);
+    const currentYear = Number.isFinite(yearParam)
+      ? yearParam
+      : new Date().getFullYear();
+
+    const result = await higmfPool.request().input("year", sql.Int, currentYear)
+      .query(`
+        SELECT NgayThang
+        FROM [dbo].[Lib_NgayNghi_ChiTiet]
+        WHERE NgayThang IS NOT NULL
+          AND YEAR(NgayThang) = @year
+      `);
+
+    const holidays = result.recordset
+      .map((row) => {
+        if (!row.NgayThang) return null;
+        const d = new Date(row.NgayThang);
+        if (Number.isNaN(d.getTime())) return null;
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+      })
+      .filter(Boolean);
+
+    res.json({ success: true, year: currentYear, holidays });
+  } catch (err) {
+    console.error("Error fetching holidays:", err);
+    res.status(500).json({ success: false, message: "Database error" });
+  }
+});
+
 // API đồng bộ dữ liệu từ HIGARMENT
 // app.post("/api/sync-higmf-data", authenticateToken, async (req, res) => {
 //   try {
@@ -950,9 +985,31 @@ app.post("/api/create-plan", authenticateToken, async (req, res) => {
       }
     }
 
+    // Handle version tracking in tb_version
+    let version = 1;
+
+    // Get the latest version for this plan
+    const [versionResults] = await connection.query(
+      "SELECT MAX(version) as max_version FROM tb_version WHERE id_plan = ?",
+      [id_plan]
+    );
+
+    if (versionResults.length > 0 && versionResults[0].max_version !== null) {
+      version = versionResults[0].max_version + 1;
+    }
+
+    // Insert new version record
+    await connection.query(
+      `
+      INSERT INTO tb_version (id_plan, version, KHTId, line, style, quantity, plan_date, actual_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [id_plan, version, KHTId, line, style, quantity, plan_date, actual_date]
+    );
+
     // Create log entry
     const action = existingPlans.length > 0 ? "CẬP NHẬT" : "TẠO";
-    const history_log = `${updated_by} vừa ${action} KẾ HOẠCH chuyền: [${line}], mã hàng: [${style}], thời gian dự kiến: [${plan_date}], thời gian thực tế: [${actual_date}]`;
+    const history_log = `${updated_by} vừa ${action} KẾ HOẠCH chuyền: [${line}], mã hàng: [${style}], thời gian dự kiến: [${plan_date}], thời gian thực tế: [${actual_date}] - Version: ${version}`;
 
     await connection.query("INSERT INTO tb_log (history_log) VALUES (?)", [
       history_log,
@@ -967,6 +1024,7 @@ app.post("/api/create-plan", authenticateToken, async (req, res) => {
         existingPlans.length > 0 ? "updated" : "created"
       } successfully with all related process records`,
       id_plan,
+      version,
     });
   } catch (err) {
     if (connection) {
@@ -1093,6 +1151,60 @@ app.put("/api/plans/:id/toggle-inactive", authenticateToken, (req, res) => {
       );
     });
   });
+});
+
+// Get all versions by month
+app.get("/api/versions", authenticateToken, async (req, res) => {
+  const { month } = req.query; // Format: YYYY-MM
+
+  try {
+    let query = `
+      SELECT 
+        v.id_version,
+        v.version,
+        v.KHTId,
+        v.line,
+        v.style,
+        v.quantity,
+        v.plan_date,
+        v.actual_date as version_actual_date,
+        v.created_at,
+        v.updated_at,
+        v.id_plan,
+        p.line as current_line,
+        p.style as current_style,
+        p.quantity as current_quantity,
+        p.plan_date as current_plan_date,
+        p.actual_date as actual_date,
+        p.updated_by as current_updated_by
+      FROM tb_version v
+      LEFT JOIN tb_plan p ON v.id_plan = p.id_plan
+      WHERE 1=1
+    `;
+
+    let queryParams = [];
+
+    // Add month filter if provided
+    if (month) {
+      query += ` AND DATE_FORMAT(v.created_at, '%Y-%m') = ?`;
+      queryParams.push(month);
+    }
+
+    query += ` ORDER BY v.created_at DESC, v.version ASC`;
+
+    const [results] = await mysqlConnection.promise().query(query, queryParams);
+
+    res.json({
+      success: true,
+      versions: results,
+    });
+  } catch (err) {
+    console.error("Error fetching versions:", err);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching versions",
+    });
+  }
 });
 
 // API lấy danh sách kế hoạch trong MAIN mysql
@@ -2506,20 +2618,26 @@ app.get(
   }
 );
 
-// Get available processes from Hi-Line for a specific line and style
+// Get available processes from Hi-Line, optionally filtered by ma_hang
 app.get(
-  "/api/process5/hiline-processes/:line/:style",
+  "/api/process5/hiline-processes",
   authenticateToken,
   async (req, res) => {
-    const { line, style } = req.params;
+    const { ma_hang } = req.query;
+    const maHangFilter = typeof ma_hang === "string" ? ma_hang.trim() : "";
 
     try {
-      // Execute query to get available processes
-      const result = await hiproPool
-        .request()
-        .input("mahang", sql.VarChar, style)
-        .input("chuyen", sql.VarChar, line).query(`
+      const request = hiproPool.request();
+      let maHangCondition = "";
+
+      if (maHangFilter) {
+        request.input("ma_hang", sql.VarChar, `%${maHangFilter}%`);
+        maHangCondition = "AND sp.MaSanPham LIKE @ma_hang";
+      }
+
+      const result = await request.query(`
           SELECT DISTINCT
+            sp.MaSanPham as [ma_hang],
             qtcn.SoPhieu as [so_phieu],
             clsp.TenChungLoai as [ten_chung_loai]
           FROM [HiPro].[dbo].[ChiTietPhieuYeuCauThietBiCongCuSanXuat] ctp
@@ -2535,11 +2653,11 @@ app.get(
             ON qtcn.SanPham = sp.Oid
           LEFT JOIN [HiPro].[dbo].[pro_chuyen] c
             ON c.oid_mapping = sdc.Chuyen
-          WHERE sp.MaSanPham = @mahang 
-            AND c.stt = @chuyen
+          WHERE qtcn.SoPhieu is not null
             AND ctp.ThietBi IS NOT NULL
             AND ctp.SoLuongTrenSDC != 0
-          ORDER BY qtcn.SoPhieu ASC
+            ${maHangCondition}
+          ORDER BY sp.MaSanPham ASC, qtcn.SoPhieu ASC
         `);
 
       // Return the list of processes
@@ -2563,7 +2681,7 @@ app.post(
   "/api/process5/sync-machines-from-hiline",
   authenticateToken,
   async (req, res) => {
-    const { id_plan, line, style, so_phieu } = req.body;
+    const { id_plan, so_phieu } = req.body;
 
     // Get user info from token for logging
     const updated_by = req.user.ma_nv + ": " + req.user.ten_nv;
@@ -2575,8 +2693,6 @@ app.post(
       // Execute the query with parameterized inputs for safety
       const result = await hiproPool
         .request()
-        .input("mahang", sql.VarChar, style)
-        .input("chuyen", sql.VarChar, line)
         .input("so_phieu", sql.VarChar, so_phieu).query(`
           SELECT DISTINCT
             ctp.ThietBi as [oid_thietbi],
@@ -2596,9 +2712,7 @@ app.post(
             ON c.oid_mapping = sdc.Chuyen
           LEFT JOIN [HiPro].[dbo].[DM_ChungLoaiThietBi] cltb
             ON ctp.ThietBi = cltb.Oid
-          WHERE sp.MaSanPham = @mahang 
-            AND c.stt = @chuyen
-            AND qtcn.SoPhieu = @so_phieu
+          WHERE qtcn.SoPhieu = @so_phieu
             AND ctp.ThietBi IS NOT NULL
             AND ctp.SoLuongTrenSDC != 0
           ORDER BY cltb.TenChungLoai ASC
@@ -4733,7 +4847,7 @@ app.get("/api/processes/:id_process/roles", authenticateToken, (req, res) => {
 });
 
 ////////////////////code của Anh Thư////////////////////
-// CALENDAR: API lấy danh sách kế hoạch cho view calendar trong MAIN mysql
+//CALENDAR: API lấy danh sách kế hoạch cho view calendar trong MAIN mysql
 app.get("/api/plans-for-calendar-of-anh-thu", (req, res) => {
   const query = `
     SELECT id_plan, line, style, plan_date, actual_date, total_percent_rate
@@ -4819,6 +4933,9 @@ app.get("/api/plans-for-calendar-of-anh-thu", (req, res) => {
 });
 
 // PLAN: Đếm số lần chuyển đổi
+
+// nếu là ngày hôm nay thì sẽ không tính
+// tức là mình đang quy định nếu mà qua ngày thì sẽ tính là đã chuyển đổi hết (already)
 app.get("/api/count-so-lan-chuyen-doi", (req, res) => {
   const query = `
     SELECT
@@ -4827,11 +4944,11 @@ app.get("/api/count-so-lan-chuyen-doi", (req, res) => {
       style,
       plan_date,
       actual_date,
-      COUNT(id_plan) AS Planned_Changeover,  -- Tổng số lần chuyển đổi đã được lên kế hoạch
-      SUM(CASE WHEN actual_date IS NOT NULL THEN 1 ELSE 0 END) AS Actual_Changeover, -- Đếm những chuyển đổi đã thực hiện
-      SUM(CASE WHEN actual_date IS NULL THEN 1 ELSE 0 END) AS Not_Yet_Changeover -- Đếm những chuyển đổi chưa thực hiện
+      COUNT(id_plan) AS Planned_Changeover,
+      SUM(CASE WHEN actual_date IS NOT NULL THEN 1 ELSE 0 END) AS Actual_Changeover,
+      SUM(CASE WHEN actual_date IS NULL THEN 1 ELSE 0 END) AS Not_Yet_Changeover
     FROM tb_plan 
-    WHERE inactive = 0 OR inactive IS NULL -- Chỉ lấy dữ liệu còn hoạt động
+    WHERE inactive = 0 OR inactive IS NULL
     GROUP BY id_plan, line, style, plan_date, actual_date
     ORDER BY plan_date DESC;
   `;
@@ -4857,7 +4974,8 @@ app.get("/api/count-so-lan-chuyen-doi", (req, res) => {
       return res.json({ events: [] });
     }
 
-    // Khởi tạo biến thống kê cho từng xưởng
+    const today = new Date();
+
     const workshopStats = {
       1: { planned_changeover: 0, actual_changeover: 0, not_yet_changeover: 0 },
       2: { planned_changeover: 0, actual_changeover: 0, not_yet_changeover: 0 },
@@ -4865,16 +4983,22 @@ app.get("/api/count-so-lan-chuyen-doi", (req, res) => {
       4: { planned_changeover: 0, actual_changeover: 0, not_yet_changeover: 0 },
     };
 
-    // Duyệt qua từng kết quả trả về và xử lý
     const events = results.map((plan) => {
-      // Xác định xưởng tương ứng với line
       const workshop = getWorkshop(plan.line);
 
-      // Parse số liệu từ chuỗi sang số nguyên
       const actualChangeover = parseInt(plan.Actual_Changeover, 10) || 0;
       const notYetChangeover = parseInt(plan.Not_Yet_Changeover, 10) || 0;
 
-      // Cộng dồn số liệu vào từng xưởng tương ứng
+      const planDate = new Date(plan.plan_date);
+      const actualDate = plan.actual_date ? new Date(plan.actual_date) : null;
+
+      let already = 0;
+      if (actualDate && actualDate <= today) {
+        already = 1;
+      } else if (!actualDate && planDate <= today) {
+        already = 1;
+      }
+
       if (workshop) {
         workshopStats[workshop].planned_changeover += plan.Planned_Changeover;
         workshopStats[workshop].actual_changeover += actualChangeover;
@@ -4883,7 +5007,7 @@ app.get("/api/count-so-lan-chuyen-doi", (req, res) => {
 
       return {
         id: plan.id_plan,
-        start: new Date(plan.plan_date),
+        start: planDate,
         extendedProps: {
           line: plan.line,
           style: plan.style,
@@ -4893,6 +5017,7 @@ app.get("/api/count-so-lan-chuyen-doi", (req, res) => {
           planned_changeover: plan.Planned_Changeover,
           actual_changeover: actualChangeover,
           not_yet_changeover: notYetChangeover,
+          already: already,
         },
       };
     });
@@ -5300,171 +5425,371 @@ app.get("/api/get-cot-copt-downtime-data", (req, res) => {
 });
 
 // RAMP UP
-app.get("/api/get-ramp-up-data", (req, res) => {
+// RAMP UP ver mới xử lý những ngày null
+app.get("/api/get-ramp-up-data-ver2", async (req, res) => {
   const { date, workshop } = req.query;
   const filterWorkshop = workshop ? parseInt(workshop) : null;
 
-  const query = `
-    SELECT DISTINCT
-      tb_co.eff_1 AS eff1, 
-      tb_co.CO_begin_date, 
-      p.line, 
-      p.style,
-      CAST(COALESCE(p1.percent_rate, 0) AS DECIMAL(5,2)) AS process_1_percent,
-      CAST(COALESCE(p2.percent_rate, 0) AS DECIMAL(5,2)) AS process_2_percent,
-      CAST(COALESCE(p3.percent_rate, 0) AS DECIMAL(5,2)) AS process_3_percent,
-      CAST(COALESCE(p4.percent_rate, 0) AS DECIMAL(5,2)) AS process_4_percent,
-      CAST(
-          ROUND(
-              (COALESCE(
-                  (SELECT AVG(prepare_rate)
-                  FROM tb_process_5_preparing_machine pr
-                  WHERE pr.id_plan = p.id_plan), 0) * 0.8) +
-              (COALESCE(
-                  (SELECT AVG(prepare_rate)
-                  FROM tb_process_5_backup_machine b
-                  WHERE b.id_plan = p.id_plan), 0) * 0.2)
-              , 2)
-          AS DECIMAL(5,2)) AS process_5_percent,
-      CAST(COALESCE(p6.percent_rate, 0) AS DECIMAL(5,2)) AS process_6_percent,
-      CAST(COALESCE(p7.percent_rate, 0) AS DECIMAL(5,2)) AS process_7_percent,
-      CAST(COALESCE(p8.percent_rate, 0) AS DECIMAL(5,2)) AS process_8_percent
-    FROM tb_plan p
-    JOIN tb_co ON p.id_plan = tb_co.id_plan
-    LEFT JOIN tb_process_1 p1 ON p.id_plan = p1.id_plan
-    LEFT JOIN tb_process_2 p2 ON p.id_plan = p2.id_plan
-    LEFT JOIN tb_process_3 p3 ON p.id_plan = p3.id_plan
-    LEFT JOIN tb_process_4 p4 ON p.id_plan = p4.id_plan
-    LEFT JOIN tb_process_6 p6 ON p.id_plan = p6.id_plan
-    LEFT JOIN tb_process_7 p7 ON p.id_plan = p7.id_plan
-    LEFT JOIN tb_process_8 p8 ON p.id_plan = p8.id_plan
-    LEFT JOIN tb_process_5_backup_machine b ON p.id_plan = b.id_plan
-    LEFT JOIN tb_process_5_preparing_machine pr ON p.id_plan = pr.id_plan
-    WHERE (p.inactive = 0 OR p.inactive IS NULL)
-    ${date ? "AND DATE(tb_co.CO_begin_date) = ?" : ""}
-    ORDER BY CO_begin_date DESC
-  `;
-  const params = date ? [date] : [];
+  try {
+    // này là câu truy vấn lấy dữ liệu từ bảng tb_co và bảng tb_plan
+    // mục đích là lấy ra ngày chuyển đổi, mã hàng, eff1
+    const query = `
+      SELECT DISTINCT
+        tb_co.eff_1 AS eff1, 
+        COALESCE(tb_co.CO_begin_date, IF(p.plan_date < CURRENT_DATE(), p.plan_date, NULL)) AS coBeginDate,
+        tb_co.production_style,
+        p.plan_date,
+        p.line, 
+        p.style,
+        CAST(COALESCE(p1.percent_rate, 0) AS DECIMAL(5,2)) AS process_1_percent,
+        CAST(COALESCE(p2.percent_rate, 0) AS DECIMAL(5,2)) AS process_2_percent,
+        CAST(COALESCE(p3.percent_rate, 0) AS DECIMAL(5,2)) AS process_3_percent,
+        CAST(COALESCE(p4.percent_rate, 0) AS DECIMAL(5,2)) AS process_4_percent,
+        CAST(
+            ROUND(
+                (COALESCE(
+                    (SELECT AVG(prepare_rate)
+                    FROM tb_process_5_preparing_machine pr
+                    WHERE pr.id_plan = p.id_plan), 0) * 0.8) +
+                (COALESCE(
+                    (SELECT AVG(prepare_rate)
+                    FROM tb_process_5_backup_machine b
+                    WHERE b.id_plan = p.id_plan), 0) * 0.2)
+                , 2)
+            AS DECIMAL(5,2)) AS process_5_percent,
+        CAST(COALESCE(p6.percent_rate, 0) AS DECIMAL(5,2)) AS process_6_percent,
+        CAST(COALESCE(p7.percent_rate, 0) AS DECIMAL(5,2)) AS process_7_percent,
+        CAST(COALESCE(p8.percent_rate, 0) AS DECIMAL(5,2)) AS process_8_percent
+      FROM tb_plan p
+      JOIN tb_co ON p.id_plan = tb_co.id_plan
+      LEFT JOIN tb_process_1 p1 ON p.id_plan = p1.id_plan
+      LEFT JOIN tb_process_2 p2 ON p.id_plan = p2.id_plan
+      LEFT JOIN tb_process_3 p3 ON p.id_plan = p3.id_plan
+      LEFT JOIN tb_process_4 p4 ON p.id_plan = p4.id_plan
+      LEFT JOIN tb_process_6 p6 ON p.id_plan = p6.id_plan
+      LEFT JOIN tb_process_7 p7 ON p.id_plan = p7.id_plan
+      LEFT JOIN tb_process_8 p8 ON p.id_plan = p8.id_plan
+      WHERE (p.inactive = 0 OR p.inactive IS NULL)
+      ${date ? "AND DATE(tb_co.CO_begin_date) = ?" : ""}
+      ORDER BY coBeginDate DESC
+    `;
 
-  mysqlConnection.query(query, params, (err, rows) => {
-    if (err) {
-      console.error("MySQL error:", err);
-      return res.status(500).json({ message: "MySQL query error" });
-    }
+    const params = date ? [date] : [];
+
+    const rows = await new Promise((resolve, reject) => {
+      mysqlConnection.query(query, params, (err, results) => {
+        if (err) reject(err);
+        else resolve(results);
+      });
+    });
 
     if (!rows.length) return res.json([]);
 
-    sql.connect(mssqlHiproConfig, (err) => {
-      if (err) {
-        console.error("MSSQL connect error:", err.message || err);
-        return res
-          .status(500)
-          .json({ message: "MSSQL connection error", detail: err.message });
+    // 2. Tối ưu MSSQL với connection pool và batch query
+    const pool = await sql.connect(mssqlHiproConfig);
+
+    // 3. Chuẩn bị tất cả dates và lines trước
+    const allDatesAndLines = [];
+    const processedRows = [];
+
+    // FIX: Hàm tính ngày làm việc chính xác
+    function getWorkingDates(coBeginDate) {
+      const workingDates = [];
+      // Đảm bảo coBeginDate là Date object và không bị lệch múi giờ
+      const baseDate = new Date(
+        coBeginDate.getFullYear(),
+        coBeginDate.getMonth(),
+        coBeginDate.getDate()
+      );
+
+      // Bắt đầu từ ngày sau coBeginDate
+      let currentDate = new Date(
+        baseDate.getFullYear(),
+        baseDate.getMonth(),
+        baseDate.getDate() + 1
+      );
+
+      // Lấy đúng 4 ngày làm việc (bỏ chủ nhật)
+      while (workingDates.length < 4) {
+        if (currentDate.getDay() !== 0) {
+          // Không phải chủ nhật
+          workingDates.push(new Date(currentDate));
+        }
+        currentDate.setDate(currentDate.getDate() + 1);
       }
 
-      const results = [];
-      let completed = 0;
+      return workingDates;
+    }
 
-      rows.forEach((row, index) => {
-        const line = row.line;
-        const lineNum = parseInt(line);
+    // FIX: Format ngày cho MSSQL query
+    function formatDateForMSSQL(date) {
+      return (
+        date.getFullYear() +
+        "-" +
+        String(date.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(date.getDate()).padStart(2, "0")
+      );
+    }
 
-        const getWorkshop = (lineNumber) => {
-          if ((lineNumber >= 1 && lineNumber <= 10) || lineNumber === 1001)
-            return 1;
-          if ((lineNumber >= 11 && lineNumber <= 20) || lineNumber === 2001)
-            return 2;
-          if (lineNumber >= 21 && lineNumber <= 30) return 3;
-          if (lineNumber >= 31 && lineNumber <= 40) return 4;
-          return null;
-        };
+    rows.forEach((row, index) => {
+      const lineNum = parseInt(row.line);
+      const coBeginDate = row.coBeginDate ? new Date(row.coBeginDate) : null;
 
-        const currentWorkshop = getWorkshop(lineNum);
+      if (!coBeginDate) return;
 
-        // Nếu truyền workshop và không trùng, bỏ qua record này
-        if (filterWorkshop && currentWorkshop !== filterWorkshop) {
-          completed++;
-          if (completed === rows.length) {
-            sql.close();
-            res.json(results);
-          }
-          return;
-        }
+      // FIX: Sử dụng hàm tính ngày làm việc chính xác
+      const workingDates = getWorkingDates(coBeginDate);
 
-        const style = row.style;
-        const eff1 = row.eff1 || 0;
-        const coBeginDate = row.CO_begin_date
-          ? new Date(row.CO_begin_date)
-          : null;
+      const eightStepAvg = Math.round(
+        (Number(row.process_1_percent) +
+          Number(row.process_2_percent) +
+          Number(row.process_3_percent) +
+          Number(row.process_4_percent) +
+          Number(row.process_5_percent) +
+          Number(row.process_6_percent) +
+          Number(row.process_7_percent) +
+          Number(row.process_8_percent)) /
+          8
+      );
 
-        // Tính trung bình 8 bước
-        const eightStepAvg = Math.round(
-          (Number(row.process_1_percent) +
-            Number(row.process_2_percent) +
-            Number(row.process_3_percent) +
-            Number(row.process_4_percent) +
-            Number(row.process_5_percent) +
-            Number(row.process_6_percent) +
-            Number(row.process_7_percent) +
-            Number(row.process_8_percent)) /
-            8
-        );
+      processedRows.push({
+        index,
+        lineNum,
+        productionStyle: row.production_style,
+        style: row.style,
+        eff1: row.eff1 || 0,
+        planDate: row.plan_date,
+        coBeginDate,
+        eightStepAvg,
+        workingDates,
+      });
 
-        const dates = [];
-        const start = new Date(coBeginDate);
-        start.setDate(start.getDate() + 1);
-
-        while (dates.length < 6) {
-          if (start.getDay() !== 0) dates.push(new Date(start));
-          start.setDate(start.getDate() + 1);
-        }
-
-        const effRest = []; // hiệu suất các ngày sau CO
-        let subCompleted = 0;
-
-        // Chỉ lấy 4 ngày đầu để kiểm tra hiệu suất sau CO
-        dates.slice(0, 4).forEach((d, i) => {
-          const dateStr = d.toISOString().split("T")[0];
-          const query = `SELECT line${lineNum} FROM BaoCao_NangSuat_Ngay WHERE CAST(Ngay AS DATE) = '${dateStr}' ORDER BY STT`;
-
-          const request = new sql.Request();
-          request.query(query, (err, result) => {
-            if (err || !result.recordset) {
-              effRest[i] = 0;
-            } else {
-              const records = result.recordset;
-              const first = records[0]?.[`line${lineNum}`];
-
-              // Nếu dòng đầu tiên chứa mã hàng đúng, lấy hiệu suất ở dòng 20 (dòng 19)
-              if (first && first.includes(style)) {
-                effRest[i] = parseInt(records[19]?.[`line${lineNum}`]) || 0;
-              } else {
-                effRest[i] = 0;
-              }
-            }
-
-            subCompleted++;
-            if (subCompleted === 4) {
-              // Khi đã xử lý xong 4 ngày, thêm vào kết quả
-              results[index] = {
-                line: lineNum,
-                style,
-                coBeginDate,
-                workshop: currentWorkshop,
-                eff: [eff1, ...effRest], // eff1 + 4 ngày sau
-                prep: eightStepAvg, // trung bình phần trăm 8 bước chuẩn bị
-              };
-
-              completed++;
-              if (completed === rows.length) {
-                sql.close();
-                res.json(results);
-              }
-            }
-          });
+      // FIX: Collect all date-line combinations với format chính xác
+      workingDates.forEach((d, i) => {
+        allDatesAndLines.push({
+          rowIndex: index,
+          dayIndex: i,
+          date: formatDateForMSSQL(d), // Sử dụng format function
+          lineNum,
+          style: row.style,
         });
       });
     });
+
+    // 4. Batch query cho tất cả dates cùng lúc
+    const uniqueDates = [...new Set(allDatesAndLines.map((item) => item.date))];
+    const batchResults = {};
+
+    // Sử dụng Promise.all để query parallel
+    await Promise.all(
+      uniqueDates.map(async (dateStr) => {
+        const request = pool.request();
+
+        // Tạo dynamic query cho tất cả lines cần thiết trong ngày này
+        const linesForThisDate = [
+          ...new Set(
+            allDatesAndLines
+              .filter((item) => item.date === dateStr)
+              .map((item) => item.lineNum)
+          ),
+        ];
+
+        const selectColumns = linesForThisDate
+          .map((line) => `line${line}`)
+          .join(", ");
+        const query = `
+        SELECT ${selectColumns} 
+        FROM BaoCao_NangSuat_Ngay
+WHERE CAST(Ngay AS DATE) = '${dateStr}' 
+        ORDER BY STT
+      `;
+
+        try {
+          const result = await request.query(query);
+          if (result.recordset && result.recordset.length > 0) {
+            batchResults[dateStr] = {
+              firstRecord: result.recordset[0] || {},
+              efficiencyRecord: result.recordset[19] || {},
+            };
+          }
+        } catch (err) {
+          console.error(`Error querying date ${dateStr}:`, err);
+          batchResults[dateStr] = { firstRecord: {}, efficiencyRecord: {} };
+        }
+      })
+    );
+
+    // 5. Xử lý kết quả
+    const results = [];
+    const efficiencyResults = {}; // Cache efficiency results
+
+    processedRows.forEach((row) => {
+      const effRest = [];
+
+      // FIX: Sử dụng format function nhất quán
+      row.workingDates.forEach((date, dayIndex) => {
+        const dateStr = formatDateForMSSQL(date);
+        const cacheKey = `${dateStr}_${row.lineNum}_${row.style}`;
+
+        if (efficiencyResults[cacheKey] !== undefined) {
+          effRest[dayIndex] = efficiencyResults[cacheKey];
+        } else {
+          const dayData = batchResults[dateStr];
+          let efficiency = 0;
+
+          if (dayData) {
+            const firstRecord = dayData.firstRecord[`line${row.lineNum}`];
+            if (firstRecord && firstRecord.includes(row.style)) {
+              efficiency =
+                parseInt(dayData.efficiencyRecord[`line${row.lineNum}`]) || 0;
+            }
+          }
+
+          efficiencyResults[cacheKey] = efficiency;
+          effRest[dayIndex] = efficiency;
+        }
+      });
+
+      const getWorkshop = (lineNumber) => {
+        if ((lineNumber >= 1 && lineNumber <= 10) || lineNumber === 1001)
+          return 1;
+        if ((lineNumber >= 11 && lineNumber <= 20) || lineNumber === 2001)
+          return 2;
+        if (lineNumber >= 21 && lineNumber <= 30) return 3;
+        if (lineNumber >= 31 && lineNumber <= 40) return 4;
+        return null;
+      };
+
+      results.push({
+        line: row.lineNum,
+        style: row.style,
+        productionStyle: row.productionStyle,
+        planDate: row.planDate,
+        coBeginDate: row.coBeginDate,
+        workshop: getWorkshop(row.lineNum),
+        eff: [row.eff1, ...effRest], // eff1 + 4 ngày làm việc tiếp theo
+        prep: row.eightStepAvg,
+      });
+    });
+
+    await pool.close();
+    res.json(results);
+  } catch (error) {
+    console.error("Error:", error);
+    res
+      .status(500)
+      .json({ message: "Internal server error", detail: error.message });
+  }
+});
+
+// API lấy danh sách quy trình trong MAIN mysql
+app.get("/api/processes-of-anh-thu", (req, res) => {
+  mysqlConnection.query(
+    "SELECT * FROM tb_process ORDER BY id_process ASC",
+    (err, results) => {
+      if (err) {
+        console.error("Error fetching processes:", err);
+        return res
+          .status(500)
+          .json({ success: false, message: "Database error" });
+      }
+      res.json(results);
+    }
+  );
+});
+
+// API lấy tỉ lệ hoàn thành của các quy trình cho một kế hoạch cụ thể trong MAIN mysql
+app.get("/api/process-of-anh-thu/:id_plan", (req, res) => {
+  const { id_plan } = req.params;
+
+  mysqlConnection.getConnection((err, connection) => {
+    if (err) {
+      console.error("Error getting connection:", err);
+      return res
+        .status(500)
+        .json({ success: false, message: "Database connection error" });
+    }
+
+    // Create an array to store all query promises
+    const queryPromises = [];
+
+    // For processes 1-4 and 6-8, get percent_rate directly
+    [1, 2, 3, 4, 6, 7, 8].forEach((processId) => {
+      queryPromises.push(
+        new Promise((resolve, reject) => {
+          connection.query(
+            `SELECT id_process, percent_rate FROM tb_process_${processId} WHERE id_plan = ?`,
+            [id_plan],
+            (err, results) => {
+              if (err) {
+                reject(err);
+              } else {
+                // If no results, return 0 as the percent_rate
+                const rate =
+                  results.length > 0 ? results[0].percent_rate || 0 : 0;
+                resolve({ id_process: processId, percent_rate: rate });
+              }
+            }
+          );
+        })
+      );
+    });
+
+    // For process 5, calculate average of prepare_rate from both tables
+    queryPromises.push(
+      new Promise((resolve, reject) => {
+        connection.query(
+          `SELECT AVG(prepare_rate) as avg_rate FROM tb_process_5_preparing_machine WHERE id_plan = ?`,
+          [id_plan],
+          (err, preparingResults) => {
+            if (err) {
+              reject(err);
+            } else {
+              connection.query(
+                `SELECT AVG(prepare_rate) as avg_rate FROM tb_process_5_backup_machine WHERE id_plan = ?`,
+                [id_plan],
+                (err, backupResults) => {
+                  if (err) {
+                    reject(err);
+                  } else {
+                    // Get the average rates, default to 0 if null
+                    const preparingRate =
+                      preparingResults.length > 0
+                        ? preparingResults[0].avg_rate || 0
+                        : 0;
+                    const backupRate =
+                      backupResults.length > 0
+                        ? backupResults[0].avg_rate || 0
+                        : 0;
+
+                    // Calculate weighted average: 80% preparing + 20% backup
+                    const avgRate = preparingRate * 0.8 + backupRate * 0.2;
+
+                    resolve({
+                      id_process: 5,
+                      percent_rate: Math.round(avgRate),
+                    });
+                  }
+                }
+              );
+            }
+          }
+        );
+      })
+    );
+
+    // Execute all queries and return the results
+    Promise.all(queryPromises)
+      .then((results) => {
+        connection.release();
+        res.json(results);
+      })
+      .catch((err) => {
+        connection.release();
+        console.error("Error fetching process rates:", err);
+        res.status(500).json({ success: false, message: "Database error" });
+      });
   });
 });
 ////////////////////code của Anh Thư////////////////////

@@ -46,10 +46,16 @@ import {
   Edit as EditIcon,
   Clear as ClearIcon,
   Sync as SyncIcon,
+  Search as SearchIcon,
   Warning as WarningIcon,
   ContentCopy as ContentCopyIcon,
 } from "@mui/icons-material";
 import API from "../api/api";
+import {
+  useHolidays,
+  checkIsOverdue as checkIsOverdueUtil,
+  calculateDeadlineDate as calculateDeadlineDateUtil,
+} from "../utils/deadline";
 import PermissionCheck from "../components/PermissionCheck";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
@@ -111,6 +117,8 @@ const Process5Page = () => {
   const [availableProcesses, setAvailableProcesses] = useState([]);
   const [selectedProcess, setSelectedProcess] = useState(null);
   const [processesLoading, setProcessesLoading] = useState(false);
+  const [maHangSearch, setMaHangSearch] = useState("");
+  const [hasSearchedProcesses, setHasSearchedProcesses] = useState(false);
 
   // Add state for overdue check
   const [isOverdue, setIsOverdue] = useState(false);
@@ -125,22 +133,15 @@ const Process5Page = () => {
   const [previewData, setPreviewData] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
-  // Add useCallback for checkIsOverdue
-  const checkIsOverdue = useCallback((actualDate, planDate, deadline) => {
-    if (!deadline) return false;
-    if (!actualDate && !planDate) return false;
+  // Lấy danh sách ngày nghỉ/ngày lễ để loại trừ khi tính hạn chót
+  const holidaySet = useHolidays(plan?.actual_date || plan?.plan_date);
 
-    // Sử dụng actual_date nếu có, nếu không thì dùng plan_date
-    const dateToUse = actualDate || planDate;
-    const baseDateTime = new Date(dateToUse);
-    const deadlineDate = new Date(baseDateTime);
-    deadlineDate.setDate(deadlineDate.getDate() - deadline);
-
-    // Đặt thời gian của deadlineDate thành 23:59:59
-    deadlineDate.setHours(23, 59, 59, 999);
-
-    return new Date() > deadlineDate;
-  }, []);
+  // Kiểm tra quá hạn (bỏ qua chủ nhật và ngày lễ khi tính ngày hạn chót)
+  const checkIsOverdue = useCallback(
+    (actualDate, planDate, deadline) =>
+      checkIsOverdueUtil(actualDate, planDate, deadline, holidaySet),
+    [holidaySet]
+  );
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -180,7 +181,7 @@ const Process5Page = () => {
           </Typography>
 
           <Grid container spacing={1}>
-            <Grid item xs={6}>
+            <Grid item size={{ xs: 6 }}>
               <Typography variant="caption" color="textSecondary">
                 Ngày điều chỉnh
               </Typography>
@@ -191,7 +192,7 @@ const Process5Page = () => {
               </Typography>
             </Grid>
 
-            <Grid item xs={6}>
+            <Grid item size={{ xs: 6 }}>
               <Typography variant="caption" color="textSecondary">
                 Tên máy
               </Typography>
@@ -200,21 +201,21 @@ const Process5Page = () => {
               </Typography>
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid item size={{ xs: 4 }}>
               <Typography variant="caption" color="textSecondary">
                 Số lượng
               </Typography>
               <Typography variant="body2">{machine.quantity}</Typography>
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid item size={{ xs: 4 }}>
               <Typography variant="caption" color="textSecondary">
                 Đã chuẩn bị
               </Typography>
               <Typography variant="body2">{machine.prepared}</Typography>
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid item size={{ xs: 4 }}>
               <Typography variant="caption" color="textSecondary">
                 Đạt
               </Typography>
@@ -223,7 +224,7 @@ const Process5Page = () => {
               </Typography>
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid item size={{ xs: 4 }}>
               <Typography variant="caption" color="textSecondary">
                 Không đạt
               </Typography>
@@ -232,14 +233,14 @@ const Process5Page = () => {
               </Typography>
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid item size={{ xs: 4 }}>
               <Typography variant="caption" color="textSecondary">
                 Tỉ lệ đạt
               </Typography>
               <Typography variant="body2">{machine.pass_rate}%</Typography>
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid item size={{ xs: 4 }}>
               <Typography variant="caption" color="textSecondary">
                 Tỉ lệ chuẩn bị
               </Typography>
@@ -286,7 +287,7 @@ const Process5Page = () => {
           </Typography>
 
           <Grid container spacing={1}>
-            <Grid item xs={6}>
+            <Grid item size={{ xs: 6 }}>
               <Typography variant="caption" color="textSecondary">
                 Ngày điều chỉnh
               </Typography>
@@ -297,7 +298,7 @@ const Process5Page = () => {
               </Typography>
             </Grid>
 
-            <Grid item xs={6}>
+            <Grid item size={{ xs: 6 }}>
               <Typography variant="caption" color="textSecondary">
                 Tên máy
               </Typography>
@@ -306,21 +307,21 @@ const Process5Page = () => {
               </Typography>
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid item size={{ xs: 4 }}>
               <Typography variant="caption" color="textSecondary">
                 Số lượng
               </Typography>
               <Typography variant="body2">{machine.quantity}</Typography>
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid item size={{ xs: 4 }}>
               <Typography variant="caption" color="textSecondary">
                 Đã chuẩn bị
               </Typography>
               <Typography variant="body2">{machine.prepared}</Typography>
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid item size={{ xs: 4 }}>
               <Typography variant="caption" color="textSecondary">
                 Đạt
               </Typography>
@@ -329,7 +330,7 @@ const Process5Page = () => {
               </Typography>
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid item size={{ xs: 4 }}>
               <Typography variant="caption" color="textSecondary">
                 Không đạt
               </Typography>
@@ -338,14 +339,14 @@ const Process5Page = () => {
               </Typography>
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid item size={{ xs: 4 }}>
               <Typography variant="caption" color="textSecondary">
                 Tỉ lệ đạt
               </Typography>
               <Typography variant="body2">{machine.pass_rate}%</Typography>
             </Grid>
 
-            <Grid item xs={4}>
+            <Grid item size={{ xs: 4 }}>
               <Typography variant="caption" color="textSecondary">
                 Tỉ lệ chuẩn bị
               </Typography>
@@ -412,44 +413,18 @@ const Process5Page = () => {
     fetchData();
   }, [id, checkIsOverdue]);
 
-  // Calculate deadline date based on actual_date and deadline days
+  // Tính ngày hạn chót (loại trừ chủ nhật và ngày nghỉ/ngày lễ)
   const calculateDeadlineDate = (
     actualDateString,
     planDateString,
     deadlineDays
-  ) => {
-    if (
-      deadlineDays === null ||
-      deadlineDays === undefined ||
-      deadlineDays === ""
-    ) {
-      return "-";
-    }
-
-    // Sử dụng actual_date nếu có, nếu không thì dùng plan_date
-    const dateToUse = actualDateString || planDateString;
-    if (!dateToUse) return "-";
-
-    // Parse the date
-    const baseDate = new Date(dateToUse);
-    // Only use the date part (ignore time)
-    const dateOnly = new Date(
-      baseDate.getFullYear(),
-      baseDate.getMonth(),
-      baseDate.getDate()
+  ) =>
+    calculateDeadlineDateUtil(
+      actualDateString,
+      planDateString,
+      deadlineDays,
+      holidaySet
     );
-
-    // Subtract the deadline days
-    const deadlineDate = new Date(dateOnly);
-    deadlineDate.setDate(dateOnly.getDate() - parseInt(deadlineDays));
-
-    // Format the deadline date as DD/MM/YYYY
-    const day = String(deadlineDate.getDate()).padStart(2, "0");
-    const month = String(deadlineDate.getMonth() + 1).padStart(2, "0");
-    const year = deadlineDate.getFullYear();
-
-    return `${day}/${month}/${year}`;
-  };
 
   const getProgressColor = (value) => {
     if (value < 30) return "#f44336"; // red
@@ -632,9 +607,8 @@ const Process5Page = () => {
       await API.saveProcess5PreparingMachine(dataToSave);
 
       // Refresh the machine list
-      const preparingMachinesResponse = await API.getProcess5PreparingMachines(
-        id
-      );
+      const preparingMachinesResponse =
+        await API.getProcess5PreparingMachines(id);
       setPreparingMachines(preparingMachinesResponse);
 
       // Update process info to reflect the new rate
@@ -664,9 +638,8 @@ const Process5Page = () => {
       );
 
       // Refresh the machine list
-      const preparingMachinesResponse = await API.getProcess5PreparingMachines(
-        id
-      );
+      const preparingMachinesResponse =
+        await API.getProcess5PreparingMachines(id);
       setPreparingMachines(preparingMachinesResponse);
 
       // Update process info to reflect the new rate
@@ -831,14 +804,26 @@ const Process5Page = () => {
   };
 
   // Add function to handle opening process selection dialog
-  const handleOpenProcessSelection = async () => {
+  const handleOpenProcessSelection = () => {
+    setMaHangSearch(plan?.style || "");
+    setAvailableProcesses([]);
+    setSelectedProcess(null);
+    setHasSearchedProcesses(false);
+    setProcessSelectionDialog(true);
+  };
+
+  const handleSearchHiLineProcesses = async () => {
+    const searchTerm = maHangSearch.trim();
+    if (!searchTerm) return;
+
     try {
       setProcessesLoading(true);
-      setProcessSelectionDialog(true);
+      setSelectedProcess(null);
+      setHasSearchedProcesses(true);
 
-      const result = await API.getHiLineProcesses(plan?.line, plan?.style);
+      const result = await API.getHiLineProcesses(searchTerm);
       if (result.success) {
-        setAvailableProcesses(result.processes);
+        setAvailableProcesses(result.processes || []);
       } else {
         setAvailableProcesses([]);
         setSyncResult({
@@ -874,8 +859,6 @@ const Process5Page = () => {
 
       const result = await API.syncProcess5MachinesFromHiLine(
         id,
-        plan?.line,
-        plan?.style,
         selectedProcess.so_phieu
       );
       setSyncResult(result);
@@ -975,9 +958,8 @@ const Process5Page = () => {
       await API.copyProcess5Machines(sourcePlanId, id);
 
       // Refresh the machine lists
-      const preparingMachinesResponse = await API.getProcess5PreparingMachines(
-        id
-      );
+      const preparingMachinesResponse =
+        await API.getProcess5PreparingMachines(id);
       setPreparingMachines(preparingMachinesResponse);
 
       const backupMachinesResponse = await API.getProcess5BackupMachines(id);
@@ -1079,7 +1061,7 @@ const Process5Page = () => {
 
         <CardContent sx={{ padding: isMobile ? 2 : 3 }}>
           <Grid container spacing={isMobile ? 2 : 3}>
-            <Grid item xs={12} md={6}>
+            <Grid item size={{ xs: 12, md: 6 }}>
               <Card variant="outlined" sx={{ height: "100%" }}>
                 <CardContent>
                   <Typography variant="h6" color="primary" gutterBottom>
@@ -1099,7 +1081,7 @@ const Process5Page = () => {
               </Card>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid item size={{ xs: 12, md: 6 }}>
               <Card variant="outlined" sx={{ height: "100%" }}>
                 <CardContent>
                   <Typography variant="h6" color="primary" gutterBottom>
@@ -1233,7 +1215,7 @@ const Process5Page = () => {
 
         <CardContent sx={{ padding: isMobile ? 2 : 3 }}>
           <Grid container spacing={isMobile ? 2 : 3}>
-            <Grid item xs={12} md={6}>
+            <Grid item size={{ xs: 12, md: 6 }}>
               <Card variant="outlined" sx={{ height: "100%" }}>
                 <CardContent>
                   <Typography variant="h6" color="primary" gutterBottom>
@@ -1254,7 +1236,7 @@ const Process5Page = () => {
               </Card>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid item size={{ xs: 12, md: 6 }}>
               <Card variant="outlined" sx={{ height: "100%" }}>
                 <CardContent>
                   <Typography variant="h6" color="primary" gutterBottom>
@@ -1772,7 +1754,7 @@ const Process5Page = () => {
         </DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={isMobile ? 2 : 2}>
-            <Grid item xs={12}>
+            <Grid item size={{ xs: 12 }}>
               <TextField
                 label="Ngày điều chỉnh"
                 type="datetime-local"
@@ -1802,7 +1784,7 @@ const Process5Page = () => {
                 }}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid item size={{ xs: 12 }}>
               <TextField
                 fullWidth
                 label="Tên máy"
@@ -1814,7 +1796,7 @@ const Process5Page = () => {
                 required
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid item size={{ xs: 12, sm: 4 }}>
               <TextField
                 fullWidth
                 label="Số lượng"
@@ -1829,7 +1811,7 @@ const Process5Page = () => {
                 helperText="Tổng số máy"
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid item size={{ xs: 12, sm: 4 }}>
               <TextField
                 fullWidth
                 label="Đã chuẩn bị"
@@ -1853,7 +1835,7 @@ const Process5Page = () => {
                 }
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid item size={{ xs: 12, sm: 4 }}>
               <TextField
                 fullWidth
                 label="Đạt"
@@ -1877,7 +1859,7 @@ const Process5Page = () => {
                 }
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid item size={{ xs: 12 }}>
               <Typography variant="subtitle2" color="text.secondary">
                 Không đạt: {preparingMachineData.fail} (Tự động tính: Đã chuẩn
                 bị - Đạt)
@@ -1934,7 +1916,7 @@ const Process5Page = () => {
         </DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={isMobile ? 2 : 2}>
-            <Grid item xs={12}>
+            <Grid item size={{ xs: 12 }}>
               <TextField
                 label="Ngày điều chỉnh"
                 type="datetime-local"
@@ -1964,7 +1946,7 @@ const Process5Page = () => {
                 }}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid item size={{ xs: 12 }}>
               <TextField
                 fullWidth
                 label="Tên máy"
@@ -1976,7 +1958,7 @@ const Process5Page = () => {
                 required
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid item size={{ xs: 12, sm: 4 }}>
               <TextField
                 fullWidth
                 label="Số lượng"
@@ -1995,7 +1977,7 @@ const Process5Page = () => {
                 helperText="Tổng số máy"
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid item size={{ xs: 12, sm: 4 }}>
               <TextField
                 fullWidth
                 label="Đã chuẩn bị"
@@ -2019,7 +2001,7 @@ const Process5Page = () => {
                 }
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid item size={{ xs: 12, sm: 4 }}>
               <TextField
                 fullWidth
                 label="Đạt"
@@ -2043,7 +2025,7 @@ const Process5Page = () => {
                 }
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid item size={{ xs: 12 }}>
               <Typography variant="subtitle2" color="text.secondary">
                 Không đạt: {backupMachineData.fail} (Tự động tính: Đã chuẩn bị -
                 Đạt)
@@ -2158,6 +2140,9 @@ const Process5Page = () => {
         onClose={() => {
           setProcessSelectionDialog(false);
           setSelectedProcess(null);
+          setMaHangSearch("");
+          setAvailableProcesses([]);
+          setHasSearchedProcesses(false);
         }}
         maxWidth="sm"
         fullWidth
@@ -2176,15 +2161,65 @@ const Process5Page = () => {
         </DialogTitle>
         <DialogContent dividers>
           <Typography variant="body2" color="text.secondary" paragraph>
-            Chọn quy trình từ Hi-Line để đồng bộ dữ liệu máy móc cho chuyền{" "}
-            {plan?.line} - {plan?.style}
+            Nhập mã hàng để tìm quy trình từ Hi-Line, sau đó chọn quy trình để
+            đồng bộ dữ liệu máy móc vào kế hoạch hiện tại
           </Typography>
+
+          <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
+            <TextField
+              fullWidth
+              label="Mã hàng"
+              placeholder="Nhập mã hàng để tìm..."
+              value={maHangSearch}
+              onChange={(event) => setMaHangSearch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  handleSearchHiLineProcesses();
+                }
+              }}
+              disabled={processesLoading}
+              InputProps={{
+                endAdornment: maHangSearch ? (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      onClick={() => {
+                        setMaHangSearch("");
+                        setAvailableProcesses([]);
+                        setSelectedProcess(null);
+                        setHasSearchedProcesses(false);
+                      }}
+                      edge="end"
+                    >
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ) : null,
+              }}
+            />
+            <Button
+              variant="contained"
+              onClick={handleSearchHiLineProcesses}
+              disabled={!maHangSearch.trim() || processesLoading}
+              startIcon={
+                processesLoading ? (
+                  <CircularProgress size={18} color="inherit" />
+                ) : (
+                  <SearchIcon />
+                )
+              }
+              sx={{ minWidth: 110, flexShrink: 0 }}
+            >
+              Tìm
+            </Button>
+          </Box>
 
           {processesLoading ? (
             <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
               <CircularProgress />
             </Box>
-          ) : availableProcesses.length > 0 ? (
+          ) : hasSearchedProcesses && availableProcesses.length > 0 ? (
             <FormControl fullWidth variant="outlined">
               <InputLabel>Chọn quy trình từ Hi-Line</InputLabel>
               <Select
@@ -2198,11 +2233,19 @@ const Process5Page = () => {
                 label="Chọn quy trình từ Hi-Line"
               >
                 {availableProcesses.map((process) => (
-                  <MenuItem key={process.so_phieu} value={process.so_phieu}>
+                  <MenuItem
+                    key={`${process.ma_hang || "unknown"}-${process.so_phieu}`}
+                    value={process.so_phieu}
+                  >
                     <Box>
                       <Typography variant="body1" fontWeight="medium">
                         {process.so_phieu}
                       </Typography>
+                      {process.ma_hang && (
+                        <Typography variant="body2" color="text.secondary">
+                          Mã hàng: {process.ma_hang}
+                        </Typography>
+                      )}
                       {process.ten_chung_loai && (
                         <Typography variant="body2" color="primary">
                           {process.ten_chung_loai}
@@ -2213,12 +2256,19 @@ const Process5Page = () => {
                 ))}
               </Select>
             </FormControl>
+          ) : hasSearchedProcesses ? (
+            <Typography
+              color="text.secondary"
+              sx={{ textAlign: "center", py: 3 }}
+            >
+              Không tìm thấy quy trình nào cho mã hàng "{maHangSearch.trim()}"
+            </Typography>
           ) : (
             <Typography
               color="text.secondary"
               sx={{ textAlign: "center", py: 3 }}
             >
-              Không tìm thấy quy trình nào từ Hi-Line
+              Nhập mã hàng và bấm Tìm để xem danh sách quy trình
             </Typography>
           )}
         </DialogContent>
@@ -2227,6 +2277,9 @@ const Process5Page = () => {
             onClick={() => {
               setProcessSelectionDialog(false);
               setSelectedProcess(null);
+              setMaHangSearch("");
+              setAvailableProcesses([]);
+              setHasSearchedProcesses(false);
             }}
           >
             Hủy
