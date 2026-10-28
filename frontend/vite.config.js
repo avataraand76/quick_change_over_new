@@ -1,35 +1,25 @@
-import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  build: {
-    minify: "terser",
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true,
-      },
-      mangle: {
-        toplevel: true,
-        safari10: true,
-      },
-      format: {
-        comments: false,
-      },
-    },
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ["react", "react-dom"],
-        },
-      },
-    },
-    sourcemap: false,
-  },
   server: {
     port: 3000,
     host: true,
+  },
+  build: {
+    sourcemap: false,
+  },
+  optimizeDeps: {
+    include: [
+      "@mui/material",
+      "@emotion/react",
+      "@emotion/styled",
+      "axios",
+      "react",
+      "react-dom",
+      "react-router-dom",
+    ],
   },
 });

@@ -1,159 +1,57 @@
-// frontend/src/App.jsx
-
-import "./App.css";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-  useLocation,
-  useNavigationType,
-} from "react-router-dom";
-import { useEffect } from "react";
-import HomePage from "./pages/HomePage";
-import CreatePhasePage from "./pages/CreatePhasePage";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { ThemeProvider } from "@mui/material/styles";
+import CssBaseline from "@mui/material/CssBaseline";
+import { AuthProvider } from "./contexts/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 import LoginPage from "./pages/LoginPage";
-import CalendarViewPage from "./pages/CalendarViewPage";
-import ReportPage from "./pages/ReportPage";
-import NavBar from "./components/NavigationBar";
-import DetailedPhasePage from "./pages/DetailedPhasePage";
-import CoPage from "./pages/CoPage";
-import Process1Page from "./pages/Process1Page";
-import Process2Page from "./pages/Process2Page";
-import Process3Page from "./pages/Process3Page";
-import Process4Page from "./pages/Process4Page";
-import Process5Page from "./pages/Process5Page";
-import Process6Page from "./pages/Process6Page";
-import Process7Page from "./pages/Process7Page";
-import Process8Page from "./pages/Process8Page";
+import HomePage from "./pages/HomePage";
+import DashboardPage from "./pages/dashboard/DashboardPage";
 import AdminPage from "./pages/AdminPage";
-import VersionHistory from "./pages/VersionHistory";
-import PermissionCheck from "./components/PermissionCheck";
-
-// ScrollToTop component to ensure all page navigations scroll to the top
-function ScrollToTop() {
-  const { pathname } = useLocation();
-  const navigationType = useNavigationType();
-
-  useEffect(() => {
-    // Use setTimeout to ensure the scroll happens after the DOM has updated
-    const timeoutId = setTimeout(() => {
-      window.scrollTo({
-        top: 0,
-        behavior: "auto", // Using 'auto' instead of 'smooth' for more consistent behavior
-      });
-    }, 0);
-
-    return () => clearTimeout(timeoutId);
-  }, [pathname, navigationType]);
-
-  return null;
-}
-
-const PrivateRoute = ({ element, requiredPermission, requiredRole }) => {
-  const token = localStorage.getItem("token");
-
-  if (!token) {
-    return <Navigate to="/login" />;
-  }
-
-  if (requiredPermission) {
-    return (
-      <PermissionCheck
-        requiredPermission={requiredPermission}
-        renderContent={(hasPermission) =>
-          hasPermission ? element : <Navigate to="/" />
-        }
-      />
-    );
-  }
-
-  if (requiredRole) {
-    return (
-      <PermissionCheck
-        requiredRole={requiredRole}
-        renderContent={(hasPermission) =>
-          hasPermission ? element : <Navigate to="/" />
-        }
-      />
-    );
-  }
-
-  return element;
-};
+import theme from "./theme";
 
 function App() {
   return (
-    <Router>
-      <ScrollToTop />
-      <NavBar />
-      <Routes>
-        <Route
-          path="/"
-          element={<PrivateRoute element={<CalendarViewPage />} />}
-        />
-        <Route
-          path="/create-phase"
-          element={
-            <PrivateRoute element={<CreatePhasePage />} requiredRole={2} />
-          }
-        />
-        <Route path="/login" element={<LoginPage />} />
-        <Route
-          path="/calendar"
-          element={<PrivateRoute element={<CalendarViewPage />} />}
-        />
-        <Route path="/report" element={<ReportPage />} />
-        <Route
-          path="/detailed-phase/:id"
-          element={<PrivateRoute element={<DetailedPhasePage />} />}
-        />
-        <Route path="/co/:id" element={<PrivateRoute element={<CoPage />} />} />
-        <Route
-          path="/admin"
-          element={
-            <PrivateRoute element={<AdminPage />} requiredPermission={1} />
-          }
-        />
-        <Route
-          path="/version-history"
-          element={<PrivateRoute element={<VersionHistory />} />}
-        />
-        {/* Process Routes */}
-        <Route
-          path="/process1/:id"
-          element={<PrivateRoute element={<Process1Page />} />}
-        />
-        <Route
-          path="/process2/:id"
-          element={<PrivateRoute element={<Process2Page />} />}
-        />
-        <Route
-          path="/process3/:id"
-          element={<PrivateRoute element={<Process3Page />} />}
-        />
-        <Route
-          path="/process4/:id"
-          element={<PrivateRoute element={<Process4Page />} />}
-        />
-        <Route
-          path="/process5/:id"
-          element={<PrivateRoute element={<Process5Page />} />}
-        />
-        <Route
-          path="/process6/:id"
-          element={<PrivateRoute element={<Process6Page />} />}
-        />
-        <Route
-          path="/process7/:id"
-          element={<PrivateRoute element={<Process7Page />} />}
-        />
-        <Route
-          path="/process8/:id"
-          element={<PrivateRoute element={<Process8Page />} />}
-        />
-      </Routes>
-    </Router>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <AuthProvider>
+        <Router>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <HomePage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <AdminPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Đường dẫn lạ -> về trang chủ (ProtectedRoute sẽ đá ra /login
+                nếu chưa đăng nhập) */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 
