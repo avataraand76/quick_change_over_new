@@ -76,6 +76,8 @@ const LineChartSvg = ({ categories, series, companySeries, target }) => {
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <Box sx={{ flex: 1, minHeight: 0, position: "relative" }}>
         <svg
+          role="img"
+          aria-label="Biểu đồ xu hướng hiệu suất bình quân 6 tháng gần nhất"
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="xMidYMid meet"
           style={{ width: "100%", height: "100%", display: "block" }}

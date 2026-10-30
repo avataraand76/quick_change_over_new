@@ -3,37 +3,55 @@
 // KHUNG GIAO DIỆN CHÍNH ĐỒNG BỘ THEME DEEP NAVY + GLASSMORPHISM VỚI DASHBOARD
 
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import {
   AppBar,
-  Avatar,
   Box,
   dash,
   Drawer,
   IconButton,
   MenuIcon,
-  Stack,
   Toolbar,
   Typography,
   useResponsive,
 } from "../ui";
 import Sidebar, { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH } from "./Sidebar";
-import { useAuth } from "../hooks/useAuth";
 
-const MainLayout = ({ children, title, subtitle }) => {
-  const [collapsed, setCollapsed] = useState(false);
+const SIDEBAR_STORAGE_KEY = "qco_sidebar_collapsed";
+
+const MainLayout = ({
+  children,
+  title,
+  subtitle,
+  headerActions,
+  fullHeight = false,
+  hideChrome = false,
+}) => {
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
   const [mobileOpen, setMobileOpen] = useState(false);
   const { belowMd: isMobile } = useResponsive();
-  const { user } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
 
   const handleDrawerToggle = () => {
     setMobileOpen((prev) => !prev);
   };
 
   const handleToggleCollapse = () => {
-    setCollapsed((prev) => !prev);
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next));
+      } catch {
+        // Bỏ qua nếu trình duyệt chặn localStorage
+      }
+      return next;
+    });
   };
 
   const getPageTitle = () => {
@@ -44,15 +62,12 @@ const MainLayout = ({ children, title, subtitle }) => {
     return "QCO System";
   };
 
-  const displayName =
-    user?.ten_nv || user?.name || (user?.ma_nv ? `NV ${user.ma_nv}` : "Người dùng");
-
   return (
     <Box
       sx={{
         display: "flex",
-        height: "100vh",
-        maxHeight: "100vh",
+        height: "100dvh",
+        maxHeight: "100dvh",
         overflow: "hidden",
         bgcolor: dash.bg,
         color: dash.ink,
@@ -67,7 +82,8 @@ const MainLayout = ({ children, title, subtitle }) => {
           left: "-10%",
           width: "55vw",
           height: "55vh",
-          background: "radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0) 70%)",
+          background:
+            "radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0) 70%)",
           pointerEvents: "none",
           zIndex: 0,
           transform: "translateZ(0)",
@@ -80,7 +96,8 @@ const MainLayout = ({ children, title, subtitle }) => {
           right: "-10%",
           width: "50vw",
           height: "60vh",
-          background: "radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, rgba(139, 92, 246, 0) 70%)",
+          background:
+            "radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, rgba(139, 92, 246, 0) 70%)",
           pointerEvents: "none",
           zIndex: 0,
           transform: "translateZ(0)",
@@ -93,7 +110,8 @@ const MainLayout = ({ children, title, subtitle }) => {
           left: "20%",
           width: "50vw",
           height: "50vh",
-          background: "radial-gradient(circle, rgba(0, 229, 255, 0.10) 0%, rgba(0, 229, 255, 0) 70%)",
+          background:
+            "radial-gradient(circle, rgba(0, 229, 255, 0.10) 0%, rgba(0, 229, 255, 0) 70%)",
           pointerEvents: "none",
           zIndex: 0,
           transform: "translateZ(0)",
@@ -101,7 +119,7 @@ const MainLayout = ({ children, title, subtitle }) => {
       />
 
       {/* ── 1. SIDEBAR CHO DESKTOP ───────────────────────────────────────── */}
-      {!isMobile && (
+      {!isMobile && !hideChrome && (
         <Box
           component="nav"
           sx={{
@@ -123,7 +141,7 @@ const MainLayout = ({ children, title, subtitle }) => {
       )}
 
       {/* ── 2. SIDEBAR DRAWER CHO MOBILE ─────────────────────────────────── */}
-      {isMobile && (
+      {isMobile && !hideChrome && (
         <Drawer
           variant="temporary"
           open={mobileOpen}
@@ -154,7 +172,7 @@ const MainLayout = ({ children, title, subtitle }) => {
           flexDirection: "column",
           minWidth: 0,
           height: "100%",
-          overflowY: "auto",
+          overflowY: fullHeight ? { xs: "auto", lg: "hidden" } : "auto",
           overflowX: "hidden",
           position: "relative",
           zIndex: 1,
@@ -162,101 +180,99 @@ const MainLayout = ({ children, title, subtitle }) => {
         }}
       >
         {/* Top Header Glassmorphic chuẩn ERP Dashboard */}
-        <AppBar
-          position="sticky"
-          top={0}
-          elevation={0}
-          sx={{
-            background: dash.panel,
-            backdropFilter: "blur(14px)",
-            WebkitBackdropFilter: "blur(14px)",
-            borderBottom: `1px solid ${dash.border}`,
-            color: dash.ink,
-            zIndex: (theme) => theme.zIndex.appBar,
-          }}
-        >
-          <Toolbar sx={{ px: { xs: 2, sm: 3 }, minHeight: { xs: 58, sm: 64 } }}>
-            {isMobile && (
-              <IconButton
-                color="inherit"
-                aria-label="open drawer"
-                edge="start"
-                onClick={handleDrawerToggle}
-                sx={{ mr: 2, color: dash.series[0] }}
-              >
-                <MenuIcon />
-              </IconButton>
-            )}
+        {!hideChrome && (
+          <AppBar
+            position="sticky"
+            top={0}
+            elevation={0}
+            sx={{
+              background: dash.panel,
+              backdropFilter: "blur(14px)",
+              WebkitBackdropFilter: "blur(14px)",
+              borderBottom: `1px solid ${dash.border}`,
+              color: dash.ink,
+              zIndex: (theme) => theme.zIndex.appBar,
+              flexShrink: 0,
+            }}
+          >
+            <Toolbar
+              sx={{
+                px: { xs: 2, sm: 3 },
+                minHeight: { xs: 56, sm: 62 },
+                gap: 1.5,
+                flexWrap: "wrap",
+                py: { xs: 0.75, sm: 0 },
+              }}
+            >
+              {isMobile && (
+                <IconButton
+                  color="inherit"
+                  aria-label="open drawer"
+                  edge="start"
+                  onClick={handleDrawerToggle}
+                  sx={{ mr: 1, color: dash.series[0] }}
+                >
+                  <MenuIcon />
+                </IconButton>
+              )}
 
-            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-              <Typography
-                variant="h6"
-                fontWeight={800}
-                sx={{
-                  fontSize: { xs: "1rem", sm: "1.15rem" },
-                  color: "#ffffff",
-                  lineHeight: 1.2,
-                  letterSpacing: 0.3,
-                }}
-              >
-                {getPageTitle()}
-              </Typography>
-              {subtitle && (
+              <Box sx={{ flexGrow: 1, minWidth: 180 }}>
                 <Typography
-                  variant="caption"
+                  variant="h6"
+                  fontWeight={800}
                   sx={{
-                    color: dash.inkMuted,
-                    display: { xs: "none", sm: "block" },
-                    fontSize: "0.72rem",
+                    fontSize: { xs: "1rem", sm: "1.12rem" },
+                    color: "#ffffff",
+                    lineHeight: 1.2,
+                    letterSpacing: 0.3,
                   }}
                 >
-                  {subtitle}
+                  {getPageTitle()}
                 </Typography>
-              )}
-            </Box>
-
-            {/* Thông tin user góc phải */}
-            <Stack direction="row" alignItems="center" spacing={1.5}>
-              <Box
-                sx={{
-                  display: { xs: "none", sm: "flex" },
-                  flexDirection: "column",
-                  alignItems: "flex-end",
-                  px: 1.25,
-                  py: 0.35,
-                  borderRadius: "8px",
-                  bgcolor: "rgba(255, 255, 255, 0.04)",
-                  border: `1px solid ${dash.border}`,
-                }}
-              >
-                <Typography variant="body2" fontWeight={700} sx={{ color: "#ffffff", fontSize: "0.82rem" }}>
-                  {displayName}
-                </Typography>
-                <Typography variant="caption" sx={{ color: dash.inkMuted, fontSize: "0.68rem" }}>
-                  {user?.phongban_name || "Nhà máy Việt Long Hưng"}
-                </Typography>
+                {subtitle && (
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: dash.inkMuted,
+                      display: { xs: "none", md: "block" },
+                      fontSize: "0.75rem",
+                    }}
+                  >
+                    {subtitle}
+                  </Typography>
+                )}
               </Box>
 
-              <Avatar
-                sx={{
-                  width: 38,
-                  height: 38,
-                  background: "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)",
-                  fontWeight: 700,
-                  fontSize: "0.95rem",
-                  boxShadow: "0 4px 14px rgba(37, 99, 235, 0.4)",
-                  cursor: "pointer",
-                }}
-                onClick={() => navigate("/")}
-              >
-                {displayName.charAt(0).toUpperCase()}
-              </Avatar>
-            </Stack>
-          </Toolbar>
-        </AppBar>
+              {headerActions && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {headerActions}
+                </Box>
+              )}
+            </Toolbar>
+          </AppBar>
+        )}
 
         {/* Nội dung trang */}
-        <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, sm: 3, lg: 3.5 } }}>
+        <Box
+          component="main"
+          sx={{
+            flexGrow: 1,
+            minHeight: 0,
+            display: fullHeight ? "flex" : "block",
+            flexDirection: fullHeight ? "column" : undefined,
+            overflow: fullHeight ? { xs: "visible", lg: "hidden" } : "visible",
+            p: fullHeight
+              ? { xs: 1.25, sm: 1.5, xl: 2 }
+              : { xs: 2, sm: 3, lg: 3.5 },
+          }}
+        >
           {children}
         </Box>
       </Box>

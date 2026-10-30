@@ -29,14 +29,12 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 
-const MAX_FONT = 11.5; // px - trần, bằng 0.72rem của bản gốc
-const MIN_FONT = 6.5; // px - sàn. Chỉ chạm tới khi màn hình thấp (768px) mà
-//                       kỳ có nhiều lượt chuyển đổi; màn hình bình thường
-//                       không bao giờ co xuống mức này.
+const MAX_FONT = 13.5; // px - trần chữ rõ nét, dễ đọc trên màn hình Desktop / TV
+const MIN_FONT = 12.5; // px - sàn chữ đủ lớn, nếu nhiều dòng thì cuộn mượt thay vì ép chữ nhỏ li ti
 const STEP = 0.5; // px - mỗi lần hạ một nấc
-const MAX_PASS = 24; // chặn vòng lặp nếu phép đo không hội tụ
-const PAD_RATIO = 0.22; // đệm trên/dưới = 22% cỡ chữ
-const HEAD_MIN_FONT = 8; // px - sàn riêng cho ô tiêu đề
+const MAX_PASS = 12; // chặn vòng lặp nếu phép đo không hội tụ
+const PAD_RATIO = 0.32; // đệm trên/dưới thoải mái cho từng dòng
+const HEAD_MIN_FONT = 12.5; // px - sàn riêng cho ô tiêu đề bảng
 
 /**
  * @param {number} rowCount số dòng thân bảng (kể cả dòng tổng) - đổi thì đo lại

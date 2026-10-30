@@ -111,7 +111,8 @@ const LoginPage = () => {
           left: "-10%",
           width: "55vw",
           height: "55vh",
-          background: "radial-gradient(circle, rgba(59, 130, 246, 0.18) 0%, rgba(59, 130, 246, 0) 70%)",
+          background:
+            "radial-gradient(circle, rgba(59, 130, 246, 0.18) 0%, rgba(59, 130, 246, 0) 70%)",
           pointerEvents: "none",
           transform: "translateZ(0)",
         }}
@@ -123,13 +124,18 @@ const LoginPage = () => {
           right: "-10%",
           width: "50vw",
           height: "50vh",
-          background: "radial-gradient(circle, rgba(139, 92, 246, 0.16) 0%, rgba(139, 92, 246, 0) 70%)",
+          background:
+            "radial-gradient(circle, rgba(139, 92, 246, 0.16) 0%, rgba(139, 92, 246, 0) 70%)",
           pointerEvents: "none",
           transform: "translateZ(0)",
         }}
       />
 
-      <Container component="main" maxWidth="sm" sx={{ position: "relative", zIndex: 1 }}>
+      <Container
+        component="main"
+        maxWidth="sm"
+        sx={{ position: "relative", zIndex: 1 }}
+      >
         <Paper
           elevation={0}
           sx={{
@@ -139,7 +145,7 @@ const LoginPage = () => {
             backdropFilter: "blur(20px)",
             WebkitBackdropFilter: "blur(20px)",
             border: `1px solid ${dash.borderStrong}`,
-            boxShadow: "0 16px 40px rgba(0, 0, 0, 0.5)",
+            boxShadow: dash.shadows.floating,
           }}
         >
           <Stack spacing={3} alignItems="center" textAlign="center">
@@ -147,11 +153,12 @@ const LoginPage = () => {
               sx={{
                 width: 72,
                 height: 72,
-                background: "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)",
-                boxShadow: "0 6px 20px rgba(37, 99, 235, 0.5)",
+                background: dash.gradients.primary,
+                border: `1px solid ${dash.borderStrong}`,
+                boxShadow: dash.shadows.button,
               }}
             >
-              <Speed sx={{ fontSize: 36, color: "white" }} />
+              <Speed sx={{ fontSize: 36, color: "#ffffff" }} />
             </Avatar>
 
             <Box>
@@ -169,7 +176,10 @@ const LoginPage = () => {
               </Typography>
               <Typography
                 variant="body2"
-                sx={{ color: dash.inkMuted, fontSize: { xs: "0.85rem", sm: "0.95rem" } }}
+                sx={{
+                  color: dash.inkMuted,
+                  fontSize: { xs: "0.85rem", sm: "0.95rem" },
+                }}
               >
                 Hệ thống Quản lý Chuyển đổi Nhanh &ndash; Việt Long Hưng
               </Typography>
@@ -231,11 +241,17 @@ const LoginPage = () => {
                       background: "rgba(255, 255, 255, 0.05)",
                       color: "#ffffff",
                       "& fieldset": { borderColor: dash.border },
-                      "&:hover fieldset": { borderColor: "rgba(59, 130, 246, 0.45)" },
-                      "&.Mui-focused fieldset": { borderColor: dash.status.blue },
+                      "&:hover fieldset": {
+                        borderColor: "rgba(59, 130, 246, 0.45)",
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: dash.status.blue,
+                      },
                     },
                     "& .MuiInputLabel-root": { color: dash.inkMuted },
-                    "& .MuiInputLabel-root.Mui-focused": { color: dash.status.blue },
+                    "& .MuiInputLabel-root.Mui-focused": {
+                      color: dash.status.blue,
+                    },
                   }}
                 />
 
@@ -261,7 +277,10 @@ const LoginPage = () => {
                           onMouseDown={(e) => e.preventDefault()}
                           edge="end"
                           disabled={loading}
-                          sx={{ color: dash.inkMuted, "&:hover": { color: "#ffffff" } }}
+                          sx={{
+                            color: dash.inkMuted,
+                            "&:hover": { color: "#ffffff" },
+                          }}
                         >
                           {showPassword ? <VisibilityOff /> : <Visibility />}
                         </IconButton>
@@ -290,7 +309,9 @@ const LoginPage = () => {
                       },
                     },
                     "& .MuiInputLabel-root": { color: dash.inkMuted },
-                    "& .MuiInputLabel-root.Mui-focused": { color: dash.status.blue },
+                    "& .MuiInputLabel-root.Mui-focused": {
+                      color: dash.status.blue,
+                    },
                   }}
                 />
 
@@ -304,19 +325,20 @@ const LoginPage = () => {
                     mt: 1.5,
                     py: 1.6,
                     borderRadius: "10px",
-                    background: "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)",
+                    background: dash.gradients.primary,
+                    color: "#ffffff",
                     fontSize: fontSizes.lead,
                     fontWeight: 700,
                     textTransform: "none",
-                    boxShadow: "0 6px 20px rgba(37, 99, 235, 0.4)",
+                    boxShadow: dash.shadows.button,
                     "&:hover": {
-                      background: "linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)",
+                      background: dash.gradients.primaryHover,
                       transform: "translateY(-1px)",
-                      boxShadow: "0 8px 25px rgba(37, 99, 235, 0.6)",
+                      boxShadow: dash.shadows.buttonHover,
                     },
                     "&:disabled": {
-                      background: "rgba(59, 130, 246, 0.3)",
-                      color: "rgba(255, 255, 255, 0.5)",
+                      background: "rgba(30, 64, 175, 0.45)",
+                      color: "rgba(255, 255, 255, 0.65)",
                     },
                     transition: "all 0.25s ease",
                   }}

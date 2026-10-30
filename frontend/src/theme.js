@@ -213,7 +213,8 @@ export const FLUID_TYPE = false;
  *   scale(12, 14)  ->  "0.875rem"                       khi FLUID_TYPE = false
  *   scale(12, 14)  ->  "clamp(0.75rem, ... , 0.875rem)"  khi FLUID_TYPE = true
  */
-export const scale = (lo, hi) => (FLUID_TYPE ? fluid(lo, hi) : `${hi / REM}rem`);
+export const scale = (lo, hi) =>
+  FLUID_TYPE ? fluid(lo, hi) : `${hi / REM}rem`;
 
 /** Xuất lại công tắc chung để nơi khác kiểm tra được trạng thái hiện tại. */
 export const FLUID = FLUID_TYPE;
@@ -222,12 +223,12 @@ const FIXED = (px) => `${px / REM}rem`;
 
 export const fontSizes = {
   // ── THANG 8 BẬC. Con số là px; đổi ở đây là đổi toàn app. ──────────────
-  caption: FIXED(10), // nhãn siêu nhỏ trong Chip / ô bảng
-  label: FIXED(11.2), // nhãn, chú thích, icon nhỏ
-  small: FIXED(12.6), // chữ nhỏ: ô bảng dày, Chip
-  body: scale(12, 13.6), // chữ nội dung thường
-  lead: scale(13.6, 15.6), // chữ nhấn: ô bảng chính, Tabs
-  title: scale(15.6, 17.6), // tiêu đề nhỏ, AlertTitle
+  caption: FIXED(12), // nhãn nhỏ trong Chip / chú giải biểu đồ (sàn 12px chuẩn đọc từ xa)
+  label: FIXED(12.5), // nhãn, chú thích, icon nhỏ
+  small: FIXED(13), // chữ nhỏ: ô bảng dày, Chip
+  body: scale(13, 14), // chữ nội dung thường
+  lead: scale(14, 15.6), // chữ nhấn: ô bảng chính, Tabs
+  title: scale(16, 18), // tiêu đề nhỏ, AlertTitle
   xl: scale(20, 24), // icon hành động trong bảng
   xxl: scale(24, 28.8), // icon cảnh báo lớn
 };
@@ -559,12 +560,23 @@ export const components = {
     },
   },
 
-  // Thanh cuộn mỏng suốt toàn app chuẩn ERP Dashboard
+  // Thanh cuộn mỏng + bề mặt trình duyệt (selection, focus ring, tabular-nums)
   MuiCssBaseline: {
     styleOverrides: {
       "*": {
         scrollbarWidth: "thin",
         scrollbarColor: "rgba(148, 163, 184, 0.35) transparent",
+      },
+      "*::selection": {
+        backgroundColor: "rgba(37, 99, 235, 0.45)",
+        color: "#ffffff",
+      },
+      "*:focus-visible": {
+        outline: "2px solid #60a5fa",
+        outlineOffset: "2px",
+      },
+      "table, th, td": {
+        fontVariantNumeric: "tabular-nums",
       },
       "*::-webkit-scrollbar": {
         width: "5px",
@@ -733,26 +745,26 @@ export const sx = {
   },
 };
 
-
 // ══════════════════════════════════════════════════════════════════════════
-// §7. DASHBOARD BAO CAO (nen toi)
-//    Bang dieu khien treo man hinh lon trong xuong - nen navy, chu sang.
-//    Tach rieng khoi §1 vi day la mot NGU CANH khac: cac trang thuong dung
-//    nen sang, rieng dashboard dung nen toi.
+// §7. HỆ TOKEN DEEP NAVY ERP (ĐỒNG NHẤT TOÀN BỘ ỨNG DỤNG QCO)
+//    Dùng chung cho cả Dashboard TV nhà xưởng lẫn các trang điều hành,
+//    đảm bảo độ tương phản chuẩn WCAG AA (>= 4.5:1) và bóng đổ trung tính.
 // ══════════════════════════════════════════════════════════════════════════
 
 export const dash = {
-  /** Nền trang: Deep Navy siêu sang từ ERP (#031835) */
+  /** Nền trang: Deep Navy chuẩn ERP (#031835) */
   bg: "#031835",
-  /** Mặt thẻ: Glassmorphic trong suốt hiện đại pha ERP Card (#062251) */
-  panel: "rgba(6, 34, 81, 0.45)",
+  /** Mặt thẻ chính: Glassmorphic trên nền Deep Navy */
+  panel: "rgba(6, 34, 81, 0.55)",
   /** Nền dải tiêu đề thẻ / hàng xen kẽ */
-  panelAlt: "rgba(6, 30, 68, 0.65)",
-  /** Nền ô số liệu nổi bật / tile */
-  tile: "rgba(4, 23, 56, 0.55)",
+  panelAlt: "rgba(6, 30, 68, 0.72)",
+  /** Nền ô số liệu con / tile */
+  tile: "rgba(4, 23, 56, 0.62)",
+  /** Nền menu nổi / hộp thoại trên nền tối */
+  menu: "#072048",
 
   border: "rgba(255, 255, 255, 0.1)",
-  borderStrong: "rgba(59, 130, 246, 0.35)",
+  borderStrong: "rgba(59, 130, 246, 0.38)",
 
   /**
    * NỀN ĐỤC cho hàng DÍNH (sticky) của bảng.
@@ -762,23 +774,47 @@ export const dash = {
    * đọc ra hai dòng chồng nhau. Hai mã dưới đây là kết quả trộn sẵn đúng màu
    * đó lên nền thẻ, nên nhìn y hệt mà không còn trong suốt.
    */
-  rowHead: "#082556",  // = rgba(8, 38, 88, 0.92) trộn lên mặt thẻ
+  rowHead: "#082556", // = rgba(8, 38, 88, 0.92) trộn lên mặt thẻ
   rowTotal: "#061e44", // = rgba(6, 30, 68, 0.85) trộn lên mặt thẻ
   grid: "rgba(255, 255, 255, 0.08)", // lưới biểu đồ thanh mảnh, tinh tế
 
   ink: "#ffffff",
-  inkSoft: "#cbd5e1", // slate-300
-  inkMuted: "#94a3b8", // slate-400
+  inkSoft: "#cbd5e1", // slate-300 (tương phản 11.8:1 trên #031835)
+  inkMuted: "#94a3b8", // slate-400 (tương phản 6.4:1 trên #031835)
 
-  /** Màu trạng thái chuẩn ERP Dashboard */
+  /** Màu trạng thái chuẩn ERP Dashboard (dùng cho chữ/biểu đồ trên nền tối, tương phản >= 6.5:1) */
   status: {
     good: "#22c55e", // erp-green
     warn: "#f59e0b", // erp-yellow / amber
-    bad: "#ef4444",  // erp-red
-    orange: "#f97316", // erp-orange
-    blue: "#3b82f6", // erp-blue
-    cyan: "#00e5ff", // erp-cyan
-    purple: "#8b5cf6", // erp-purple
+    bad: "#ef4444", // erp-red
+    orange: "#fb923c", // erp-orange sáng (>= 7.4:1 trên nền tối)
+    blue: "#60a5fa", // erp-blue sáng (>= 7.3:1 trên nền tối)
+    cyan: "#22d3ee", // erp-cyan
+    purple: "#a78bfa", // erp-purple sáng (>= 6.5:1 trên nền tối)
+  },
+
+  /**
+   * Nền nút bấm / huy hiệu có chữ trắng (#ffffff) đạt chuẩn tương phản WCAG AA (>= 4.5:1).
+   * Tránh dùng #3b82f6 (3.68:1), #22c55e (2.28:1) hay #f97316 (2.80:1) làm nền cho chữ trắng.
+   */
+  gradients: {
+    primary: "linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)", // >= 5.17:1 với #fff
+    primaryHover: "linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%)",
+    success: "linear-gradient(135deg, #15803d 0%, #16a34a 100%)", // >= 4.6:1 với #fff
+    successHover: "linear-gradient(135deg, #166534 0%, #15803d 100%)",
+    purple: "linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%)", // >= 5.7:1 với #fff
+    purpleHover: "linear-gradient(135deg, #5b21b6 0%, #6d28d9 100%)",
+    orange: "linear-gradient(135deg, #b45309 0%, #c2410c 100%)", // >= 5.18:1 với #fff
+    orangeHover: "linear-gradient(135deg, #9a3412 0%, #b45309 100%)",
+  },
+
+  /** Bóng đổ độ sâu trung tính (không dùng quầng sáng màu neon gây nhiễu thị giác) */
+  shadows: {
+    card: "0 8px 24px 0 rgba(0, 0, 0, 0.28)",
+    panel: "0 8px 32px 0 rgba(0, 0, 0, 0.34)",
+    button: "0 4px 12px rgba(0, 0, 0, 0.3)",
+    buttonHover: "0 6px 16px rgba(0, 0, 0, 0.4)",
+    floating: "0 12px 32px rgba(0, 0, 0, 0.48)",
   },
 
   /** Màu chuỗi dữ liệu rực rỡ và hài hòa */
@@ -786,6 +822,56 @@ export const dash = {
 
   /** Đường "toàn công ty" - nét đứt trung tính */
   company: "#e2e8f0",
+};
+
+/** Preset sx dùng chung cho giao diện Deep Navy ERP toàn hệ thống */
+export const dashSx = {
+  /** Thẻ kính mờ chuẩn ERP */
+  glassCard: {
+    borderRadius: `${radii.md}px`,
+    background: dash.panel,
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+    border: `1px solid ${dash.border}`,
+    boxShadow: dash.shadows.card,
+  },
+
+  /** Ô nhập liệu trên nền tối chuẩn ERP */
+  darkInput: {
+    "& .MuiOutlinedInput-root": {
+      borderRadius: `${radii.md}px`,
+      background: "rgba(255, 255, 255, 0.05)",
+      color: dash.ink,
+      "& fieldset": { borderColor: dash.border },
+      "&:hover fieldset": { borderColor: dash.borderStrong },
+      "&.Mui-focused fieldset": { borderColor: dash.status.blue },
+    },
+    "& .MuiInputLabel-root": { color: dash.inkSoft },
+    "& .MuiInputLabel-root.Mui-focused": { color: "#60a5fa" },
+    "& .MuiInputBase-input::placeholder": {
+      color: dash.inkMuted,
+      opacity: 1,
+    },
+  },
+
+  /** Nút hành động chính đạt chuẩn tương phản WCAG AA >= 4.5:1 */
+  primaryButton: {
+    background: dash.gradients.primary,
+    color: dash.ink,
+    fontWeight: 700,
+    borderRadius: `${radii.sm}px`,
+    boxShadow: dash.shadows.button,
+    transition: "all 0.2s ease",
+    "&:hover": {
+      background: dash.gradients.primaryHover,
+      transform: "translateY(-1px)",
+      boxShadow: dash.shadows.buttonHover,
+    },
+    "&:disabled": {
+      background: "rgba(37, 99, 235, 0.28)",
+      color: "rgba(255, 255, 255, 0.55)",
+    },
+  },
 };
 
 /**

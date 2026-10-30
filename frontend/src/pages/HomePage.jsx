@@ -2,9 +2,11 @@
 //
 // TRANG CHỦ HỆ THỐNG QCO - ĐỒNG BỘ THEME DEEP NAVY + GLASSMORPHISM VỚI DASHBOARD
 
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AdminPanelSettings,
+  Alert,
   ArrowForward,
   Assessment,
   Box,
@@ -12,26 +14,39 @@ import {
   Chip,
   Container,
   dash,
+  dashStatusColor,
   Grid,
   InfoOutlined,
   PlaylistAddCheck,
   Security,
   ShowChart,
+  Snackbar,
   Speed,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
   TrackChanges,
   TrendingUp,
   Typography,
+  Warning,
 } from "../ui";
 import MainLayout from "../components/MainLayout";
 import { useAuth } from "../hooks/useAuth";
+import { useDashboardData } from "./dashboard/dashboardMockData";
 
 const HomePage = () => {
   const { user, isAdmin, canEdit } = useAuth();
   const navigate = useNavigate();
+  const data = useDashboardData();
+  const [infoNotice, setInfoNotice] = useState("");
 
   const displayName =
-    user?.ten_nv || user?.name || (user?.ma_nv ? `NV ${user.ma_nv}` : "Người dùng");
+    user?.ten_nv ||
+    user?.name ||
+    (user?.ma_nv ? `NV ${user.ma_nv}` : "Người dùng");
 
   const todayStr = new Intl.DateTimeFormat("vi-VN", {
     weekday: "long",
@@ -40,7 +55,22 @@ const HomePage = () => {
     day: "numeric",
   }).format(new Date());
 
-  // Thẻ điều hướng chức năng đồng bộ màu chuẩn ERP
+  const { kpi, hsbqTarget, period } = data;
+  const periodLabel = `${period.from} – ${period.to}`;
+  const rampUpPct =
+    kpi.rampUpTotal > 0
+      ? ((kpi.rampUpAchieved / kpi.rampUpTotal) * 100).toFixed(1)
+      : "0.0";
+
+  // Danh sách 5 chuyền có HSBQ 3 ngày thấp nhất cần chú ý hỗ trợ kỹ thuật
+  const attentionRows = useMemo(() => {
+    return [...data.rows]
+      .filter((r) => !r.rampUp)
+      .sort((a, b) => a.hsbq3 - b.hsbq3)
+      .slice(0, 5);
+  }, [data.rows]);
+
+  // Thẻ điều hướng chức năng đồng bộ màu chuẩn ERP (độ tương phản >= 4.5:1)
   const quickNavCards = [
     {
       title: "Dashboard Báo Cáo QCO",
@@ -49,13 +79,14 @@ const HomePage = () => {
         "Theo dõi trực quan kết quả 3 ngày đầu chuyển đổi, biểu đồ HSBQ theo từng chuyền may và phân tích tỷ lệ mã mới vs lặp lại theo thời gian thực.",
       icon: <Assessment sx={{ fontSize: 28 }} />,
       color: dash.status.blue,
-      gradient: "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)",
-      glowBg: "rgba(59, 130, 246, 0.12)",
-      borderColor: "rgba(59, 130, 246, 0.3)",
+      gradient: dash.gradients.primary,
+      gradientHover: dash.gradients.primaryHover,
+      glowBg: "rgba(59, 130, 246, 0.14)",
+      borderColor: "rgba(59, 130, 246, 0.35)",
       actionLabel: "Truy cập Dashboard",
-      path: "/dashboard",
+      onAction: () => navigate("/dashboard"),
       show: true,
-      badge: "Realtime",
+      badge: "Trực tuyến",
     },
     {
       title: "Kế Hoạch Chuyển Đổi",
@@ -64,27 +95,33 @@ const HomePage = () => {
         "Theo dõi danh mục kế hoạch chuẩn bị máy móc, công đoạn may mẫu và bố trí thiết bị phục vụ chuyển đổi nhanh trong xưởng may.",
       icon: <PlaylistAddCheck sx={{ fontSize: 28 }} />,
       color: dash.status.good,
-      gradient: "linear-gradient(135deg, #10b981 0%, #22c55e 100%)",
-      glowBg: "rgba(34, 197, 94, 0.12)",
-      borderColor: "rgba(34, 197, 94, 0.3)",
-      actionLabel: "Xem chi tiết",
-      path: "/dashboard",
+      gradient: dash.gradients.success,
+      gradientHover: dash.gradients.success,
+      glowBg: "rgba(34, 197, 94, 0.14)",
+      borderColor: "rgba(34, 197, 94, 0.35)",
+      actionLabel: "Xem thông tin phân hệ",
+      onAction: () =>
+        setInfoNotice(
+          "Phân hệ Lập kế hoạch chuyển đổi đang được tích hợp CSDL xưởng may. Vui lòng theo dõi kết quả thực tế tại Dashboard Báo Cáo QCO."
+        ),
       show: true,
+      badge: "Đang phát triển",
     },
     {
       title: "Trang Quản Trị & Phân Quyền",
       subtitle: "Phân quyền cán bộ công nhân viên",
       description:
-        "Tìm kiếm nhân viên trong hệ thống nhân sự, cấp quyền Quản trị (Admin), Nhập liệu (Edit) hoặc Xem (View) theo mô hình phân quyền TPM.",
+        "Tìm kiếm nhân viên trong hệ thống nhân sự, cấp quyền Quản trị (Admin), Nhập liệu (Edit) hoặc Xem (View) theo mô hình phân quyền nhà máy.",
       icon: <AdminPanelSettings sx={{ fontSize: 28 }} />,
       color: dash.status.purple,
-      gradient: "linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%)",
-      glowBg: "rgba(139, 92, 246, 0.12)",
-      borderColor: "rgba(139, 92, 246, 0.3)",
+      gradient: dash.gradients.purple,
+      gradientHover: dash.gradients.purple,
+      glowBg: "rgba(139, 92, 246, 0.14)",
+      borderColor: "rgba(139, 92, 246, 0.35)",
       actionLabel: "Vào Trang Admin",
-      path: "/admin",
+      onAction: () => navigate("/admin"),
       show: isAdmin,
-      badge: "Admin Only",
+      badge: "Quản trị",
     },
   ];
 
@@ -107,7 +144,7 @@ const HomePage = () => {
             color: "#ffffff",
             position: "relative",
             overflow: "hidden",
-            boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.32)",
+            boxShadow: dash.shadows.panel,
             "&::before": {
               content: '""',
               position: "absolute",
@@ -119,9 +156,20 @@ const HomePage = () => {
             },
           }}
         >
-          <Grid container spacing={3} alignItems="center" sx={{ position: "relative", zIndex: 1 }}>
+          <Grid
+            container
+            spacing={3}
+            alignItems="center"
+            sx={{ position: "relative", zIndex: 1 }}
+          >
             <Grid size={{ xs: 12, md: 8 }}>
-              <Stack direction="row" spacing={1} sx={{ mb: 1.5 }} alignItems="center" flexWrap="wrap">
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{ mb: 1.5 }}
+                alignItems="center"
+                flexWrap="wrap"
+              >
                 <Chip
                   label={todayStr}
                   size="small"
@@ -130,7 +178,7 @@ const HomePage = () => {
                     border: `1px solid ${dash.border}`,
                     color: dash.inkSoft,
                     fontWeight: 600,
-                    fontSize: "0.72rem",
+                    fontSize: "0.75rem",
                   }}
                 />
                 {user?.phongban_name && (
@@ -142,7 +190,7 @@ const HomePage = () => {
                       border: "1px solid rgba(245, 158, 11, 0.3)",
                       color: dash.status.warn,
                       fontWeight: 700,
-                      fontSize: "0.72rem",
+                      fontSize: "0.75rem",
                     }}
                   />
                 )}
@@ -158,7 +206,7 @@ const HomePage = () => {
                   letterSpacing: -0.2,
                 }}
               >
-                Xin chào, {displayName}! 👋
+                Xin chào, {displayName}
               </Typography>
 
               <Typography
@@ -170,26 +218,32 @@ const HomePage = () => {
                   lineHeight: 1.55,
                 }}
               >
-                Chào mừng bạn đến với Hệ thống QCO (Quick Change Over). Theo dõi tiến độ
-                chuyển đổi mã hàng, hiệu suất chuyền may và phân quyền quản trị hệ thống.
+                Hệ thống theo dõi tiến độ chuyển đổi mã hàng (Quick Change
+                đầu ({periodLabel}) và quản lý phân quyền vận hành nhà máy.
               </Typography>
 
-              <Stack direction="row" spacing={1.5} sx={{ mt: 3 }} flexWrap="wrap">
+              <Stack
+                direction="row"
+                spacing={1.5}
+                sx={{ mt: 3 }}
+                flexWrap="wrap"
+              >
                 <Button
                   variant="contained"
                   onClick={() => navigate("/dashboard")}
                   startIcon={<Assessment />}
                   sx={{
-                    background: "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)",
+                    background: dash.gradients.primary,
                     color: "#ffffff",
                     fontWeight: 700,
                     px: 3,
                     py: 1,
                     borderRadius: "8px",
-                    boxShadow: "0 4px 14px rgba(37, 99, 235, 0.4)",
+                    boxShadow: dash.shadows.button,
                     "&:hover": {
-                      background: "linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)",
+                      background: dash.gradients.primaryHover,
                       transform: "translateY(-1px)",
+                      boxShadow: dash.shadows.buttonHover,
                     },
                   }}
                 >
@@ -203,15 +257,15 @@ const HomePage = () => {
                     startIcon={<AdminPanelSettings />}
                     sx={{
                       color: "#ffffff",
-                      borderColor: "rgba(139, 92, 246, 0.4)",
-                      background: "rgba(139, 92, 246, 0.12)",
+                      borderColor: "rgba(139, 92, 246, 0.45)",
+                      background: "rgba(139, 92, 246, 0.14)",
                       fontWeight: 700,
                       px: 2.5,
                       py: 1,
                       borderRadius: "8px",
                       "&:hover": {
                         borderColor: dash.status.purple,
-                        background: "rgba(139, 92, 246, 0.22)",
+                        background: "rgba(139, 92, 246, 0.24)",
                       },
                     }}
                   >
@@ -223,28 +277,31 @@ const HomePage = () => {
 
             <Grid
               size={{ xs: 12, md: 4 }}
-              sx={{ display: { xs: "none", md: "flex" }, justifyContent: "center" }}
+              sx={{
+                display: { xs: "none", md: "flex" },
+                justifyContent: "center",
+              }}
             >
               <Box
                 sx={{
-                  width: 130,
-                  height: 130,
+                  width: 124,
+                  height: 124,
                   borderRadius: "50%",
                   bgcolor: "rgba(59, 130, 246, 0.12)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
-                  border: "2px solid rgba(59, 130, 246, 0.3)",
+                  boxShadow: dash.shadows.card,
+                  border: `2px solid ${dash.borderStrong}`,
                 }}
               >
-                <Speed sx={{ fontSize: 68, color: dash.series[0] }} />
+                <Speed sx={{ fontSize: 64, color: dash.series[0] }} />
               </Box>
             </Grid>
           </Grid>
         </Box>
 
-        {/* ── 2. DẢI 4 THẺ THỐNG KÊ NHANH (ERP KPI CARDS) ──────────────── */}
+        {/* ── 2. DẢI 4 THẺ THỐNG KÊ NHANH ĐỒNG BỘ DỮ LIỆU THỰC VỚI DASHBOARD ── */}
         <Grid container spacing={2} sx={{ mb: 3 }}>
           {/* KPI 1 */}
           <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
@@ -255,12 +312,12 @@ const HomePage = () => {
                 background: dash.panel,
                 backdropFilter: "blur(12px)",
                 border: `1px solid ${dash.border}`,
-                boxShadow: "0 8px 24px 0 rgba(0, 0, 0, 0.28)",
+                boxShadow: dash.shadows.card,
                 display: "flex",
                 alignItems: "center",
                 gap: 1.75,
                 transition: "all 0.2s ease",
-                "&:hover": { borderColor: "rgba(59, 130, 246, 0.35)" },
+                "&:hover": { borderColor: dash.borderStrong },
               }}
             >
               <Box
@@ -282,7 +339,7 @@ const HomePage = () => {
                 <Typography
                   sx={{
                     color: dash.inkMuted,
-                    fontSize: "0.68rem",
+                    fontSize: "0.75rem",
                     fontWeight: 700,
                     letterSpacing: 0.4,
                     textTransform: "uppercase",
@@ -290,8 +347,25 @@ const HomePage = () => {
                 >
                   TỔNG LƯỢT CHUYỂN ĐỔI
                 </Typography>
-                <Typography sx={{ color: "#ffffff", fontWeight: 800, fontSize: "1.35rem", lineHeight: 1.1 }}>
-                  14 <Typography component="span" sx={{ fontSize: "0.75rem", color: dash.inkMuted, fontWeight: 600 }}>lần</Typography>
+                <Typography
+                  sx={{
+                    color: "#ffffff",
+                    fontWeight: 800,
+                    fontSize: "1.35rem",
+                    lineHeight: 1.15,
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {kpi.totalChangeovers}{" "}
+                  <Typography
+                    component="span"
+                    sx={{
+                      fontSize: "0.75rem",
+                      color: dash.inkMuted,
+                      fontWeight: 600,
+                    }}
+                  >
+                  </Typography>
                 </Typography>
               </Box>
             </Box>
@@ -306,12 +380,12 @@ const HomePage = () => {
                 background: dash.panel,
                 backdropFilter: "blur(12px)",
                 border: `1px solid ${dash.border}`,
-                boxShadow: "0 8px 24px 0 rgba(0, 0, 0, 0.28)",
+                boxShadow: dash.shadows.card,
                 display: "flex",
                 alignItems: "center",
                 gap: 1.75,
                 transition: "all 0.2s ease",
-                "&:hover": { borderColor: "rgba(34, 197, 94, 0.35)" },
+                "&:hover": { borderColor: dash.borderStrong },
               }}
             >
               <Box
@@ -319,8 +393,8 @@ const HomePage = () => {
                   width: 44,
                   height: 44,
                   borderRadius: "8px",
-                  bgcolor: "rgba(34, 197, 94, 0.15)",
-                  color: dash.status.good,
+                  bgcolor: "rgba(239, 68, 68, 0.14)",
+                  color: dashStatusColor(kpi.hsbqCompany, hsbqTarget),
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -333,7 +407,7 @@ const HomePage = () => {
                 <Typography
                   sx={{
                     color: dash.inkMuted,
-                    fontSize: "0.68rem",
+                    fontSize: "0.75rem",
                     fontWeight: 700,
                     letterSpacing: 0.4,
                     textTransform: "uppercase",
@@ -341,8 +415,26 @@ const HomePage = () => {
                 >
                   HSBQ TOÀN CÔNG TY
                 </Typography>
-                <Typography sx={{ color: dash.status.good, fontWeight: 800, fontSize: "1.35rem", lineHeight: 1.1 }}>
-                  68.5%
+                <Typography
+                  sx={{
+                    color: dashStatusColor(kpi.hsbqCompany, hsbqTarget),
+                    fontWeight: 800,
+                    fontSize: "1.35rem",
+                    lineHeight: 1.15,
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {kpi.hsbqCompany}%{" "}
+                  <Typography
+                    component="span"
+                    sx={{
+                      fontSize: "0.75rem",
+                      color: dash.inkMuted,
+                      fontWeight: 600,
+                    }}
+                  >
+                    (Mục tiêu {hsbqTarget}%)
+                  </Typography>
                 </Typography>
               </Box>
             </Box>
@@ -357,12 +449,12 @@ const HomePage = () => {
                 background: dash.panel,
                 backdropFilter: "blur(12px)",
                 border: `1px solid ${dash.border}`,
-                boxShadow: "0 8px 24px 0 rgba(0, 0, 0, 0.28)",
+                boxShadow: dash.shadows.card,
                 display: "flex",
                 alignItems: "center",
                 gap: 1.75,
                 transition: "all 0.2s ease",
-                "&:hover": { borderColor: "rgba(249, 115, 22, 0.35)" },
+                "&:hover": { borderColor: dash.borderStrong },
               }}
             >
               <Box
@@ -384,7 +476,7 @@ const HomePage = () => {
                 <Typography
                   sx={{
                     color: dash.inkMuted,
-                    fontSize: "0.68rem",
+                    fontSize: "0.75rem",
                     fontWeight: 700,
                     letterSpacing: 0.4,
                     textTransform: "uppercase",
@@ -392,8 +484,26 @@ const HomePage = () => {
                 >
                   TỶ LỆ ĐẠT RAMP-UP
                 </Typography>
-                <Typography sx={{ color: dash.status.orange, fontWeight: 800, fontSize: "1.35rem", lineHeight: 1.1 }}>
-                  11/14 <Typography component="span" sx={{ fontSize: "0.75rem", color: dash.inkMuted, fontWeight: 600 }}>(78.6%)</Typography>
+                <Typography
+                  sx={{
+                    color: dash.status.orange,
+                    fontWeight: 800,
+                    fontSize: "1.35rem",
+                    lineHeight: 1.15,
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {kpi.rampUpAchieved}/{kpi.rampUpTotal}{" "}
+                  <Typography
+                    component="span"
+                    sx={{
+                      fontSize: "0.75rem",
+                      color: dash.inkMuted,
+                      fontWeight: 600,
+                    }}
+                  >
+                    ({rampUpPct}%)
+                  </Typography>
                 </Typography>
               </Box>
             </Box>
@@ -408,12 +518,12 @@ const HomePage = () => {
                 background: dash.panel,
                 backdropFilter: "blur(12px)",
                 border: `1px solid ${dash.border}`,
-                boxShadow: "0 8px 24px 0 rgba(0, 0, 0, 0.28)",
+                boxShadow: dash.shadows.card,
                 display: "flex",
                 alignItems: "center",
                 gap: 1.75,
                 transition: "all 0.2s ease",
-                "&:hover": { borderColor: "rgba(139, 92, 246, 0.35)" },
+                "&:hover": { borderColor: dash.borderStrong },
               }}
             >
               <Box
@@ -435,7 +545,7 @@ const HomePage = () => {
                 <Typography
                   sx={{
                     color: dash.inkMuted,
-                    fontSize: "0.68rem",
+                    fontSize: "0.75rem",
                     fontWeight: 700,
                     letterSpacing: 0.4,
                     textTransform: "uppercase",
@@ -443,8 +553,19 @@ const HomePage = () => {
                 >
                   QUYỀN HẠN CỦA BẠN
                 </Typography>
-                <Typography sx={{ color: dash.status.purple, fontWeight: 800, fontSize: "1.1rem", lineHeight: 1.1 }}>
-                  {isAdmin ? "ADMIN (Toàn quyền)" : canEdit ? "EDIT (Chỉnh sửa)" : "VIEW (Chỉ xem)"}
+                <Typography
+                  sx={{
+                    color: dash.status.purple,
+                    fontWeight: 800,
+                    fontSize: "1.05rem",
+                    lineHeight: 1.15,
+                  }}
+                >
+                  {isAdmin
+                    ? "Quản trị (ADMIN)"
+                    : canEdit
+                      ? "Kỹ thuật (EDIT)"
+                      : "Xem báo cáo (VIEW)"}
                 </Typography>
               </Box>
             </Box>
@@ -472,19 +593,26 @@ const HomePage = () => {
                       background: dash.panel,
                       backdropFilter: "blur(12px)",
                       border: `1px solid ${dash.border}`,
-                      boxShadow: "0 8px 24px 0 rgba(0, 0, 0, 0.28)",
+                      boxShadow: dash.shadows.card,
                       p: 3,
                       display: "flex",
                       flexDirection: "column",
                       transition: "all 0.25s ease",
                       "&:hover": {
-                        transform: "translateY(-4px)",
-                        borderColor: card.color,
-                        boxShadow: `0 12px 30px rgba(0, 0, 0, 0.4)`,
+                        transform: "translateY(-3px)",
+                        borderColor: card.borderColor,
+                        boxShadow: dash.shadows.panel,
                       },
                     }}
                   >
-                    <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 2 }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        justifyContent: "space-between",
+                        mb: 2,
+                      }}
+                    >
                       <Box
                         sx={{
                           width: 48,
@@ -495,7 +623,7 @@ const HomePage = () => {
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
+                          boxShadow: dash.shadows.button,
                         }}
                       >
                         {card.icon}
@@ -507,7 +635,7 @@ const HomePage = () => {
                           size="small"
                           sx={{
                             fontWeight: 700,
-                            fontSize: "0.68rem",
+                            fontSize: "0.75rem",
                             bgcolor: card.glowBg,
                             color: card.color,
                             border: `1px solid ${card.borderColor}`,
@@ -516,25 +644,45 @@ const HomePage = () => {
                       )}
                     </Box>
 
-                    <Typography variant="h6" fontWeight={800} color="#ffffff" gutterBottom>
+                    <Typography
+                      variant="h6"
+                      fontWeight={800}
+                      color="#ffffff"
+                      gutterBottom
+                    >
                       {card.title}
                     </Typography>
 
                     <Typography
                       variant="caption"
                       fontWeight={700}
-                      sx={{ color: card.color, textTransform: "uppercase", letterSpacing: 0.5, mb: 1, display: "block" }}
+                      sx={{
+                        color: card.color,
+                        fontSize: "0.75rem",
+                        textTransform: "uppercase",
+                        letterSpacing: 0.5,
+                        mb: 1,
+                        display: "block",
+                      }}
                     >
                       {card.subtitle}
                     </Typography>
 
-                    <Typography variant="body2" sx={{ color: dash.inkSoft, mb: 3, flexGrow: 1, lineHeight: 1.6 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: dash.inkSoft,
+                        mb: 3,
+                        flexGrow: 1,
+                        lineHeight: 1.6,
+                      }}
+                    >
                       {card.description}
                     </Typography>
 
                     <Button
                       variant="contained"
-                      onClick={() => navigate(card.path)}
+                      onClick={card.onAction}
                       endIcon={<ArrowForward />}
                       sx={{
                         background: card.gradient,
@@ -542,10 +690,11 @@ const HomePage = () => {
                         fontWeight: 700,
                         py: 1.1,
                         color: "#ffffff",
-                        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.25)",
+                        boxShadow: dash.shadows.button,
                         "&:hover": {
+                          background: card.gradientHover,
                           transform: "translateY(-1px)",
-                          boxShadow: "0 6px 16px rgba(0, 0, 0, 0.35)",
+                          boxShadow: dash.shadows.buttonHover,
                         },
                       }}
                     >
@@ -557,115 +706,364 @@ const HomePage = () => {
           </Grid>
         </Box>
 
-        {/* ── 4. THÔNG TIN PHÂN QUYỀN HỆ THỐNG ────────────────────────────── */}
-        <Box
-          sx={{
-            p: 3,
-            borderRadius: "10px",
-            background: dash.panel,
-            backdropFilter: "blur(12px)",
-            border: `1px solid ${dash.border}`,
-            boxShadow: "0 8px 24px 0 rgba(0, 0, 0, 0.28)",
-          }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, mb: 1.5 }}>
-            <InfoOutlined sx={{ color: dash.series[0] }} />
-            <Typography variant="h6" fontWeight={800} color="#ffffff">
-              Cơ Chế Phân Quyền Trong Hệ Thống QCO
-            </Typography>
-          </Box>
-
-          <Typography variant="body2" sx={{ color: dash.inkSoft, mb: 2.5 }}>
-            Hệ thống phân quyền được đồng bộ trực tiếp với CSDL Nhân sự và quản lý theo 3 cấp độ:
-          </Typography>
-
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Box
-                sx={{
-                  p: 2,
-                  borderRadius: "8px",
-                  bgcolor: "rgba(139, 92, 246, 0.08)",
-                  border: "1px solid rgba(139, 92, 246, 0.25)",
-                }}
+        {/* ── 4. CHUYỀN CẦN CHÚ Ý & CƠ CHẾ PHÂN QUYỀN ─────────────────────── */}
+        <Grid container spacing={2.5}>
+          {/* Bảng cảnh báo nhanh các chuyền có HSBQ thấp nhất kỳ */}
+          <Grid size={{ xs: 12, lg: 7 }}>
+            <Box
+              sx={{
+                p: 2.5,
+                height: "100%",
+                borderRadius: "10px",
+                background: dash.panel,
+                backdropFilter: "blur(12px)",
+                border: `1px solid ${dash.border}`,
+                boxShadow: dash.shadows.card,
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <Stack
+                direction="row"
+                alignItems="center"
+                justifyContent="space-between"
+                sx={{ mb: 1.5 }}
               >
-                <Chip
-                  label="ADMIN"
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <Warning sx={{ color: dash.status.warn, fontSize: 20 }} />
+                  <Typography variant="h6" fontWeight={800} color="#ffffff">
+                    Chuyền Cần Chú Ý (HSBQ Dưới Ngưỡng {hsbqTarget}%)
+                  </Typography>
+                </Stack>
+                <Button
                   size="small"
+                  onClick={() => navigate("/dashboard")}
+                  endIcon={<ArrowForward fontSize="small" />}
                   sx={{
-                    fontWeight: 800,
-                    bgcolor: dash.status.purple,
-                    color: "white",
-                    mb: 1,
+                    color: dash.status.blue,
+                    fontWeight: 700,
+                    fontSize: "0.75rem",
                   }}
-                />
-                <Typography variant="body2" fontWeight={700} color="#ffffff" gutterBottom>
-                  Quản trị viên toàn hệ thống
-                </Typography>
-                <Typography variant="caption" sx={{ color: dash.inkMuted, display: "block" }}>
-                  Có quyền truy cập trang Admin, tìm kiếm nhân viên và gán/thu hồi phân quyền cho toàn bộ nhân sự.
-                </Typography>
-              </Box>
-            </Grid>
+                >
+                  Chi tiết
+                </Button>
+              </Stack>
 
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Box
-                sx={{
-                  p: 2,
-                  borderRadius: "8px",
-                  bgcolor: "rgba(59, 130, 246, 0.08)",
-                  border: "1px solid rgba(59, 130, 246, 0.25)",
-                }}
-              >
-                <Chip
-                  label="EDIT"
-                  size="small"
-                  sx={{
-                    fontWeight: 800,
-                    bgcolor: dash.status.blue,
-                    color: "white",
-                    mb: 1,
-                  }}
-                />
-                <Typography variant="body2" fontWeight={700} color="#ffffff" gutterBottom>
-                  Quyền chỉnh sửa dữ liệu
-                </Typography>
-                <Typography variant="caption" sx={{ color: dash.inkMuted, display: "block" }}>
-                  Được phép thêm mới và cập nhật dữ liệu kế hoạch chuyển đổi, thiết lập thông số kỹ thuật chuyền may.
-                </Typography>
+              <Box sx={{ overflowX: "auto" }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell
+                        sx={{
+                          color: dash.inkMuted,
+                          fontWeight: 700,
+                          fontSize: "0.75rem",
+                          borderBottom: `1px solid ${dash.border}`,
+                        }}
+                      >
+                        NHÓM &ndash; PHỤ TRÁCH
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          color: dash.inkMuted,
+                          fontWeight: 700,
+                          fontSize: "0.75rem",
+                          borderBottom: `1px solid ${dash.border}`,
+                        }}
+                      >
+                        TỔ
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          color: dash.inkMuted,
+                          fontWeight: 700,
+                          fontSize: "0.75rem",
+                          borderBottom: `1px solid ${dash.border}`,
+                        }}
+                      >
+                        MÃ HÀNG
+                      </TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{
+                          color: dash.inkMuted,
+                          fontWeight: 700,
+                          fontSize: "0.75rem",
+                          borderBottom: `1px solid ${dash.border}`,
+                        }}
+                      >
+                        NGÀY 1 / 2 / 3
+                      </TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{
+                          color: dash.inkMuted,
+                          fontWeight: 700,
+                          fontSize: "0.75rem",
+                          borderBottom: `1px solid ${dash.border}`,
+                        }}
+                      >
+                        HSBQ 3N
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {attentionRows.map((row) => (
+                      <TableRow
+                        key={row.stt}
+                        sx={{
+                          "&:hover": { bgcolor: "rgba(59, 130, 246, 0.08)" },
+                        }}
+                      >
+                        <TableCell
+                          sx={{
+                            color: "#ffffff",
+                            fontWeight: 600,
+                            fontSize: "0.82rem",
+                            borderBottom: `1px solid ${dash.border}`,
+                          }}
+                        >
+                          {row.group}
+                        </TableCell>
+                        <TableCell
+                          sx={{
+                            color: dash.inkSoft,
+                            fontWeight: 700,
+                            fontSize: "0.82rem",
+                            borderBottom: `1px solid ${dash.border}`,
+                          }}
+                        >
+                          {row.to}
+                        </TableCell>
+                        <TableCell
+                          sx={{
+                            color: dash.inkSoft,
+                            fontSize: "0.82rem",
+                            borderBottom: `1px solid ${dash.border}`,
+                          }}
+                        >
+                          {row.maMoi || row.maLap}{" "}
+                          <Typography
+                            component="span"
+                            sx={{
+                              color: dash.inkMuted,
+                              fontSize: "0.75rem",
+                            }}
+                          >
+                            ({row.maMoi ? "Mới" : "Lặp"})
+                          </Typography>
+                        </TableCell>
+                        <TableCell
+                          align="right"
+                          sx={{
+                            color: dash.inkMuted,
+                            fontSize: "0.82rem",
+                            borderBottom: `1px solid ${dash.border}`,
+                          }}
+                        >
+                          {row.d1}% / {row.d2}% / {row.d3}%
+                        </TableCell>
+                        <TableCell
+                          align="right"
+                          sx={{
+                            color: dash.status.bad,
+                            fontWeight: 800,
+                            fontSize: "0.85rem",
+                            borderBottom: `1px solid ${dash.border}`,
+                          }}
+                        >
+                          {row.hsbq3}%
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </Box>
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Box
-                sx={{
-                  p: 2,
-                  borderRadius: "8px",
-                  bgcolor: "rgba(34, 197, 94, 0.08)",
-                  border: "1px solid rgba(34, 197, 94, 0.25)",
-                }}
-              >
-                <Chip
-                  label="VIEW"
-                  size="small"
-                  sx={{
-                    fontWeight: 800,
-                    bgcolor: dash.status.good,
-                    color: "white",
-                    mb: 1,
-                  }}
-                />
-                <Typography variant="body2" fontWeight={700} color="#ffffff" gutterBottom>
-                  Quyền xem báo cáo
-                </Typography>
-                <Typography variant="caption" sx={{ color: dash.inkMuted, display: "block" }}>
-                  Được phép tra cứu báo cáo tổng hợp, theo dõi chỉ số HSBQ và tỷ lệ đạt ramp-up trên dashboard.
-                </Typography>
-              </Box>
-            </Grid>
+            </Box>
           </Grid>
-        </Box>
+
+          {/* Cơ chế phân quyền hệ thống */}
+          <Grid size={{ xs: 12, lg: 5 }}>
+            <Box
+              sx={{
+                p: 2.5,
+                height: "100%",
+                borderRadius: "10px",
+                background: dash.panel,
+                backdropFilter: "blur(12px)",
+                border: `1px solid ${dash.border}`,
+                boxShadow: dash.shadows.card,
+              }}
+            >
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1.25,
+                  mb: 1.5,
+                }}
+              >
+                <InfoOutlined sx={{ color: dash.series[0] }} />
+                <Typography variant="h6" fontWeight={800} color="#ffffff">
+                  Cấp Độ Phân Quyền QCO
+                </Typography>
+              </Box>
+
+              <Stack spacing={1.5}>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: "8px",
+                    bgcolor: "rgba(139, 92, 246, 0.08)",
+                    border: "1px solid rgba(139, 92, 246, 0.25)",
+                  }}
+                >
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    mb={0.5}
+                  >
+                    <Chip
+                      label="ADMIN"
+                      size="small"
+                      sx={{
+                        fontWeight: 800,
+                        fontSize: "0.75rem",
+                        background: dash.gradients.purple,
+                        color: "#ffffff",
+                      }}
+                    />
+                    <Typography
+                      variant="body2"
+                      fontWeight={700}
+                      color="#ffffff"
+                    >
+                      Quản trị viên hệ thống
+                    </Typography>
+                  </Stack>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: dash.inkMuted,
+                      fontSize: "0.75rem",
+                      display: "block",
+                    }}
+                  >
+                    Tìm kiếm nhân sự và cấp/thu hồi quyền cho toàn nhà máy.
+                  </Typography>
+                </Box>
+
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: "8px",
+                    bgcolor: "rgba(59, 130, 246, 0.08)",
+                    border: "1px solid rgba(59, 130, 246, 0.25)",
+                  }}
+                >
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    mb={0.5}
+                  >
+                    <Chip
+                      label="EDIT"
+                      size="small"
+                      sx={{
+                        fontWeight: 800,
+                        fontSize: "0.75rem",
+                        background: dash.gradients.primary,
+                        color: "#ffffff",
+                      }}
+                    />
+                    <Typography
+                      variant="body2"
+                      fontWeight={700}
+                      color="#ffffff"
+                    >
+                      Kỹ thuật &amp; Kế hoạch
+                    </Typography>
+                  </Stack>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: dash.inkMuted,
+                      fontSize: "0.75rem",
+                      display: "block",
+                    }}
+                  >
+                    Nhập liệu, cập nhật kế hoạch chuyển đổi và thông số chuyền
+                    may.
+                  </Typography>
+                </Box>
+
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: "8px",
+                    bgcolor: "rgba(34, 197, 94, 0.08)",
+                    border: "1px solid rgba(34, 197, 94, 0.25)",
+                  }}
+                >
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    mb={0.5}
+                  >
+                    <Chip
+                      label="VIEW"
+                      size="small"
+                      sx={{
+                        fontWeight: 800,
+                        fontSize: "0.75rem",
+                        background: dash.gradients.success,
+                        color: "#ffffff",
+                      }}
+                    />
+                    <Typography
+                      variant="body2"
+                      fontWeight={700}
+                      color="#ffffff"
+                    >
+                      Xem báo cáo điều hành
+                    </Typography>
+                  </Stack>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: dash.inkMuted,
+                      fontSize: "0.75rem",
+                      display: "block",
+                    }}
+                  >
+                    Tra cứu báo cáo tổng hợp, theo dõi HSBQ và tỷ lệ đạt
+                    ramp-up.
+                  </Typography>
+                </Box>
+              </Stack>
+            </Box>
+          </Grid>
+        </Grid>
       </Container>
+
+      <Snackbar
+        open={Boolean(infoNotice)}
+        autoHideDuration={4500}
+        onClose={() => setInfoNotice("")}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert
+          onClose={() => setInfoNotice("")}
+          severity="info"
+          variant="filled"
+          sx={{ borderRadius: "8px", fontWeight: 600 }}
+        >
+          {infoNotice}
+        </Alert>
+      </Snackbar>
     </MainLayout>
   );
 };

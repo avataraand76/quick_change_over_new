@@ -2,7 +2,7 @@
 //
 // TRANG QUẢN TRỊ - PHÂN QUYỀN NGƯỜI DÙNG ĐỒNG BỘ THEO THEME DEEP NAVY DASHBOARD
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   AdminPanelSettings,
   Alert,
@@ -14,6 +14,10 @@ import {
   CircularProgress,
   Container,
   dash,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   FormGroup,
   Grid,
@@ -35,20 +39,34 @@ import {
   TextField,
   Tooltip,
   Typography,
+  Warning,
   radii,
   sx as preset,
 } from "../ui";
 import MainLayout from "../components/MainLayout";
 import { api } from "../api/api";
+import { useAuth } from "../hooks/useAuth";
 
-const PERMISSION_DESCRIPTIONS = {
-  admin: "Toàn quyền quản trị hệ thống, phân quyền người dùng và cấu hình",
-  edit: "Được phép nhập liệu, chỉnh sửa kế hoạch mã hàng và chuyền",
-  view: "Chỉ được phép xem báo cáo và tra cứu dữ liệu dashboard",
+const PERMISSION_META = {
+  admin: {
+    title: "Quản trị hệ thống (ADMIN)",
+    description:
+      "Toàn quyền quản trị hệ thống, tìm kiếm nhân sự, phân quyền người dùng và cấu hình",
+  },
+  edit: {
+    title: "Kỹ thuật & Kế hoạch (EDIT)",
+    description:
+      "Được phép nhập liệu, cập nhật kế hoạch chuyển đổi mã hàng và thông số chuyền may",
+  },
+  view: {
+    title: "Xem báo cáo điều hành (VIEW)",
+    description:
+      "Được phép xem báo cáo tổng hợp và tra cứu dữ liệu HSBQ, Ramp-up trên dashboard",
+  },
 };
 
 const AdminPage = () => {
-  const [currentTab, setCurrentTab] = useState(0);
+  const { user: currentUser } = useAuth();
 
   // Danh mục tất cả quyền từ hệ thống: ['admin', 'edit', 'view']
   const [allPermissions, setAllPermissions] = useState([]);
@@ -59,8 +77,8 @@ const AdminPage = () => {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
-  // Tab con danh sách bên trái: 0 = "Tìm kiếm", 1 = "Đã phân quyền"
-  const [userListSubTab, setUserListSubTab] = useState(0);
+  // Tab con danh sách bên trái: 0 = "Đã cấp quyền", 1 = "Tìm kiếm nhân sự"
+  const [userListSubTab, setUserListSubTab] = useState(1);
   const [assignedUsers, setAssignedUsers] = useState([]);
   const [loadingAssigned, setLoadingAssigned] = useState(false);
 
@@ -70,6 +88,10 @@ const AdminPage = () => {
   const [initialUserPermissions, setInitialUserPermissions] = useState({});
   const [loadingUserPermissions, setLoadingUserPermissions] = useState(false);
   const [savingPermissions, setSavingPermissions] = useState(false);
+
+  // Hộp thoại xác nhận thu hồi toàn bộ quyền hoặc chuyển user khi chưa lưu
+  const [confirmRevokeOpen, setConfirmRevokeOpen] = useState(false);
+  const [pendingSelectUser, setPendingSelectUser] = useState(null);
 
   // Thông báo Notification
   const [notification, setNotification] = useState({
@@ -88,29 +110,32 @@ const AdminPage = () => {
   };
 
   // 1. Tải danh sách quyền hệ thống và danh sách người dùng đã được cấp quyền
-  const fetchAssignedUsers = useCallback(async (isManual = false, isSilent = false) => {
-    if (!isSilent) {
-      setLoadingAssigned(true);
-    }
-    try {
-      const res = await api.admin.getAssignedUsers();
-      if (res.success) {
-        setAssignedUsers(res.data || []);
+  const fetchAssignedUsers = useCallback(
+    async (isManual = false, isSilent = false) => {
+      if (!isSilent) {
+        setLoadingAssigned(true);
+      }
+      try {
+        const res = await api.admin.getAssignedUsers();
+        if (res.success) {
+          setAssignedUsers(res.data || []);
+          if (isManual) {
+            showNotification("success", "Đã làm mới danh sách phân quyền");
+          }
+        }
+      } catch (error) {
+        console.error("Lỗi lấy danh sách người dùng đã phân quyền:", error);
         if (isManual) {
-          showNotification("success", "Đã làm mới danh sách phân quyền");
+          showNotification("error", "Không thể làm mới danh sách");
+        }
+      } finally {
+        if (!isSilent) {
+          setLoadingAssigned(false);
         }
       }
-    } catch (error) {
-      console.error("Lỗi lấy danh sách người dùng đã phân quyền:", error);
-      if (isManual) {
-        showNotification("error", "Không thể làm mới danh sách");
-      }
-    } finally {
-      if (!isSilent) {
-        setLoadingAssigned(false);
-      }
-    }
-  }, []);
+    },
+    []
+  );
 
   useEffect(() => {
     const initializeData = async () => {
@@ -132,18 +157,17 @@ const AdminPage = () => {
   }, [fetchAssignedUsers]);
 
   // ── Cơ chế làm mới nền theo phong cách ERP Dashboard ────────────────────────
-  // Tự động fetch lại danh sách khi người dùng mở lại tab / mở F12 hoặc mỗi 3 phút
   useEffect(() => {
     let lastRefreshAt = Date.now();
-    const AUTO_REFRESH_INTERVAL_MS = 3 * 60 * 1000; // 3 phút
-    const MIN_VISIBILITY_GAP_MS = 5000; // Cách nhau tối thiểu 5s để tránh dồn request
+    const AUTO_REFRESH_INTERVAL_MS = 3 * 60 * 1000;
+    const MIN_VISIBILITY_GAP_MS = 5000;
 
     const triggerSilentRefresh = (isFocusEvent = false) => {
       if (document.visibilityState !== "visible") return;
       const now = Date.now();
       if (isFocusEvent && now - lastRefreshAt < MIN_VISIBILITY_GAP_MS) return;
       lastRefreshAt = now;
-      fetchAssignedUsers(false, true); // Chạy ngầm (silent) không giật skeleton loading
+      fetchAssignedUsers(false, true);
     };
 
     const handleVisibility = () => triggerSilentRefresh(true);
@@ -163,7 +187,19 @@ const AdminPage = () => {
     };
   }, [fetchAssignedUsers]);
 
-  // 2. Tìm kiếm nhân viên
+  // Lọc nhanh danh sách Đã cấp quyền theo từ khóa nhập vào ô tìm kiếm
+  const filteredAssignedUsers = useMemo(() => {
+    const q = userSearchQuery.trim().toLowerCase();
+    if (!q) return assignedUsers;
+    return assignedUsers.filter(
+      (u) =>
+        u.ma_nv?.toLowerCase().includes(q) ||
+        u.ten_nv?.toLowerCase().includes(q) ||
+        u.ten_phong_ban?.toLowerCase().includes(q)
+    );
+  }, [assignedUsers, userSearchQuery]);
+
+  // 2. Tìm kiếm nhân viên trên toàn hệ thống nhân sự
   const handleSearchSubmit = async () => {
     if (!userSearchQuery || userSearchQuery.trim().length < 2) {
       showNotification("info", "Vui lòng nhập ít nhất 2 ký tự để tìm kiếm");
@@ -192,12 +228,13 @@ const AdminPage = () => {
     }
   };
 
-  // 3. Chọn 1 nhân viên để xem / sửa quyền
-  const handleSelectUser = async (user) => {
-    if (selectedUser && selectedUser.ma_nv === user.ma_nv) {
-      return;
-    }
+  // Kiểm tra có thay đổi quyền chưa lưu hay không
+  const hasChanges = Object.keys(selectedUserPermissions).some(
+    (key) => selectedUserPermissions[key] !== initialUserPermissions[key]
+  );
 
+  // Thực thi tải quyền của nhân viên được chọn
+  const loadUserPermissions = async (user) => {
     setSelectedUser(user);
     setLoadingUserPermissions(true);
 
@@ -223,24 +260,44 @@ const AdminPage = () => {
     }
   };
 
-  // 4. Bật/tắt checkbox quyền
+  // 3. Chọn 1 nhân viên để xem / sửa quyền (có kiểm tra thay đổi chưa lưu)
+  const handleSelectUser = (user) => {
+    if (selectedUser && selectedUser.ma_nv === user.ma_nv) {
+      return;
+    }
+    if (hasChanges) {
+      setPendingSelectUser(user);
+      return;
+    }
+    loadUserPermissions(user);
+  };
+
+  const isEditingSelf =
+    Boolean(selectedUser?.ma_nv) &&
+    Boolean(currentUser?.ma_nv) &&
+    String(selectedUser.ma_nv) === String(currentUser.ma_nv);
+
+  // 4. Bật/tắt checkbox quyền (chặn tự gỡ quyền admin của chính mình)
   const handlePermissionToggle = (permName) => {
+    if (isEditingSelf && permName === "admin" && selectedUserPermissions.admin) {
+      showNotification(
+        "warning",
+        "Không thể tự gỡ quyền Quản trị (ADMIN) của tài khoản đang đăng nhập"
+      );
+      return;
+    }
     setSelectedUserPermissions((prev) => ({
       ...prev,
       [permName]: !prev[permName],
     }));
   };
 
-  // 5. Kiểm tra có thay đổi quyền hay không
-  const hasChanges = Object.keys(selectedUserPermissions).some(
-    (key) => selectedUserPermissions[key] !== initialUserPermissions[key]
-  );
-
-  // 6. Lưu phân quyền
-  const handleSavePermissions = async () => {
+  // 5. Thực thi lưu phân quyền lên server
+  const executeSavePermissions = async () => {
     if (!selectedUser) return;
-
+    setConfirmRevokeOpen(false);
     setSavingPermissions(true);
+
     try {
       const activePermissions = Object.keys(selectedUserPermissions).filter(
         (key) => selectedUserPermissions[key] === true
@@ -269,6 +326,19 @@ const AdminPage = () => {
     }
   };
 
+  // 6. Kiểm tra trước khi lưu (hỏi xác nhận nếu thu hồi toàn bộ quyền)
+  const handleSavePermissions = () => {
+    if (!selectedUser) return;
+    const activePermissions = Object.keys(selectedUserPermissions).filter(
+      (key) => selectedUserPermissions[key] === true
+    );
+    if (activePermissions.length === 0) {
+      setConfirmRevokeOpen(true);
+      return;
+    }
+    executeSavePermissions();
+  };
+
   // Hoàn tác các thay đổi chưa lưu
   const handleResetPermissions = () => {
     setSelectedUserPermissions({ ...initialUserPermissions });
@@ -276,121 +346,85 @@ const AdminPage = () => {
 
   return (
     <MainLayout
-      title="Trang Quản Trị"
-      subtitle="Quản lý danh mục & phân quyền hệ thống QCO"
+      title="Trang Quản Trị & Phân Quyền"
+      subtitle="Quản lý danh sách cán bộ công nhân viên được cấp quyền truy cập hệ thống QCO"
     >
       <Container maxWidth="xl" disableGutters>
-        {/* ── 1. TIÊU ĐỀ TRANG QUẢN TRỊ (GLASSMORPHIC ERP BANNER) ────────── */}
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 2,
-            mb: 3,
-            p: { xs: 2, sm: 2.5 },
-            background: dash.panel,
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            borderRadius: "10px",
-            boxShadow: "0 8px 24px 0 rgba(0, 0, 0, 0.28)",
-            border: `1px solid ${dash.border}`,
-          }}
-        >
-          <Box
-            sx={{
-              width: 50,
-              height: 50,
-              borderRadius: "10px",
-              background: "linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 4px 14px rgba(139, 92, 246, 0.4)",
-              flexShrink: 0,
-            }}
-          >
-            <AdminPanelSettings sx={{ color: "white", fontSize: 30 }} />
-          </Box>
-          <Box>
-            <Typography
-              variant="h5"
-              sx={{
-                fontWeight: 800,
-                color: "#ffffff",
-                letterSpacing: 0.5,
-                lineHeight: 1.2,
-                fontSize: { xs: "1.25rem", sm: "1.5rem" },
-              }}
-            >
-              TRANG QUẢN TRỊ
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{ color: dash.inkMuted, mt: 0.3, fontWeight: 500 }}
-            >
-              Quản lý danh mục &amp; phân quyền hệ thống QCO
-            </Typography>
-          </Box>
-        </Box>
-
-        {/* ── 2. KHUNG NỘI DUNG CHÍNH (GLASSMORPHIC ERP CARD) ────────────── */}
+        {/* ── KHUNG NỘI DUNG CHÍNH (GLASSMORPHIC ERP CARD) ────────────── */}
         <Box
           sx={{
             borderRadius: "10px",
             background: dash.panel,
             backdropFilter: "blur(14px)",
             WebkitBackdropFilter: "blur(14px)",
-            boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.32)",
+            boxShadow: dash.shadows.panel,
             border: `1px solid ${dash.border}`,
             overflow: "hidden",
           }}
         >
-          {/* Header Tabs */}
-          <Box
+          {/* Thanh tiêu đề phân hệ */}
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
             sx={{
               borderBottom: `1px solid ${dash.border}`,
-              px: 3,
-              pt: 1,
+              px: { xs: 2, sm: 3 },
+              py: 1.75,
               bgcolor: "rgba(255, 255, 255, 0.02)",
             }}
           >
-            <Tabs
-              value={currentTab}
-              onChange={(e, val) => setCurrentTab(val)}
-              sx={{
-                "& .MuiTab-root": {
-                  textTransform: "none",
-                  fontWeight: 700,
-                  fontSize: "0.95rem",
-                  minHeight: 46,
-                  px: 2.5,
-                  mr: 1,
-                  color: dash.inkMuted,
-                  borderRadius: "8px 8px 0 0",
-                  "&.Mui-selected": {
+            <Stack direction="row" alignItems="center" spacing={1.5}>
+              <Box
+                sx={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: "8px",
+                  background: dash.gradients.purple,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: dash.shadows.button,
+                }}
+              >
+                <AdminPanelSettings sx={{ color: "#ffffff", fontSize: 22 }} />
+              </Box>
+              <Box>
+                <Typography
+                  sx={{
+                    fontWeight: 800,
                     color: "#ffffff",
-                    bgcolor: "rgba(255, 255, 255, 0.06)",
-                  },
-                },
-                "& .MuiTabs-indicator": {
-                  height: 3,
-                  bgcolor: dash.status.blue,
-                  borderRadius: "3px 3px 0 0",
-                },
-              }}
-            >
-              <Tab
-                icon={<People fontSize="small" />}
-                iconPosition="start"
-                label="Phân Quyền"
-              />
-            </Tabs>
-          </Box>
+                    fontSize: "1rem",
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  PHÂN QUYỀN NGƯỜI DÙNG HỆ THỐNG
+                </Typography>
+                <Typography sx={{ color: dash.inkMuted, fontSize: "0.75rem" }}>
+                  Tra cứu nhân sự theo số thẻ hoặc lọc danh sách tài khoản đã cấp quyền
+                </Typography>
+              </Box>
+            </Stack>
 
-          {/* Nội dung tab phân quyền */}
+            <Chip
+              icon={<People sx={{ fontSize: "16px !important" }} />}
+              label={`${assignedUsers.length} nhân sự đã cấp quyền`}
+              size="small"
+              sx={{
+                display: { xs: "none", sm: "inline-flex" },
+                bgcolor: "rgba(59, 130, 246, 0.14)",
+                color: dash.status.blue,
+                border: `1px solid ${dash.borderStrong}`,
+                fontWeight: 700,
+                fontSize: "0.75rem",
+              }}
+            />
+          </Stack>
+
+          {/* Nội dung phân quyền */}
           <Box sx={{ p: { xs: 2, sm: 3 } }}>
             <Grid container spacing={2.5}>
-              {/* ── CỘT TRÁI: TÌM KIẾM NHÂN VIÊN ────────────────────────── */}
+              {/* ── CỘT TRÁI: TÌM KIẾM & DANH SÁCH NHÂN VIÊN ──────────────── */}
               <Grid size={{ xs: 12, md: 5 }}>
                 <Box
                   sx={{
@@ -407,9 +441,9 @@ const AdminPage = () => {
                     variant="h6"
                     fontWeight={800}
                     color="#ffffff"
-                    sx={{ mb: 2, fontSize: "1.05rem" }}
+                    sx={{ mb: 1.5, fontSize: "1rem" }}
                   >
-                    Tìm kiếm nhân viên
+                    Tìm kiếm &amp; Lọc nhân viên
                   </Typography>
 
                   {/* Khung tìm kiếm */}
@@ -417,18 +451,27 @@ const AdminPage = () => {
                     <TextField
                       fullWidth
                       size="small"
-                      placeholder="Nhập Mã NV hoặc Tên (vd: 09802)..."
+                      placeholder="Nhập Mã NV hoặc Họ tên (vd: 09802)..."
                       value={userSearchQuery}
                       onChange={(e) => setUserSearchQuery(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleSearchSubmit()}
+                      onKeyDown={(e) =>
+                        e.key === "Enter" && handleSearchSubmit()
+                      }
+                      inputProps={{
+                        "aria-label": "Nhập Mã nhân viên hoặc Họ tên để tìm kiếm",
+                      }}
                       sx={{
                         "& .MuiOutlinedInput-root": {
                           borderRadius: "8px",
                           bgcolor: "rgba(255, 255, 255, 0.05)",
                           color: "#ffffff",
                           "& fieldset": { borderColor: dash.border },
-                          "&:hover fieldset": { borderColor: "rgba(59, 130, 246, 0.4)" },
-                          "&.Mui-focused fieldset": { borderColor: dash.status.blue },
+                          "&:hover fieldset": {
+                            borderColor: dash.borderStrong,
+                          },
+                          "&.Mui-focused fieldset": {
+                            borderColor: dash.status.blue,
+                          },
                         },
                         "& .MuiInputBase-input::placeholder": {
                           color: dash.inkMuted,
@@ -436,27 +479,34 @@ const AdminPage = () => {
                         },
                       }}
                     />
-                    <Button
-                      variant="contained"
-                      onClick={handleSearchSubmit}
-                      disabled={loadingUsers}
-                      sx={{
-                        minWidth: 46,
-                        px: 2,
-                        borderRadius: "8px",
-                        background: "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)",
-                        boxShadow: "0 4px 12px rgba(37, 99, 235, 0.35)",
-                        "&:hover": {
-                          background: "linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)",
-                        },
-                      }}
-                    >
-                      {loadingUsers ? (
-                        <CircularProgress size={18} color="inherit" />
-                      ) : (
-                        <Search fontSize="small" />
-                      )}
-                    </Button>
+                    <Tooltip title="Tìm trong CSDL Nhân sự">
+                      <span>
+                        <Button
+                          variant="contained"
+                          onClick={handleSearchSubmit}
+                          disabled={loadingUsers}
+                          aria-label="Tìm kiếm nhân sự"
+                          sx={{
+                            minWidth: 46,
+                            height: 40,
+                            px: 2,
+                            borderRadius: "8px",
+                            background: dash.gradients.primary,
+                            color: "#ffffff",
+                            boxShadow: dash.shadows.button,
+                            "&:hover": {
+                              background: dash.gradients.primaryHover,
+                            },
+                          }}
+                        >
+                          {loadingUsers ? (
+                            <CircularProgress size={18} color="inherit" />
+                          ) : (
+                            <Search fontSize="small" />
+                          )}
+                        </Button>
+                      </span>
+                    </Tooltip>
                   </Box>
 
                   {/* Thanh chuyển đổi tab con */}
@@ -474,9 +524,9 @@ const AdminPage = () => {
                       value={userListSubTab}
                       onChange={(e, val) => setUserListSubTab(val)}
                       sx={{
-                        minHeight: 34,
+                        minHeight: 36,
                         "& .MuiTab-root": {
-                          minHeight: 34,
+                          minHeight: 36,
                           py: 0.5,
                           px: 1.5,
                           fontSize: "0.8rem",
@@ -491,29 +541,34 @@ const AdminPage = () => {
                       }}
                     >
                       <Tab label={`Tìm kiếm (${userSearchResults.length})`} />
-                      <Tab label={`Đã cấp quyền (${assignedUsers.length})`} />
+                      <Tab
+                        label={`Đã cấp quyền (${filteredAssignedUsers.length})`}
+                      />
                     </Tabs>
 
                     {userListSubTab === 1 && (
                       <Tooltip title="Làm mới danh sách">
-                        <IconButton
-                          size="small"
-                          onClick={() => fetchAssignedUsers(true)}
-                          disabled={loadingAssigned}
-                          sx={{ color: dash.inkMuted }}
-                        >
-                          <Refresh
-                            fontSize="small"
-                            sx={{
-                              animation: loadingAssigned
-                                ? "spin 1s linear infinite"
-                                : "none",
-                              "@keyframes spin": {
-                                "100%": { transform: "rotate(360deg)" },
-                              },
-                            }}
-                          />
-                        </IconButton>
+                        <span>
+                          <IconButton
+                            size="small"
+                            aria-label="Làm mới danh sách đã cấp quyền"
+                            onClick={() => fetchAssignedUsers(true)}
+                            disabled={loadingAssigned}
+                            sx={{ color: dash.inkMuted }}
+                          >
+                            <Refresh
+                              fontSize="small"
+                              sx={{
+                                animation: loadingAssigned
+                                  ? "spin 1s linear infinite"
+                                  : "none",
+                                "@keyframes spin": {
+                                  "100%": { transform: "rotate(360deg)" },
+                                },
+                              }}
+                            />
+                          </IconButton>
+                        </span>
                       </Tooltip>
                     )}
                   </Box>
@@ -537,7 +592,10 @@ const AdminPage = () => {
                       <>
                         {loadingUsers ? (
                           <Box sx={{ ...preset.centerFull, py: 6 }}>
-                            <CircularProgress size={30} sx={{ color: dash.status.blue }} />
+                            <CircularProgress
+                              size={30}
+                              sx={{ color: dash.status.blue }}
+                            />
                           </Box>
                         ) : userSearchResults.length > 0 ? (
                           <List dense disablePadding>
@@ -562,7 +620,7 @@ const AdminPage = () => {
                                     transition: "all 0.2s ease",
                                     "&:hover": {
                                       bgcolor: "rgba(255, 255, 255, 0.08)",
-                                      borderColor: "rgba(59, 130, 246, 0.35)",
+                                      borderColor: dash.borderStrong,
                                     },
                                   }}
                                 >
@@ -571,8 +629,8 @@ const AdminPage = () => {
                                       sx={{
                                         width: 36,
                                         height: 36,
-                                        bgcolor: isSelected
-                                          ? dash.status.blue
+                                        background: isSelected
+                                          ? dash.gradients.primary
                                           : "rgba(255, 255, 255, 0.08)",
                                         color: "#ffffff",
                                         fontWeight: 700,
@@ -595,7 +653,11 @@ const AdminPage = () => {
                                     secondary={
                                       <Typography
                                         variant="caption"
-                                        sx={{ color: dash.inkMuted, display: "block" }}
+                                        sx={{
+                                          color: dash.inkMuted,
+                                          fontSize: "0.75rem",
+                                          display: "block",
+                                        }}
                                       >
                                         Mã NV: <strong>{user.ma_nv}</strong>
                                         {user.ten_phong_ban
@@ -631,7 +693,7 @@ const AdminPage = () => {
                           >
                             <Search sx={{ fontSize: 44, opacity: 0.25 }} />
                             <Typography variant="body2" sx={{ mt: 1 }}>
-                              Nhập mã NV hoặc tên để tìm kiếm
+                              Nhập mã NV hoặc tên rồi nhấn Enter để tìm trong CSDL Nhân sự
                             </Typography>
                           </Box>
                         )}
@@ -643,11 +705,14 @@ const AdminPage = () => {
                       <>
                         {loadingAssigned ? (
                           <Box sx={{ ...preset.centerFull, py: 6 }}>
-                            <CircularProgress size={30} sx={{ color: dash.status.blue }} />
+                            <CircularProgress
+                              size={30}
+                              sx={{ color: dash.status.blue }}
+                            />
                           </Box>
-                        ) : assignedUsers.length > 0 ? (
+                        ) : filteredAssignedUsers.length > 0 ? (
                           <List dense disablePadding>
-                            {assignedUsers.map((user) => {
+                            {filteredAssignedUsers.map((user) => {
                               const isSelected =
                                 selectedUser?.ma_nv === user.ma_nv;
                               return (
@@ -668,7 +733,7 @@ const AdminPage = () => {
                                     transition: "all 0.2s ease",
                                     "&:hover": {
                                       bgcolor: "rgba(255, 255, 255, 0.08)",
-                                      borderColor: "rgba(59, 130, 246, 0.35)",
+                                      borderColor: dash.borderStrong,
                                     },
                                   }}
                                 >
@@ -677,8 +742,8 @@ const AdminPage = () => {
                                       sx={{
                                         width: 36,
                                         height: 36,
-                                        bgcolor: isSelected
-                                          ? dash.status.blue
+                                        background: isSelected
+                                          ? dash.gradients.primary
                                           : "rgba(59, 130, 246, 0.2)",
                                         color: "#ffffff",
                                         fontWeight: 700,
@@ -702,7 +767,11 @@ const AdminPage = () => {
                                       <Box component="span">
                                         <Typography
                                           variant="caption"
-                                          sx={{ color: dash.inkMuted, display: "block" }}
+                                          sx={{
+                                            color: dash.inkMuted,
+                                            fontSize: "0.75rem",
+                                            display: "block",
+                                          }}
                                           component="span"
                                         >
                                           Mã NV: <strong>{user.ma_nv}</strong>
@@ -722,8 +791,8 @@ const AdminPage = () => {
                                               label={p.toUpperCase()}
                                               size="small"
                                               sx={{
-                                                height: 18,
-                                                fontSize: "0.65rem",
+                                                height: 20,
+                                                fontSize: "0.75rem",
                                                 fontWeight: 700,
                                                 bgcolor:
                                                   p === "admin"
@@ -759,7 +828,9 @@ const AdminPage = () => {
                           >
                             <People sx={{ fontSize: 44, opacity: 0.25 }} />
                             <Typography variant="body2" sx={{ mt: 1 }}>
-                              Chưa có người dùng nào được cấp quyền
+                              {userSearchQuery.trim()
+                                ? "Không có nhân sự đã cấp quyền nào khớp từ khóa lọc"
+                                : "Chưa có người dùng nào được cấp quyền"}
                             </Typography>
                           </Box>
                         )}
@@ -798,23 +869,45 @@ const AdminPage = () => {
                           sx={{
                             width: 56,
                             height: 56,
-                            background: "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)",
+                            background: dash.gradients.primary,
+                            border: `1px solid ${dash.borderStrong}`,
                             fontSize: "1.45rem",
                             fontWeight: 800,
-                            boxShadow: "0 4px 16px rgba(37, 99, 235, 0.4)",
+                            color: "#ffffff",
+                            boxShadow: dash.shadows.button,
                           }}
                         >
                           {selectedUser.ten_nv.charAt(0)}
                         </Avatar>
                         <Box sx={{ flex: 1 }}>
-                          <Typography
-                            variant="h5"
-                            fontWeight={800}
-                            color="#ffffff"
-                            sx={{ lineHeight: 1.2 }}
+                          <Stack
+                            direction="row"
+                            alignItems="center"
+                            spacing={1}
+                            flexWrap="wrap"
                           >
-                            {selectedUser.ten_nv}
-                          </Typography>
+                            <Typography
+                              variant="h5"
+                              fontWeight={800}
+                              color="#ffffff"
+                              sx={{ lineHeight: 1.2 }}
+                            >
+                              {selectedUser.ten_nv}
+                            </Typography>
+                            {isEditingSelf && (
+                              <Chip
+                                label="Tài khoản của bạn"
+                                size="small"
+                                sx={{
+                                  bgcolor: "rgba(245, 158, 11, 0.16)",
+                                  color: dash.status.warn,
+                                  border: "1px solid rgba(245, 158, 11, 0.35)",
+                                  fontWeight: 700,
+                                  fontSize: "0.75rem",
+                                }}
+                              />
+                            )}
+                          </Stack>
                           <Typography
                             variant="body2"
                             sx={{ color: dash.inkSoft, mt: 0.3 }}
@@ -827,7 +920,11 @@ const AdminPage = () => {
                           {selectedUser.ten_phong_ban && (
                             <Typography
                               variant="caption"
-                              sx={{ color: dash.inkMuted, display: "block" }}
+                              sx={{
+                                color: dash.inkMuted,
+                                fontSize: "0.75rem",
+                                display: "block",
+                              }}
                             >
                               {selectedUser.ten_phong_ban}
                               {selectedUser.ten_bo_phan
@@ -839,7 +936,7 @@ const AdminPage = () => {
                       </Box>
 
                       {/* Phân cách QUYỀN HẠN */}
-                      <Divider sx={{ my: 2.5, borderColor: dash.border }}>
+                      <Divider sx={{ my: 2, borderColor: dash.border }}>
                         <Typography
                           variant="caption"
                           sx={{
@@ -848,34 +945,51 @@ const AdminPage = () => {
                             py: 0.3,
                             borderRadius: `${radii.pill}px`,
                             fontWeight: 700,
+                            fontSize: "0.75rem",
                             letterSpacing: 1,
                             color: dash.inkMuted,
                           }}
                         >
-                          QUYỀN HẠN
+                          QUYỀN HẠN TRUY CẬP
                         </Typography>
                       </Divider>
 
                       {/* Danh sách Checkbox Phân Quyền */}
                       {loadingUserPermissions ? (
                         <Box sx={{ ...preset.centerFull, py: 8 }}>
-                          <CircularProgress size={34} sx={{ color: dash.status.blue }} />
+                          <CircularProgress
+                            size={34}
+                            sx={{ color: dash.status.blue }}
+                          />
                         </Box>
                       ) : (
-                        <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}>
+                        <Box
+                          sx={{
+                            flexGrow: 1,
+                            display: "flex",
+                            flexDirection: "column",
+                          }}
+                        >
                           <FormGroup sx={{ gap: 1.5 }}>
                             {allPermissions.map((permName) => {
                               const isChecked = Boolean(
                                 selectedUserPermissions[permName]
                               );
-                              const description =
-                                PERMISSION_DESCRIPTIONS[permName] ||
-                                "Quyền hạn trong hệ thống";
+                              const meta = PERMISSION_META[permName] || {
+                                title: permName.toUpperCase(),
+                                description: "Quyền hạn trong hệ thống",
+                              };
+                              const isSelfAdminLocked =
+                                isEditingSelf &&
+                                permName === "admin" &&
+                                isChecked;
 
                               return (
                                 <Box
                                   key={permName}
-                                  onClick={() => handlePermissionToggle(permName)}
+                                  onClick={() =>
+                                    handlePermissionToggle(permName)
+                                  }
                                   sx={{
                                     p: 1.5,
                                     borderRadius: "8px",
@@ -885,7 +999,9 @@ const AdminPage = () => {
                                     bgcolor: isChecked
                                       ? "rgba(59, 130, 246, 0.16)"
                                       : "rgba(255, 255, 255, 0.03)",
-                                    cursor: "pointer",
+                                    cursor: isSelfAdminLocked
+                                      ? "not-allowed"
+                                      : "pointer",
                                     transition: "all 0.2s ease",
                                     display: "flex",
                                     alignItems: "flex-start",
@@ -899,7 +1015,11 @@ const AdminPage = () => {
                                 >
                                   <Checkbox
                                     checked={isChecked}
-                                    onChange={() => handlePermissionToggle(permName)}
+                                    disabled={isSelfAdminLocked}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={() =>
+                                      handlePermissionToggle(permName)
+                                    }
                                     sx={{
                                       p: 0.5,
                                       mr: 1,
@@ -915,18 +1035,38 @@ const AdminPage = () => {
                                       variant="subtitle2"
                                       fontWeight={700}
                                       sx={{
-                                        textTransform: "uppercase",
-                                        color: isChecked ? "#ffffff" : dash.inkSoft,
+                                        color: isChecked
+                                          ? "#ffffff"
+                                          : dash.inkSoft,
                                       }}
                                     >
-                                      {permName}
+                                      {meta.title}
                                     </Typography>
                                     <Typography
                                       variant="caption"
-                                      sx={{ color: dash.inkMuted, display: "block", mt: 0.2 }}
+                                      sx={{
+                                        color: dash.inkMuted,
+                                        fontSize: "0.75rem",
+                                        display: "block",
+                                        mt: 0.2,
+                                      }}
                                     >
-                                      {description}
+                                      {meta.description}
                                     </Typography>
+                                    {isSelfAdminLocked && (
+                                      <Typography
+                                        variant="caption"
+                                        sx={{
+                                          color: dash.status.warn,
+                                          fontSize: "0.75rem",
+                                          fontWeight: 600,
+                                          display: "block",
+                                          mt: 0.4,
+                                        }}
+                                      >
+                                        Bảo vệ an toàn: Không thể tự gỡ quyền Quản trị của chính mình.
+                                      </Typography>
+                                    )}
                                   </Box>
                                 </Box>
                               );
@@ -934,7 +1074,14 @@ const AdminPage = () => {
                           </FormGroup>
 
                           {/* Nút hành động */}
-                          <Box sx={{ mt: 3.5, display: "flex", gap: 1.5, alignItems: "center" }}>
+                          <Box
+                            sx={{
+                              mt: 3.5,
+                              display: "flex",
+                              gap: 1.5,
+                              alignItems: "center",
+                            }}
+                          >
                             <Button
                               variant="contained"
                               startIcon={
@@ -945,19 +1092,24 @@ const AdminPage = () => {
                                 )
                               }
                               onClick={handleSavePermissions}
-                              disabled={savingPermissions}
+                              disabled={savingPermissions || !hasChanges}
                               sx={{
-                                px: 4,
+                                px: 3.5,
                                 py: 1.1,
                                 borderRadius: "8px",
-                                background: "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)",
+                                background: dash.gradients.primary,
                                 color: "#ffffff",
                                 fontWeight: 700,
-                                boxShadow: "0 4px 14px rgba(37, 99, 235, 0.4)",
+                                boxShadow: dash.shadows.button,
                                 transition: "all 0.2s ease",
                                 "&:hover": {
-                                  background: "linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)",
+                                  background: dash.gradients.primaryHover,
                                   transform: "translateY(-1px)",
+                                  boxShadow: dash.shadows.buttonHover,
+                                },
+                                "&:disabled": {
+                                  background: "rgba(30, 64, 175, 0.35)",
+                                  color: "rgba(255, 255, 255, 0.55)",
                                 },
                               }}
                             >
@@ -966,10 +1118,18 @@ const AdminPage = () => {
 
                             {hasChanges && (
                               <Button
-                                variant="text"
+                                variant="outlined"
                                 onClick={handleResetPermissions}
                                 disabled={savingPermissions}
-                                sx={{ color: dash.inkMuted, borderRadius: "8px", "&:hover": { color: "#ffffff" } }}
+                                sx={{
+                                  color: dash.inkSoft,
+                                  borderColor: dash.border,
+                                  borderRadius: "8px",
+                                  "&:hover": {
+                                    color: "#ffffff",
+                                    borderColor: dash.borderStrong,
+                                  },
+                                }}
                               >
                                 Hoàn tác
                               </Button>
@@ -1000,16 +1160,28 @@ const AdminPage = () => {
                           mb: 2,
                         }}
                       >
-                        <Person sx={{ fontSize: 40, color: dash.series[0], opacity: 0.8 }} />
+                        <Person
+                          sx={{
+                            fontSize: 40,
+                            color: dash.series[0],
+                            opacity: 0.8,
+                          }}
+                        />
                       </Box>
                       <Typography variant="h6" fontWeight={700} color="#ffffff">
                         Chưa chọn nhân viên
                       </Typography>
                       <Typography
                         variant="body2"
-                        sx={{ color: dash.inkMuted, maxWidth: 360, textAlign: "center", mt: 0.5 }}
+                        sx={{
+                          color: dash.inkMuted,
+                          maxWidth: 360,
+                          textAlign: "center",
+                          mt: 0.5,
+                        }}
                       >
-                        Tìm kiếm nhân viên theo mã hoặc tên ở cột bên trái để xem và phân quyền sử dụng hệ thống.
+                        Chọn một nhân viên trong danh sách bên trái hoặc tìm kiếm
+                        theo số thẻ để thiết lập quyền truy cập hệ thống.
                       </Typography>
                     </Box>
                   )}
@@ -1020,7 +1192,99 @@ const AdminPage = () => {
         </Box>
       </Container>
 
-      {/* ── 3. THÔNG BÁO SNACKBAR ─────────────────────────────────────────── */}
+      {/* ── HỘP THOẠI XÁC NHẬN THU HỒI TOÀN BỘ QUYỀN ──────────────────────── */}
+      <Dialog
+        open={confirmRevokeOpen}
+        onClose={() => setConfirmRevokeOpen(false)}
+        PaperProps={{
+          sx: {
+            bgcolor: dash.menu,
+            color: dash.ink,
+            border: `1px solid ${dash.borderStrong}`,
+            borderRadius: "12px",
+            boxShadow: dash.shadows.floating,
+          },
+        }}
+      >
+        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, fontWeight: 800, color: "#ffffff" }}>
+          <Warning sx={{ color: dash.status.warn }} />
+          Xác nhận thu hồi toàn bộ quyền?
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: dash.inkSoft }}>
+            Bạn đang bỏ chọn tất cả quyền của nhân viên{" "}
+            <strong>{selectedUser?.ten_nv}</strong> ({selectedUser?.ma_nv}). Sau
+            khi lưu, nhân viên này sẽ không còn trong danh sách Đã cấp quyền.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={() => setConfirmRevokeOpen(false)}
+            sx={{ color: dash.inkSoft }}
+          >
+            Hủy
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={executeSavePermissions}
+            sx={{ fontWeight: 700 }}
+          >
+            Xác nhận thu hồi
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── HỘP THOẠI XÁC NHẬN CHUYỂN NHÂN VIÊN KHI CÓ THAY ĐỔI CHƯA LƯU ─── */}
+      <Dialog
+        open={Boolean(pendingSelectUser)}
+        onClose={() => setPendingSelectUser(null)}
+        PaperProps={{
+          sx: {
+            bgcolor: dash.menu,
+            color: dash.ink,
+            border: `1px solid ${dash.borderStrong}`,
+            borderRadius: "12px",
+            boxShadow: dash.shadows.floating,
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, color: "#ffffff" }}>
+          Bỏ qua thay đổi chưa lưu?
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: dash.inkSoft }}>
+            Bạn có thay đổi phân quyền chưa lưu cho{" "}
+            <strong>{selectedUser?.ten_nv}</strong>. Bạn có muốn hủy các thay đổi
+            này để chuyển sang <strong>{pendingSelectUser?.ten_nv}</strong>?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={() => setPendingSelectUser(null)}
+            sx={{ color: dash.inkSoft }}
+          >
+            Ở lại
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              const target = pendingSelectUser;
+              setPendingSelectUser(null);
+              loadUserPermissions(target);
+            }}
+            sx={{
+              background: dash.gradients.primary,
+              color: "#ffffff",
+              fontWeight: 700,
+            }}
+          >
+            Bỏ thay đổi &amp; Chuyển
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── THÔNG BÁO SNACKBAR ─────────────────────────────────────────── */}
       <Snackbar
         open={notification.open}
         autoHideDuration={4000}

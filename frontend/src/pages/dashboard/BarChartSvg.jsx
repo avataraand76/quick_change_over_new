@@ -9,7 +9,14 @@
 // nen khong bao gio phai doc bang mau khong.
 
 import { useState } from "react";
-import { Box, Stack, Typography, dash, dashStatusColor, fontSizes } from "../../ui";
+import {
+  Box,
+  Stack,
+  Typography,
+  dash,
+  dashStatusColor,
+  fontSizes,
+} from "../../ui";
 
 const Y_MAX = 120;
 const Y_TICKS = [0, 20, 40, 60, 80, 100, 120];
@@ -22,7 +29,11 @@ const FLOOR_W = 380;
  * @param {number} target ngưỡng đạt, vẽ thành đường nét đứt
  * @param {string} flagLabel chú thích cho hàng Y/N dưới chân cột
  */
-const BarChartSvg = ({ bars, target, flagLabel = "Đạt ramp-up (Y = Yes, N = No)" }) => {
+const BarChartSvg = ({
+  bars,
+  target,
+  flagLabel = "Đạt ramp-up (Y = Yes, N = No)",
+}) => {
   const [hover, setHover] = useState(null);
 
   /**
@@ -52,21 +63,46 @@ const BarChartSvg = ({ bars, target, flagLabel = "Đạt ramp-up (Y = Yes, N = N
   return (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
       {/* Chú giải đặt trên, cùng một hàng như các khối khác */}
-      <Stack direction="row" spacing={1.5} sx={{ pb: 0.5, flexWrap: "wrap", alignItems: "center" }}>
+      <Stack
+        direction="row"
+        spacing={1.5}
+        sx={{ pb: 0.5, flexWrap: "wrap", alignItems: "center" }}
+      >
         <Stack direction="row" spacing={0.5} alignItems="center">
-          <Box sx={{ width: 10, height: 10, borderRadius: "2px", background: dash.status.good }} />
+          <Box
+            sx={{
+              width: 10,
+              height: 10,
+              borderRadius: "2px",
+              background: dash.status.good,
+            }}
+          />
           <Typography sx={{ color: dash.inkSoft, fontSize: fontSizes.caption }}>
             Đạt mục tiêu
           </Typography>
         </Stack>
         <Stack direction="row" spacing={0.5} alignItems="center">
-          <Box sx={{ width: 10, height: 10, borderRadius: "2px", background: dash.status.warn }} />
+          <Box
+            sx={{
+              width: 10,
+              height: 10,
+              borderRadius: "2px",
+              background: dash.status.warn,
+            }}
+          />
           <Typography sx={{ color: dash.inkSoft, fontSize: fontSizes.caption }}>
             Gần đạt
           </Typography>
         </Stack>
         <Stack direction="row" spacing={0.5} alignItems="center">
-          <Box sx={{ width: 10, height: 10, borderRadius: "2px", background: dash.status.bad }} />
+          <Box
+            sx={{
+              width: 10,
+              height: 10,
+              borderRadius: "2px",
+              background: dash.status.bad,
+            }}
+          />
           <Typography sx={{ color: dash.inkSoft, fontSize: fontSizes.caption }}>
             Chưa đạt
           </Typography>
@@ -81,8 +117,12 @@ const BarChartSvg = ({ bars, target, flagLabel = "Đạt ramp-up (Y = Yes, N = N
           xoay 45 độ nên co nhỏ vẫn đọc được.
           Chỉ khi thẻ hẹp dưới FLOOR_W mới cho cuộn, để trên điện thoại chữ
           không bé đến mức vô nghĩa. */}
-      <Box sx={{ flex: 1, minHeight: 0, overflowX: "auto", overflowY: "hidden" }}>
+      <Box
+        sx={{ flex: 1, minHeight: 0, overflowX: "auto", overflowY: "hidden" }}
+      >
         <svg
+          role="img"
+          aria-label="Biểu đồ cột hiệu suất bình quân 3 ngày và trạng thái đạt ramp-up"
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="xMidYMid meet"
           style={{
@@ -107,8 +147,8 @@ const BarChartSvg = ({ bars, target, flagLabel = "Đạt ramp-up (Y = Yes, N = N
                 x={PAD.left - 5}
                 y={y(t) + 4}
                 textAnchor="end"
-                fill={dash.inkMuted}
-                fontSize="10"
+                fill={dash.inkSoft}
+                fontSize="11"
               >
                 {t}%
               </text>
@@ -120,7 +160,7 @@ const BarChartSvg = ({ bars, target, flagLabel = "Đạt ramp-up (Y = Yes, N = N
             x2={W - PAD.right}
             y1={y(target)}
             y2={y(target)}
-            stroke="rgba(255, 255, 255, 0.4)"
+            stroke="rgba(255, 255, 255, 0.45)"
             strokeWidth="1.5"
             strokeDasharray="6 4"
           />
@@ -140,7 +180,9 @@ const BarChartSvg = ({ bars, target, flagLabel = "Đạt ramp-up (Y = Yes, N = N
                   y={PAD.top}
                   width={slot}
                   height={PLOT_H}
-                  fill={hover === i ? "rgba(255, 255, 255, 0.08)" : "transparent"}
+                  fill={
+                    hover === i ? "rgba(255, 255, 255, 0.08)" : "transparent"
+                  }
                   rx="3"
                 />
                 <rect
@@ -156,7 +198,7 @@ const BarChartSvg = ({ bars, target, flagLabel = "Đạt ramp-up (Y = Yes, N = N
                   y={top - 5}
                   textAnchor="middle"
                   fill={dash.ink}
-                  fontSize="10"
+                  fontSize="11"
                   fontWeight="700"
                 >
                   {b.value}%
@@ -166,19 +208,19 @@ const BarChartSvg = ({ bars, target, flagLabel = "Đạt ramp-up (Y = Yes, N = N
                 {b.flag != null && (
                   <>
                     <rect
-                      x={cx(i) - 7}
+                      x={cx(i) - 7.5}
                       y={PAD.top + PLOT_H + 5}
-                      width="14"
-                      height="14"
+                      width="15"
+                      height="15"
                       rx="3"
-                      fill={b.flag ? dash.status.good : dash.status.bad}
+                      fill={b.flag ? "#15803d" : "#b91c1c"}
                     />
                     <text
                       x={cx(i)}
                       y={PAD.top + PLOT_H + 16}
                       textAnchor="middle"
                       fill="#ffffff"
-                      fontSize="9.5"
+                      fontSize="10.5"
                       fontWeight="800"
                     >
                       {b.flag ? "Y" : "N"}
@@ -190,9 +232,11 @@ const BarChartSvg = ({ bars, target, flagLabel = "Đạt ramp-up (Y = Yes, N = N
                   x={cx(i)}
                   y={labelY}
                   textAnchor={rotate ? "end" : "middle"}
-                  transform={rotate ? `rotate(-45 ${cx(i)} ${labelY})` : undefined}
-                  fill={dash.inkMuted}
-                  fontSize="9"
+                  transform={
+                    rotate ? `rotate(-45 ${cx(i)} ${labelY})` : undefined
+                  }
+                  fill={dash.inkSoft}
+                  fontSize="10.5"
                 >
                   {b.label}
                 </text>

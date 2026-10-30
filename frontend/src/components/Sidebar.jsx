@@ -129,11 +129,12 @@ const Sidebar = ({ collapsed, onToggleCollapse, isMobile, onCloseMobile }) => {
                 width: 38,
                 height: 38,
                 borderRadius: "10px",
-                background: "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)",
+                background: dash.gradients.primary,
+                border: `1px solid ${dash.borderStrong}`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: "0 4px 14px rgba(37, 99, 235, 0.4)",
+                boxShadow: dash.shadows.button,
                 flexShrink: 0,
                 transition: "transform 0.2s ease",
                 "&:hover": {
@@ -141,7 +142,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, isMobile, onCloseMobile }) => {
                 },
               }}
             >
-              <Speed sx={{ color: "white", fontSize: 22 }} />
+              <Speed sx={{ color: "#ffffff", fontSize: 22 }} />
             </Box>
 
             {!collapsed && (
@@ -162,8 +163,8 @@ const Sidebar = ({ collapsed, onToggleCollapse, isMobile, onCloseMobile }) => {
                   variant="caption"
                   sx={{
                     color: dash.inkMuted,
-                    fontSize: "0.68rem",
-                    letterSpacing: 0.5,
+                    fontSize: "0.75rem",
+                    letterSpacing: 0.4,
                     display: "block",
                     whiteSpace: "nowrap",
                   }}
@@ -190,7 +191,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, isMobile, onCloseMobile }) => {
                 "&:hover": {
                   color: "#ffffff",
                   bgcolor: "rgba(255, 255, 255, 0.12)",
-                  borderColor: "rgba(59, 130, 246, 0.35)",
+                  borderColor: dash.borderStrong,
                 },
               }}
             >
@@ -213,18 +214,18 @@ const Sidebar = ({ collapsed, onToggleCollapse, isMobile, onCloseMobile }) => {
                 width: 26,
                 height: 26,
                 borderRadius: "50%",
-                bgcolor: "#072048",
-                border: "1px solid rgba(59, 130, 246, 0.45)",
+                bgcolor: dash.menu,
+                border: `1px solid ${dash.borderStrong}`,
                 color: "#cbd5e1",
-                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.5)",
+                boxShadow: dash.shadows.button,
                 zIndex: 1300,
                 transition: "all 0.2s ease",
                 "&:hover": {
-                  bgcolor: "#3b82f6",
+                  bgcolor: "#2563eb",
                   color: "#ffffff",
-                  borderColor: "#3b82f6",
-                  boxShadow: "0 0 12px rgba(59, 130, 246, 0.6)",
-                  transform: "translateY(-50%) scale(1.15)",
+                  borderColor: "#60a5fa",
+                  boxShadow: dash.shadows.buttonHover,
+                  transform: "translateY(-50%) scale(1.12)",
                 },
               }}
             >
@@ -259,7 +260,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, isMobile, onCloseMobile }) => {
               display: "block",
               color: dash.inkMuted,
               fontWeight: 700,
-              fontSize: "0.68rem",
+              fontSize: "0.75rem",
               letterSpacing: 0.8,
               textTransform: "uppercase",
             }}
@@ -287,7 +288,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, isMobile, onCloseMobile }) => {
                     : "transparent",
                   color: isActive ? "#ffffff" : dash.inkSoft,
                   border: isActive
-                    ? "1px solid rgba(59, 130, 246, 0.35)"
+                    ? `1px solid ${dash.borderStrong}`
                     : "1px solid transparent",
                   transition: "all 0.2s ease",
                   "&:hover": {
@@ -319,7 +320,7 @@ const Sidebar = ({ collapsed, onToggleCollapse, isMobile, onCloseMobile }) => {
                         color: "inherit",
                       }}
                       secondaryTypographyProps={{
-                        fontSize: "0.7rem",
+                        fontSize: "0.75rem",
                         color: dash.inkMuted,
                       }}
                     />
@@ -328,15 +329,17 @@ const Sidebar = ({ collapsed, onToggleCollapse, isMobile, onCloseMobile }) => {
                         label={item.badge}
                         size="small"
                         sx={{
-                          height: 18,
-                          fontSize: "0.65rem",
+                          height: 20,
+                          fontSize: "0.75rem",
                           fontWeight: 700,
                           bgcolor:
                             item.badge === "Live"
                               ? "rgba(34, 197, 94, 0.15)"
                               : "rgba(139, 92, 246, 0.18)",
                           color:
-                            item.badge === "Live" ? dash.status.good : dash.status.purple,
+                            item.badge === "Live"
+                              ? dash.status.good
+                              : dash.status.purple,
                           border: `1px solid ${
                             item.badge === "Live"
                               ? "rgba(34, 197, 94, 0.3)"
@@ -399,10 +402,12 @@ const Sidebar = ({ collapsed, onToggleCollapse, isMobile, onCloseMobile }) => {
                 sx={{
                   width: 38,
                   height: 38,
-                  background: "linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)",
+                  background: dash.gradients.primary,
+                  border: `1px solid ${dash.borderStrong}`,
                   fontWeight: 700,
                   fontSize: "0.95rem",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                  color: "#ffffff",
+                  boxShadow: dash.shadows.button,
                 }}
               >
                 {displayName.charAt(0).toUpperCase()}
@@ -429,10 +434,11 @@ const Sidebar = ({ collapsed, onToggleCollapse, isMobile, onCloseMobile }) => {
                     whiteSpace: "nowrap",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
-                    fontSize: "0.7rem",
+                    fontSize: "0.75rem",
                   }}
                 >
-                  {user?.phongban_name || (user?.ma_nv ? `Mã NV: ${user.ma_nv}` : "")}
+                  {user?.phongban_name ||
+                    (user?.ma_nv ? `Mã NV: ${user.ma_nv}` : "")}
                 </Typography>
               </Box>
 
@@ -455,29 +461,42 @@ const Sidebar = ({ collapsed, onToggleCollapse, isMobile, onCloseMobile }) => {
 
             {/* Chip hiển thị quyền hạn */}
             {permissions && permissions.length > 0 && (
-              <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                {permissions.map((p) => (
-                  <Chip
-                    key={p}
-                    label={p.toUpperCase()}
-                    size="small"
-                    sx={{
-                      height: 18,
-                      fontSize: "0.65rem",
-                      fontWeight: 700,
-                      bgcolor:
-                        p === "admin"
-                          ? "rgba(139, 92, 246, 0.2)"
-                          : "rgba(59, 130, 246, 0.2)",
-                      color: p === "admin" ? dash.status.purple : dash.status.blue,
-                      border: `1px solid ${
-                        p === "admin"
-                          ? "rgba(139, 92, 246, 0.35)"
-                          : "rgba(59, 130, 246, 0.35)"
-                      }`,
-                    }}
-                  />
-                ))}
+              <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                {permissions.map((p) => {
+                  const roleLabel =
+                    p === "admin"
+                      ? "Quản trị (ADMIN)"
+                      : p === "edit"
+                        ? "Kỹ thuật (EDIT)"
+                        : p === "view"
+                          ? "Xem báo cáo (VIEW)"
+                          : p.toUpperCase();
+                  return (
+                    <Chip
+                      key={p}
+                      label={roleLabel}
+                      size="small"
+                      sx={{
+                        height: 22,
+                        fontSize: "0.75rem",
+                        fontWeight: 700,
+                        bgcolor:
+                          p === "admin"
+                            ? "rgba(139, 92, 246, 0.2)"
+                            : "rgba(59, 130, 246, 0.2)",
+                        color:
+                          p === "admin"
+                            ? dash.status.purple
+                            : dash.status.blue,
+                        border: `1px solid ${
+                          p === "admin"
+                            ? "rgba(139, 92, 246, 0.35)"
+                            : "rgba(59, 130, 246, 0.35)"
+                        }`,
+                      }}
+                    />
+                  );
+                })}
               </Stack>
             )}
           </Stack>

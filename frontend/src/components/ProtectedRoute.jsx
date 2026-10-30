@@ -1,7 +1,7 @@
 // frontend/src/components/ProtectedRoute.jsx
 
 import { Navigate, useLocation } from "react-router-dom";
-import { Box, CircularProgress, sx as preset, Typography } from "../ui";
+import { Box, CircularProgress, dash, sx as preset, Typography } from "../ui";
 import { useAuth } from "../hooks/useAuth";
 
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
@@ -10,10 +10,18 @@ const ProtectedRoute = ({ children, requireAdmin = false }) => {
 
   if (loading) {
     return (
-      <Box sx={{ ...preset.centerFull, flexDirection: "column" }}>
-        <CircularProgress size={60} />
-        <Typography variant="h6" sx={{ mt: 2 }}>
-          Đang tải...
+      <Box
+        sx={{
+          ...preset.centerFull,
+          minHeight: "100dvh",
+          flexDirection: "column",
+          bgcolor: dash.bg,
+          color: dash.ink,
+        }}
+      >
+        <CircularProgress size={48} sx={{ color: dash.status.blue }} />
+        <Typography variant="body1" sx={{ mt: 2, color: dash.inkSoft, fontWeight: 600 }}>
+          Đang tải dữ liệu...
         </Typography>
       </Box>
     );

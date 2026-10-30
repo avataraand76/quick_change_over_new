@@ -1,14 +1,14 @@
 // frontend/src/pages/dashboard/DashPanel.jsx
 //
-// Vỏ thẻ của dashboard theo phong cách ERP Dashboard:
-// Nền glassmorphism, viền mảnh 1px border-white/10, đổ bóng 3D sâu,
-// hiệu ứng phản chiếu ánh sáng nhẹ và dải tiêu đề tinh tế.
+// Vỏ thẻ của dashboard đồng bộ 100% với thẻ trên HomePage & AdminPage:
+// Nền glassmorphism dash.panel, viền mảnh 1px dash.border, đổ bóng dash.shadows.card
+// và dải tiêu đề đồng nhất toàn hệ thống.
 
 import { Box, Stack, Typography, dash } from "../../ui";
 
 /**
- * @param {string} title       tiêu đề, luôn VIẾT HOA
- * @param {string} [subtitle]   chú thích nhỏ bên phải tiêu đề
+ * @param {string} title       tiêu đề khối
+ * @param {string} [subtitle]  chú thích nhỏ bên phải tiêu đề
  * @param {node}   [icon]      icon nhỏ trước tiêu đề
  * @param {node}   [action]    nội dung dính góc phải dải tiêu đề (nút, tab, badge)
  * @param {boolean}[dense]     bớt padding cho khối nhỏ
@@ -36,21 +36,11 @@ const DashPanel = ({
       WebkitBackdropFilter: "blur(12px)",
       border: `1px solid ${dash.border}`,
       borderRadius: "10px",
-      boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.32)",
+      boxShadow: dash.shadows.card,
       overflow: "hidden",
-      transition: "border-color 0.25s ease, box-shadow 0.25s ease",
+      transition: "border-color 0.2s ease, box-shadow 0.2s ease",
       "&:hover": {
-        borderColor: "rgba(59, 130, 246, 0.35)",
-      },
-      "&::before": {
-        content: '""',
-        position: "absolute",
-        inset: 0,
-        background:
-          "linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 100%)",
-        pointerEvents: "none",
-        zIndex: 0,
-        borderRadius: "inherit",
+        borderColor: dash.borderStrong,
       },
       ...sx,
     }}
@@ -62,7 +52,7 @@ const DashPanel = ({
         spacing={1}
         sx={{
           px: 1.5,
-          py: 0.65,
+          py: 0.75,
           background: "rgba(255, 255, 255, 0.02)",
           borderBottom: `1px solid ${dash.border}`,
           position: "relative",
@@ -75,8 +65,14 @@ const DashPanel = ({
             sx={{
               display: "flex",
               alignItems: "center",
-              color: dash.series[0],
-              fontSize: 18,
+              justifyContent: "center",
+              width: 24,
+              height: 24,
+              borderRadius: "6px",
+              bgcolor: "rgba(59, 130, 246, 0.14)",
+              color: dash.status.blue,
+              fontSize: 16,
+              flexShrink: 0,
             }}
           >
             {icon}
@@ -84,10 +80,10 @@ const DashPanel = ({
         )}
         <Typography
           sx={{
-            color: "rgba(255, 255, 255, 0.95)",
-            fontWeight: 700,
+            color: "#ffffff",
+            fontWeight: 800,
             fontSize: "0.82rem",
-            letterSpacing: 0.4,
+            letterSpacing: 0.35,
             textTransform: "uppercase",
             lineHeight: 1.2,
           }}
@@ -98,7 +94,7 @@ const DashPanel = ({
           <Typography
             sx={{
               color: dash.inkMuted,
-              fontSize: "0.72rem",
+              fontSize: "0.75rem",
               fontWeight: 500,
               ml: 0.5,
             }}
@@ -117,7 +113,7 @@ const DashPanel = ({
 
     <Box
       sx={{
-        p: noPadding ? 0 : dense ? 0.75 : 1,
+        p: noPadding ? 0 : dense ? 0.75 : 1.25,
         flex: 1,
         minHeight: 0,
         position: "relative",
@@ -133,4 +129,3 @@ const DashPanel = ({
 );
 
 export default DashPanel;
-
